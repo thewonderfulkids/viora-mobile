@@ -8,17 +8,18 @@ import {
   Waves,
 } from "lucide-react-native";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-
 import { Screen } from "../../components/common";
 import {
   AIInsightCard,
   DashboardHeader,
   QuickActionCard,
   StatCard,
+  TodayFocusCard,
   TodaysPlanCard,
   WellnessScoreCard,
 } from "../../components/dashboard";
 import { useDashboard } from "../../hooks/useDashboard";
+import { buildDashboardViewModel } from "../../services/dashboard";
 import { colors, spacing } from "../../theme";
 
 export default function DashboardScreen() {
@@ -46,35 +47,45 @@ export default function DashboardScreen() {
     );
   }
 
-  const firstName = data.user?.fullName?.split(" ")?.[0] || "there";
+  const viewModel = buildDashboardViewModel(data);
+
+  const dashboard = viewModel.dashboard;
+  const analytics = viewModel.analytics;
+
+  const firstName =
+    dashboard.user?.fullName?.split(" ")?.[0] || "there";
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <DashboardHeader
-          greeting={data.greeting}
+          greeting={dashboard.greeting}
           name={firstName}
           subtitle={`Goal: ${
-            data.user?.goal || "Healthy Lifestyle"
-          } • Stress: ${data.user?.stressLevel || "Moderate"}`}
+            dashboard.user?.goal || "Healthy Lifestyle"
+          } • Stress: ${dashboard.user?.stressLevel || "Moderate"}`}
         />
 
-        <WellnessScoreCard score={data.wellnessScore} />
+        <WellnessScoreCard score={dashboard.wellnessScore} />
+        <TodayFocusCard focus={analytics.todayFocus} />
 
-        <AIInsightCard />
+        <AIInsightCard
+          title={analytics.insight.title}
+          insight={analytics.insight.description}
+        />
 
         <View style={styles.grid}>
           <StatCard
             icon={Droplets}
             label="Water"
-            value={`${data.todayStats.waterMl} ml`}
-            hint={`Goal ${data.user?.waterGoalMl || 2500} ml`}
+            value={`${dashboard.todayStats.waterMl} ml`}
+            hint={`Goal ${dashboard.user?.waterGoalMl || 2500} ml`}
           />
 
           <StatCard
             icon={Moon}
             label="Sleep"
-            value={`${Math.round(data.todayStats.sleepMinutes / 60)}h`}
+            value={`${Math.round(dashboard.todayStats.sleepMinutes / 60)}h`}
             hint="Target 7h+"
           />
         </View>
@@ -83,14 +94,14 @@ export default function DashboardScreen() {
           <StatCard
             icon={Waves}
             label="Yoga"
-            value={`${data.todayStats.yogaMinutes} min`}
+            value={`${dashboard.todayStats.yogaMinutes} min`}
             hint="Move gently"
           />
 
           <StatCard
             icon={Music2}
             label="Music"
-            value={`${data.todayStats.musicMinutes} min`}
+            value={`${dashboard.todayStats.musicMinutes} min`}
             hint="Relax mind"
           />
         </View>
@@ -138,7 +149,7 @@ export default function DashboardScreen() {
           />
         </View>
 
-        <TodaysPlanCard items={data.tasks.map((task) => task.title)} />
+        <TodaysPlanCard items={dashboard.tasks.map((task) => task.title)} />
       </ScrollView>
     </Screen>
   );
