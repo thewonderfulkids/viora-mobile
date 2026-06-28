@@ -1,0 +1,1 @@
+export { generateWellnessAdviceHandler } from "./wellness";

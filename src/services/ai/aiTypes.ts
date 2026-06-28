@@ -1,0 +1,1 @@
+export type AICoachMode = "wellness" | "mental" | "nutrition" | "sleep";
