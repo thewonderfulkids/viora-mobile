@@ -10,7 +10,6 @@ import {
 } from "lucide-react-native";
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-
 import {
   AIInputBar,
   AIMessageBubble,
@@ -20,6 +19,8 @@ import {
 import { ErrorState, LoadingState, Screen } from "../components/common";
 import { useAICoach } from "../hooks/useAICoach";
 import { useToast } from "../hooks/useToast";
+import { T } from "../i18n";
+import { useAppTranslation } from "../i18n/useAppTranslation";
 import { colors, radius, spacing } from "../theme";
 
 function formatThreadDate(value: Date | null) {
@@ -46,6 +47,7 @@ export default function AIScreen() {
   } = useAICoach();
 
   const toast = useToast();
+  const { t } = useAppTranslation();
 
   const [input, setInput] = useState("");
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
@@ -88,8 +90,8 @@ export default function AIScreen() {
     setShowHistory(false);
 
     toast.info({
-      title: "New Chat Started",
-      message: "You can start a fresh wellness conversation.",
+      title: t(T.ai.newChatStarted),
+      message: t(T.ai.freshConversation),
     });
   }, [startNewConversation, toast]);
 
@@ -138,8 +140,8 @@ export default function AIScreen() {
             </View>
 
             <View>
-              <Text style={styles.screenTitle}>Viora AI</Text>
-              <Text style={styles.screenSubtitle}>Memory enabled coach</Text>
+              <Text style={styles.screenTitle}>{t(T.ai.title)}</Text>
+              <Text style={styles.screenSubtitle}>{t("ai.subtitle")}</Text>
             </View>
           </View>
 

@@ -19,7 +19,7 @@ import {
 import { auth } from "../firebase/firebaseConfig";
 import { useDashboard } from "../hooks/useDashboard";
 import { useHydration } from "../hooks/useHydration";
-import { logWellnessActivity } from "../services/activity/activityService";
+import { ActivityLogger } from "../services/activity";
 import { colors, spacing } from "../theme";
 
 export default function HydrationScreen() {
@@ -40,16 +40,10 @@ export default function HydrationScreen() {
     try {
       await addWater(amountMl);
 
-      await logWellnessActivity({
+      await ActivityLogger.hydration({
         userId: currentUser.uid,
-        type: "hydration",
-        value: amountMl,
-        unit: "ml",
-        source: "manual",
-        note: "Hydration added",
-        metadata: {
-          direction: "add",
-        },
+        amountMl,
+        direction: "add",
       });
 
       await refresh();
@@ -69,16 +63,10 @@ export default function HydrationScreen() {
     try {
       await removeWater(amountMl);
 
-      await logWellnessActivity({
+      await ActivityLogger.hydration({
         userId: currentUser.uid,
-        type: "hydration",
-        value: amountMl,
-        unit: "ml",
-        source: "manual",
-        note: "Hydration removed",
-        metadata: {
-          direction: "remove",
-        },
+        amountMl,
+        direction: "remove",
       });
 
       await refresh();

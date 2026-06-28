@@ -5,14 +5,16 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { Screen } from "../components/common";
 import { WellnessHeader } from "../components/wellness";
 import {
-    YogaHistoryCard,
-    YogaProgressCard,
-    YogaSessionCard,
-    YogaSessionPreviewCard,
-    YogaTimerCard,
+  YogaHistoryCard,
+  YogaProgressCard,
+  YogaSessionCard,
+  YogaSessionPreviewCard,
+  YogaTimerCard,
 } from "../components/yoga";
+import { auth } from "../firebase/firebaseConfig";
 import { useDashboard } from "../hooks/useDashboard";
 import { useYoga } from "../hooks/useYoga";
+import { ActivityLogger } from "../services/activity";
 import { colors, radius, spacing } from "../theme";
 
 export default function YogaScreen() {
@@ -33,7 +35,7 @@ export default function YogaScreen() {
   const currentStep = useMemo(() => {
     if (!activeSession) return null;
     return activeSession.steps[currentStepIndex] ?? null;
-    }, [activeSession, currentStepIndex]);
+  }, [activeSession, currentStepIndex]);
 
   const totalSteps = activeSession?.steps.length ?? 0;
 
@@ -41,6 +43,17 @@ export default function YogaScreen() {
     () => catalog.find((item) => item.id === previewSessionId) || null,
     [catalog, previewSessionId]
   );
+
+  const activeSessionMinutes = useMemo(() => {
+    if (!activeSession) return 0;
+
+    const totalSeconds = activeSession.steps.reduce(
+      (sum, step) => sum + step.durationSeconds,
+      0
+    );
+
+    return Math.max(1, Math.round(totalSeconds / 60));
+  }, [activeSession]);
 
   useEffect(() => {
     if (!running || secondsLeft <= 0) return;
@@ -59,40 +72,57 @@ export default function YogaScreen() {
     const nextStep = activeSession.steps[nextStepIndex];
 
     if (nextStep) {
-        setCurrentStepIndex(nextStepIndex);
-        setSecondsLeft(nextStep.durationSeconds);
-        return;
+      setCurrentStepIndex(nextStepIndex);
+      setSecondsLeft(nextStep.durationSeconds);
+      return;
     }
 
     setRunning(false);
-    }, [secondsLeft, running, activeSession, currentStepIndex]);
+  }, [secondsLeft, running, activeSession, currentStepIndex]);
 
   function handlePreview(sessionId: string) {
-  setPreviewSessionId(sessionId);
-}
+    setPreviewSessionId(sessionId);
+  }
 
-function handleStart(sessionId: string) {
-  const session = catalog.find((item) => item.id === sessionId);
+  function handleStart(sessionId: string) {
+    const session = catalog.find((item) => item.id === sessionId);
 
-  if (!session) return;
+    if (!session) return;
 
-  setPreviewSessionId(null);
-  setActiveSessionId(session.id);
-  setCurrentStepIndex(0);
-  setSecondsLeft(session.steps[0].durationSeconds);
-  setRunning(true);
-}
+    setPreviewSessionId(null);
+    setActiveSessionId(session.id);
+    setCurrentStepIndex(0);
+    setSecondsLeft(session.steps[0].durationSeconds);
+    setRunning(true);
+  }
 
   async function handleComplete() {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      Alert.alert("Login required", "Please login again.");
+      return;
+    }
+
     try {
       if (!activeSession) return;
 
       await completeSession(activeSession.id);
+
+      await ActivityLogger.yoga({
+        userId: currentUser.uid,
+        minutes: activeSessionMinutes,
+        sessionId: activeSession.id,
+        title: activeSession.title,
+        steps: totalSteps,
+      });
+
       await refresh();
 
       setRunning(false);
       setActiveSessionId(null);
       setSecondsLeft(0);
+      setCurrentStepIndex(0);
 
       Alert.alert("Session completed", "Great job. Your movement is logged.");
     } catch (error: any) {
@@ -126,15 +156,15 @@ function handleStart(sessionId: string) {
             running={running}
             onToggle={() => setRunning((prev) => !prev)}
             onComplete={handleComplete}
-            />
+          />
         ) : null}
 
         {previewSession && !activeSession ? (
-            <YogaSessionPreviewCard
-                session={previewSession}
-                onClose={() => setPreviewSessionId(null)}
-                onStart={() => handleStart(previewSession.id)}
-            />
+          <YogaSessionPreviewCard
+            session={previewSession}
+            onClose={() => setPreviewSessionId(null)}
+            onStart={() => handleStart(previewSession.id)}
+          />
         ) : null}
 
         <Text style={styles.sectionTitle}>Recommended Sessions</Text>

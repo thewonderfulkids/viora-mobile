@@ -1,0 +1,24 @@
+const hi = {
+  common: {
+    dashboard: "डैशबोर्ड",
+    hydration: "पानी",
+    sleep: "नींद",
+    yoga: "योग",
+    aiCoach: "एआई कोच",
+    profile: "प्रोफ़ाइल",
+    save: "सेव करें",
+    cancel: "रद्द करें",
+    back: "वापस",
+    retry: "पुनः प्रयास करें",
+    history: "इतिहास",
+    newChat: "नई चैट",
+  },
+  ai: {
+    title: "विओरा एआई",
+    subtitle: "मेमोरी वाला वेलनेस कोच",
+    newChatStarted: "नई चैट शुरू हुई",
+    freshConversation: "आप एक नई वेलनेस बातचीत शुरू कर सकते हैं।",
+  },
+};
+
+export default hi;

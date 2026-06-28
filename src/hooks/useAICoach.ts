@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useDashboard } from "./useDashboard";
 
 import { auth } from "../firebase/firebaseConfig";
-import { logWellnessActivity } from "../services/activity/activityService";
+import { ActivityLogger } from "../services/activity";
 import {
   AIConversationThread,
   buildAIContext,
@@ -216,17 +216,11 @@ ${question}`;
         model: "gpt-5.5",
       });
 
-      await logWellnessActivity({
+      await ActivityLogger.aiChat({
         userId: currentUser.uid,
-        type: "ai_chat",
-        source: "ai",
-        unit: "count",
-        value: 1,
-        note: question,
-        metadata: {
-          conversationId: activeConversationId,
-          model: "gpt-5.5",
-        },
+        question,
+        conversationId: activeConversationId,
+        model: "gpt-5.5",
       });
 
       processConversationMemory({

@@ -22,7 +22,7 @@ import { auth } from "../firebase/firebaseConfig";
 import { SleepQuality } from "../firebase/firestoreTypes";
 import { useDashboard } from "../hooks/useDashboard";
 import { useSleep } from "../hooks/useSleep";
-import { logWellnessActivity } from "../services/activity/activityService";
+import { ActivityLogger } from "../services/activity";
 import { colors, radius, spacing } from "../theme";
 
 function formatTime(date: Date) {
@@ -89,18 +89,12 @@ export default function SleepScreen() {
         quality,
       });
 
-      await logWellnessActivity({
+      await ActivityLogger.sleep({
         userId: currentUser.uid,
-        type: "sleep",
-        value: previewMinutes,
-        unit: "minutes",
-        source: "manual",
-        note: "Sleep logged",
-        metadata: {
-          sleepStart: sleepStart.toISOString(),
-          sleepEnd: sleepEnd.toISOString(),
-          quality,
-        },
+        minutes: previewMinutes,
+        sleepStart: sleepStart.toISOString(),
+        sleepEnd: sleepEnd.toISOString(),
+        quality,
       });
 
       await refresh();
