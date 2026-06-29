@@ -12,6 +12,7 @@ export const COLLECTIONS = {
   notifications: "notifications",
   reminderSettings: "reminderSettings",
   appSettings: "appSettings",
+  wellnessIntelligenceSnapshots: "wellnessIntelligenceSnapshots",
 } as const;
 export const AI_MEMORY_COLLECTION = "aiMemory";
 export const CONVERSATION_SUMMARIES_COLLECTION = "conversationSummaries";

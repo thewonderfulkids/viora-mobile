@@ -19,7 +19,16 @@ export type {
 
 export type {
     WellnessFocusArea,
-    WellnessIntelligence, WellnessStatus, WellnessTrend
+    WellnessInsight,
+    WellnessIntelligence,
+    WellnessIntelligenceDashboard,
+    WellnessLearningStatistic,
+    WellnessMetricSnapshot,
+    WellnessRecommendation,
+    WellnessRiskSignal,
+    WellnessStatus,
+    WellnessTimelineEvent,
+    WellnessTrend
 } from "../../types/wellnessIntelligence";
 export { AIError, normalizeAIError } from "./aiErrors";
 export type { AIErrorCode } from "./aiErrors";
@@ -43,7 +52,7 @@ export { buildWellnessPrompt } from "./promptBuilder";
 export { generateWellnessAdvice } from "./remoteAIService";
 export { runManagedAIRequest } from "./requestManager";
 export { VioraCloudAIProvider } from "./VioraCloudAIProvider";
-export { buildWellnessIntelligence } from "./wellnessIntelligenceService";
+export { buildWellnessIntelligence, buildWellnessIntelligenceDashboard } from "./wellnessIntelligenceService";
 export { buildWellnessTimeline } from "./wellnessTrendService";
 
 export type {

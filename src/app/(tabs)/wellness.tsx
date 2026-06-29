@@ -34,6 +34,13 @@ const wellnessModules = [
     status: "Available",
   },
   {
+    icon: "🧠",
+    title: "AI Wellness Intelligence",
+    text: "View your daily wellness index, trend detection and personalized AI recommendations.",
+    route: "/wellness-intelligence",
+    status: "Available",
+  },
+  {
     icon: "🎵",
     title: "Music Therapy",
     text: "Relax with calming sound therapy sessions.",
