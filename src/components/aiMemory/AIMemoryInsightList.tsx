@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
-import { AIMemoryInsight } from "../../types/aiMemory";
+import { AIMemoryInsight } from "../../types";
 
 type AIMemoryInsightListProps = {
   insights: AIMemoryInsight[];

@@ -18,7 +18,7 @@ import {
     UpsertWellnessProfileInput,
     UserWellnessProfile,
     AIMemoryDashboard,
-} from "../types/aiMemory";
+} from "../types";
 
 type GetRelevantMemoriesOptions = {
   maxResults?: number;

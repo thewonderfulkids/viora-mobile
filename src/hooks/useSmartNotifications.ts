@@ -11,7 +11,7 @@ import {
   SmartNotificationDashboard,
   SmartReminderSettingsInput,
   WellnessReminderStatus,
-} from "../types/notifications";
+} from "../types";
 
 type UseSmartNotificationsResult = {
   data: SmartNotificationDashboard | null;

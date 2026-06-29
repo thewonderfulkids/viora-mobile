@@ -3,7 +3,7 @@ import {
     MemoryImportance,
     MemorySource,
     WellnessMemoryCategory,
-} from "../../types/aiMemory";
+} from "../../types";
 
 type ExtractMemoryInput = {
   userId: string;

@@ -1,4 +1,4 @@
-import { AIMemoryRecord, MemoryImportance } from "../../types/aiMemory";
+import { AIMemoryRecord, MemoryImportance } from "../../types";
 
 function getImportanceScore(importance: MemoryImportance): number {
   switch (importance) {

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { WellnessRiskSignal } from "../../types/wellnessIntelligence";
+import { WellnessRiskSignal } from "../../types";
 import { colors, radius, spacing } from "../../theme";
 
 type WellnessRiskListProps = { risks: WellnessRiskSignal[] };

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { auth } from "../firebase/firebaseConfig";
 import { getMemoryDashboard } from "../repositories/memoryRepository";
-import { AIMemoryDashboard } from "../types/aiMemory";
+import { AIMemoryDashboard } from "../types";
 
 type AIMemoryDashboardState = {
   data: AIMemoryDashboard | null;

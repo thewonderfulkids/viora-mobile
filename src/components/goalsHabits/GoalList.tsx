@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppCard } from "../common";
 import { colors, radius, spacing, typography } from "../../theme";
-import { GoalDoc, GoalPrediction } from "../../types/goalsHabits";
+import { GoalDoc, GoalPrediction } from "../../types";
 
 type GoalListProps = {
   goals: GoalDoc[];

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { WellnessMetricSnapshot } from "../../types/wellnessIntelligence";
+import { WellnessMetricSnapshot } from "../../types";
 import { colors, radius, spacing } from "../../theme";
 
 type WellnessMetricGridProps = { metrics: WellnessMetricSnapshot[] };

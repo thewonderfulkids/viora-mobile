@@ -18,7 +18,7 @@ import {
   SmartReminderSettingsInput,
   WellnessReminder,
   WellnessReminderStatus,
-} from "../types/notifications";
+} from "../types";
 
 function nowIso() {
   return new Date().toISOString();

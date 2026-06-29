@@ -1,6 +1,4 @@
-import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
 import {
   NotificationHero,
@@ -9,8 +7,8 @@ import {
   ReminderList,
   ReminderSettingsCard,
 } from "../components/notifications";
-import { ErrorState, LoadingState, Screen } from "../components/common";
-import { useSmartNotifications } from "../hooks/useSmartNotifications";
+import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
+import { useSmartNotifications } from "../hooks";
 import { colors, spacing } from "../theme";
 
 export default function SmartNotificationsScreen() {
@@ -64,10 +62,7 @@ export default function SmartNotificationsScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.85}>
-          <ArrowLeft size={18} color={colors.primaryDark} />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
+        <CommonBackButton />
 
         {data ? (
           <>
@@ -134,22 +129,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    borderRadius: 999,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backText: {
-    color: colors.primaryDark,
-    fontSize: 13,
-    fontWeight: "900",
   },
 });

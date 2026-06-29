@@ -9,7 +9,7 @@ import {
   MemoryImportance,
   MemorySource,
   UserWellnessProfile,
-} from "../../types/aiMemory";
+} from "../../types";
 import {
   getActiveAIMemories,
   getLatestConversationSummaries,

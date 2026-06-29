@@ -29,7 +29,7 @@ export type {
     WellnessStatus,
     WellnessTimelineEvent,
     WellnessTrend
-} from "../../types/wellnessIntelligence";
+} from "../../types";
 export { AIError, normalizeAIError } from "./aiErrors";
 export type { AIErrorCode } from "./aiErrors";
 export { saveAIRequestLog } from "./aiRequestLogService";
@@ -58,9 +58,9 @@ export { buildWellnessTimeline } from "./wellnessTrendService";
 export type {
     WellnessMetricTrend, WellnessTimeline,
     WellnessTimelineItem
-} from "../../types/wellnessTimeline";
+} from "../../types";
 
-export { getAICoachConversation, getAICoachLatestHistory, getAICoachThreads, saveAICoachMessage } from "../../repositories/aiCoachRepository";
+export { getAICoachConversation, getAICoachLatestHistory, getAICoachThreads, saveAICoachMessage } from "../../repositories";
 export { buildAICoachContextBundle, buildAICoachFollowUps, buildAICoachQuickActions } from "./coachContextService";
 export { buildContextAwareCoachPrompt } from "./coachPromptBuilder";
 export { describeAICoachTone, resolveAICoachTone } from "./coachToneService";
@@ -73,5 +73,5 @@ export type {
     GoalPrediction,
     GoalSuggestion,
     HabitDoc
-} from "../../types/goalsHabits";
+} from "../../types";
 export { getGoalHabitDashboard } from "../goalsHabits";

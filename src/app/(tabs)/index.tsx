@@ -18,7 +18,7 @@ import {
   TodaysPlanCard,
   WellnessScoreCard,
 } from "../../components/dashboard";
-import { useDashboard } from "../../hooks/useDashboard";
+import { useDashboard } from "../../hooks";
 import { buildDashboardViewModel } from "../../services/dashboard";
 import { colors, spacing } from "../../theme";
 

@@ -8,7 +8,7 @@ import {
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, radius, spacing } from "../../theme";
-import { ToastItem, ToastType } from "../../types/toast";
+import { ToastItem, ToastType } from "../../types";
 
 type ToastViewportProps = {
   toasts: ToastItem[];

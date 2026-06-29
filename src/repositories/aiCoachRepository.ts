@@ -5,7 +5,7 @@ import {
   saveConversation,
 } from "../services/ai/conversationService";
 import { DashboardData } from "../services/dashboardService";
-import { AICoachHistoryState } from "../types/aiCoach";
+import { AICoachHistoryState } from "../types";
 
 export async function saveAICoachMessage({
   uid,

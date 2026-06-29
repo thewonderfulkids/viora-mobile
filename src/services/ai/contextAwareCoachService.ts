@@ -4,7 +4,7 @@ import {
   getAICoachThreads,
   saveAICoachMessage,
 } from "../../repositories/aiCoachRepository";
-import { AICoachAskResult } from "../../types/aiCoach";
+import { AICoachAskResult } from "../../types";
 import { buildAICoachContextBundle } from "./coachContextService";
 import { buildContextAwareCoachPrompt } from "./coachPromptBuilder";
 import { processConversationMemory } from "./memoryIntelligenceService";

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { WellnessRecommendation } from "../../types/wellnessIntelligence";
+import { WellnessRecommendation } from "../../types";
 import { colors, radius, spacing } from "../../theme";
 
 type WellnessRecommendationListProps = { recommendations: WellnessRecommendation[] };

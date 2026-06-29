@@ -15,7 +15,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { auth } from "../../firebase/firebaseConfig";
 import { UserDoc, WellnessGoal } from "../../firebase/firestoreTypes";
-import { useDashboard } from "../../hooks/useDashboard";
+import { useDashboard } from "../../hooks";
 import { pickAndUploadProfilePhoto } from "../../services/user/profilePhotoService";
 import { saveUserProfile } from "../../services/user/userService";
 import { colors, spacing } from "../../theme";

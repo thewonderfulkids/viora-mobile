@@ -12,7 +12,7 @@ import {
   SmartReminderSettingsInput,
   WellnessReminder,
   WellnessReminderStatus,
-} from "../../types/notifications";
+} from "../../types";
 import { buildSmartReminders } from "./reminderEngine";
 
 function formatTime(value: string) {

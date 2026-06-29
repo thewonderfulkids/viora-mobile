@@ -1,4 +1,5 @@
 export * from "./AppCard";
+export * from "./CommonBackButton";
 export * from "./EmptyState";
 export * from "./ErrorState";
 export * from "./LoadingState";

@@ -7,7 +7,7 @@ import {
     AIMemoryRecord,
     ConversationSummary,
     UserWellnessProfile,
-} from "../../types/aiMemory";
+} from "../../types";
 import { rankMemories } from "./memoryRanking";
 
 type BuildMemoryContextInput = {

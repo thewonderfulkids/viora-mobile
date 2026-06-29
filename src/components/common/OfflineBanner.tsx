@@ -1,7 +1,7 @@
 import { WifiOff } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { useNetwork } from "../../hooks/useNetwork";
+import { useNetwork } from "../../hooks";
 import { colors, radius, spacing } from "../../theme";
 
 export function OfflineBanner() {

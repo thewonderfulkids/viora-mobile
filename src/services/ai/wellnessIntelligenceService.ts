@@ -4,7 +4,7 @@ import {
   AIMemoryRecord,
   ConversationSummary,
   UserWellnessProfile,
-} from "../../types/aiMemory";
+} from "../../types";
 import {
   WellnessFocusArea,
   WellnessInsight,
@@ -18,7 +18,7 @@ import {
   WellnessStatus,
   WellnessTimelineEvent,
   WellnessTrend,
-} from "../../types/wellnessIntelligence";
+} from "../../types";
 import { getRecentDailyStats, saveWellnessIntelligenceSnapshot } from "../../repositories/wellnessIntelligenceRepository";
 import { DashboardData } from "../dashboardService";
 

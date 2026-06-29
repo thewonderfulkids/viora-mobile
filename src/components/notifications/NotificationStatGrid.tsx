@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
-import { SmartNotificationStat } from "../../types/notifications";
+import { SmartNotificationStat } from "../../types";
 
 type Props = {
   stats: SmartNotificationStat[];

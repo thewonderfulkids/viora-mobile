@@ -1,4 +1,4 @@
-import { WellnessIntelligence } from "../../types/wellnessIntelligence";
+import { WellnessIntelligence } from "../../types";
 import { AIMemoryContext } from "./memoryContextBuilder";
 
 type BuildAIContextInput = {

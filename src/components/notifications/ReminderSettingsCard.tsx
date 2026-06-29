@@ -1,7 +1,7 @@
 import { Bell, Brain, Moon, Sparkles, Waves } from "lucide-react-native";
 import { StyleSheet, Switch, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
-import { SmartReminderSettings } from "../../types/notifications";
+import { SmartReminderSettings } from "../../types";
 
 type PreferenceKey = "hydration" | "sleep" | "yoga" | "aiMemory" | "weeklyInsight";
 

@@ -7,7 +7,7 @@ import {
 } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { useWellnessIntelligence } from "../../hooks/useWellnessIntelligence";
+import { useWellnessIntelligence } from "../../hooks";
 import { colors, radius, spacing } from "../../theme";
 
 type AIInsightCardProps = {

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppCard } from "../common";
 import { colors, radius, spacing, typography } from "../../theme";
-import { HabitDoc } from "../../types/goalsHabits";
+import { HabitDoc } from "../../types";
 
 type HabitListProps = {
   habits: HabitDoc[];

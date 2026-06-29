@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
-import { AIMemoryStat } from "../../types/aiMemory";
+import { AIMemoryStat } from "../../types";
 
 type AIMemoryStatGridProps = {
   stats: AIMemoryStat[];

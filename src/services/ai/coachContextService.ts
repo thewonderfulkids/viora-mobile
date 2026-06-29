@@ -7,7 +7,7 @@ import {
   AICoachContextSnapshot,
   AICoachFollowUpSuggestion,
   AICoachQuickAction,
-} from "../../types/aiCoach";
+} from "../../types";
 import { resolveAICoachTone } from "./coachToneService";
 
 function buildSnapshot(bundle: Omit<AICoachContextBundle, "contextSnapshot" | "quickActions" | "followUps">): AICoachContextSnapshot {

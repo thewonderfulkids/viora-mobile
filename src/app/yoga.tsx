@@ -1,6 +1,5 @@
-import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 
 import { Screen } from "../components/common";
 import { WellnessHeader } from "../components/wellness";
@@ -12,10 +11,10 @@ import {
   YogaTimerCard,
 } from "../components/yoga";
 import { auth } from "../firebase/firebaseConfig";
-import { useDashboard } from "../hooks/useDashboard";
-import { useYoga } from "../hooks/useYoga";
+import { useDashboard } from "../hooks";
+import { useYoga } from "../hooks";
 import { ActivityLogger } from "../services/activity";
-import { colors, radius, spacing } from "../theme";
+import { colors, spacing } from "../theme";
 
 export default function YogaScreen() {
   const { data, refresh } = useDashboard();
@@ -179,13 +178,6 @@ export default function YogaScreen() {
         ))}
 
         <YogaHistoryCard history={history} />
-
-        <Pressable
-          onPress={() => router.replace("/(tabs)")}
-          style={styles.homeButton}
-        >
-          <Text style={styles.homeButtonText}>Back to Dashboard</Text>
-        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -204,16 +196,5 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "900",
     letterSpacing: -0.3,
-  },
-  homeButton: {
-    backgroundColor: colors.text,
-    borderRadius: radius.xl,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  homeButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "900",
   },
 });

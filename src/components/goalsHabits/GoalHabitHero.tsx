@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { AppCard } from "../common";
 import { colors, spacing, typography } from "../../theme";
-import { GoalHabitDashboard } from "../../types/goalsHabits";
+import { GoalHabitDashboard } from "../../types";
 
 type GoalHabitHeroProps = {
   dashboard: GoalHabitDashboard;

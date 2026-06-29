@@ -1,7 +1,7 @@
 import { BellRing } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
-import { WellnessReminder } from "../../types/notifications";
+import { WellnessReminder } from "../../types";
 
 type Props = {
   enabled: boolean;

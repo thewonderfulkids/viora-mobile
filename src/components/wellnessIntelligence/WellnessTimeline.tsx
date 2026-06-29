@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { WellnessTimelineEvent } from "../../types/wellnessIntelligence";
+import { WellnessTimelineEvent } from "../../types";
 import { colors, radius, spacing } from "../../theme";
 
 type WellnessTimelineProps = { items: WellnessTimelineEvent[] };

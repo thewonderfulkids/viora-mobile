@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
-import { ConversationSummary } from "../../types/aiMemory";
+import { ConversationSummary } from "../../types";
 
 type AIMemoryConversationListProps = {
   conversations: ConversationSummary[];

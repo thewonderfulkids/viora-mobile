@@ -5,7 +5,7 @@ import {
 import {
     CreateActivityInput,
     WellnessActivity,
-} from "../../types/activity";
+} from "../../types";
 
 export async function logWellnessActivity(
   input: CreateActivityInput

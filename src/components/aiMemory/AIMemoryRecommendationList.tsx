@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
-import { AIMemoryRecommendation } from "../../types/aiMemory";
+import { AIMemoryRecommendation } from "../../types";
 
 type AIMemoryRecommendationListProps = {
   recommendations: AIMemoryRecommendation[];

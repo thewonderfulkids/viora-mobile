@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
-import { AIMemoryRecord } from "../../types/aiMemory";
+import { AIMemoryRecord } from "../../types";
 
 type AIMemoryRecordListProps = {
   memories: AIMemoryRecord[];

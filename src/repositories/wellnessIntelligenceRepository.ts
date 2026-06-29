@@ -16,7 +16,7 @@ import { DailyStatsDoc } from "../firebase/firestoreTypes";
 import {
   WellnessIntelligenceDashboard,
   WellnessIntelligenceSnapshot,
-} from "../types/wellnessIntelligence";
+} from "../types";
 
 function nowIso() {
   return new Date().toISOString();

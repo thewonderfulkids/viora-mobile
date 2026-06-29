@@ -1,8 +1,7 @@
-import { router } from "expo-router";
 import { BarChart3, Bell, FileText, LineChart, Sparkles } from "lucide-react-native";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Screen, SectionHeader } from "../../components/common";
+import { CommonBackButton, Screen, SectionHeader } from "../../components/common";
 import { colors, radius, spacing } from "../../theme";
 
 const upcomingFeatures = [
@@ -51,12 +50,7 @@ export default function ProgressScreen() {
             calculate accurate trends, streaks and AI recommendations.
           </Text>
 
-          <Pressable
-            onPress={() => router.push("/(tabs)" as any)}
-            style={styles.button}
-          >
-            <Text style={styles.buttonText}>Back to Home</Text>
-          </Pressable>
+          <CommonBackButton label="Home" fallbackPath="/(tabs)" />
         </View>
 
         <Text style={styles.sectionTitle}>Coming Features</Text>
@@ -115,18 +109,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: "700",
     textAlign: "center",
-  },
-  button: {
-    marginTop: spacing.lg,
-    backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  buttonText: {
-    color: colors.white,
-    fontSize: 14,
-    fontWeight: "900",
   },
   sectionTitle: {
     marginTop: spacing.xl,

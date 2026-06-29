@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { WellnessLearningStatistic } from "../../types/wellnessIntelligence";
+import { WellnessLearningStatistic } from "../../types";
 import { colors, radius, spacing } from "../../theme";
 
 type WellnessStatisticGridProps = { statistics: WellnessLearningStatistic[] };

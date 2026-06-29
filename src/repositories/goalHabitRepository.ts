@@ -19,7 +19,7 @@ import {
   HabitCompletionDoc,
   HabitDoc,
   HabitInput,
-} from "../types/goalsHabits";
+} from "../types";
 
 function nowIso() {
   return new Date().toISOString();

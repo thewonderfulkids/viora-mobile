@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { AppCard } from "../common";
 import { colors, spacing, typography } from "../../theme";
-import { GoalInsight } from "../../types/goalsHabits";
+import { GoalInsight } from "../../types";
 
 type GoalHabitInsightsProps = {
   insights: GoalInsight[];

@@ -1,4 +1,4 @@
-import { AICoachContextBundle } from "../../types/aiCoach";
+import { AICoachContextBundle } from "../../types";
 import { buildAIContext } from "./aiContextComposer";
 import { describeAICoachTone } from "./coachToneService";
 import { buildWellnessPrompt } from "./promptBuilder";

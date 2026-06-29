@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { AppCard } from "../common";
 import { colors, spacing, typography } from "../../theme";
-import { GoalHabitStat } from "../../types/goalsHabits";
+import { GoalHabitStat } from "../../types";
 
 type GoalHabitStatGridProps = {
   stats: GoalHabitStat[];

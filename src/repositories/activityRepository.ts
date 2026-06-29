@@ -14,7 +14,7 @@ import { ACTIVITIES_COLLECTION } from "../firebase/firestoreCollections";
 import {
     CreateActivityInput,
     WellnessActivity,
-} from "../types/activity";
+} from "../types";
 
 function nowIso() {
   return new Date().toISOString();

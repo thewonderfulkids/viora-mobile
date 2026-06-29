@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppCard } from "../common";
 import { colors, radius, spacing, typography } from "../../theme";
-import { GoalSuggestion } from "../../types/goalsHabits";
+import { GoalSuggestion } from "../../types";
 
 type GoalSuggestionListProps = {
   suggestions: GoalSuggestion[];

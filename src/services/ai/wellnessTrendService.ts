@@ -1,4 +1,4 @@
-import { WellnessTimeline } from "../../types/wellnessTimeline";
+import { WellnessTimeline } from "../../types";
 import { DashboardData } from "../dashboardService";
 
 function buildTrend(

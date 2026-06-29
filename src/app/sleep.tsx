@@ -1,9 +1,7 @@
-import { router } from "expo-router";
 import { CalendarClock } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,8 +18,8 @@ import {
 import { WellnessHeader } from "../components/wellness";
 import { auth } from "../firebase/firebaseConfig";
 import { SleepQuality } from "../firebase/firestoreTypes";
-import { useDashboard } from "../hooks/useDashboard";
-import { useSleep } from "../hooks/useSleep";
+import { useDashboard } from "../hooks";
+import { useSleep } from "../hooks";
 import { ActivityLogger } from "../services/activity";
 import { colors, radius, spacing } from "../theme";
 
@@ -158,13 +156,6 @@ export default function SleepScreen() {
         <SleepQualityCard selected={quality} onSelect={setQuality} />
 
         <SleepHistoryCard history={history} />
-
-        <Pressable
-          onPress={() => router.replace("/(tabs)")}
-          style={styles.homeButton}
-        >
-          <Text style={styles.homeButtonText}>Back to Dashboard</Text>
-        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -206,18 +197,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "900",
   },
-  homeButton: {
-    backgroundColor: colors.text,
-    borderRadius: radius.xl,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
   timeSection: {
     gap: spacing.md,
-  },
-  homeButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "900",
   },
 });

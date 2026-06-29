@@ -24,7 +24,7 @@ import {
   HabitAnalytics,
   HabitDoc,
   HabitInput,
-} from "../../types/goalsHabits";
+} from "../../types";
 
 function addDays(date: Date, days: number) {
   const next = new Date(date);

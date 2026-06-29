@@ -1,6 +1,5 @@
 import { router } from "expo-router";
 import {
-  ArrowLeft,
   Brain,
   Clock3,
   Home,
@@ -19,9 +18,9 @@ import {
   AISuggestionCard,
   AITypingIndicator,
 } from "../components/ai";
-import { ErrorState, LoadingState, Screen } from "../components/common";
-import { useAICoach } from "../hooks/useAICoach";
-import { useToast } from "../hooks/useToast";
+import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
+import { useAICoach } from "../hooks";
+import { useToast } from "../hooks";
 import { T } from "../i18n";
 import { useAppTranslation } from "../i18n/useAppTranslation";
 import { colors, radius, spacing } from "../theme";
@@ -115,15 +114,6 @@ export default function AIScreen() {
     handleAsk(lastQuestion);
   }, [handleAsk, lastQuestion, loading]);
 
-  const handleBack = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    router.replace("/dashboard" as any);
-  }, []);
-
   const handleDashboard = useCallback(() => {
     router.replace("/dashboard" as any);
   }, []);
@@ -132,14 +122,7 @@ export default function AIScreen() {
     <Screen>
       <View style={styles.topShell}>
         <View style={styles.topBar}>
-          <Pressable
-            onPress={handleBack}
-            style={styles.iconButton}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <ArrowLeft size={20} color={colors.text} />
-          </Pressable>
+          <CommonBackButton compact />
 
           <View style={styles.centerTitle}>
             <View style={styles.titleIcon}>

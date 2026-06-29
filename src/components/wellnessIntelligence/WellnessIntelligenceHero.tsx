@@ -1,6 +1,6 @@
 import { BrainCircuit } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
-import { WellnessFocusArea } from "../../types/wellnessIntelligence";
+import { WellnessFocusArea } from "../../types";
 import { colors, radius, spacing } from "../../theme";
 
 type WellnessIntelligenceHeroProps = {

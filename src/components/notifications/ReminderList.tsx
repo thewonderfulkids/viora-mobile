@@ -1,7 +1,7 @@
 import { CheckCircle2, Clock3, XCircle } from "lucide-react-native";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
-import { WellnessReminder, WellnessReminderStatus } from "../../types/notifications";
+import { WellnessReminder, WellnessReminderStatus } from "../../types";
 
 type Props = {
   reminders: WellnessReminder[];

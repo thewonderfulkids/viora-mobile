@@ -5,7 +5,7 @@ import {
   buildAIMemoryContext,
   buildWellnessIntelligenceDashboard,
 } from "../services/ai";
-import { WellnessIntelligenceDashboard } from "../types/wellnessIntelligence";
+import { WellnessIntelligenceDashboard } from "../types";
 import { useDashboard } from "./useDashboard";
 
 export function useWellnessIntelligence() {

@@ -1,6 +1,5 @@
-import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 
 import { Screen } from "../components/common";
 import {
@@ -10,9 +9,9 @@ import {
     MusicSessionCard,
 } from "../components/music";
 import { WellnessHeader } from "../components/wellness";
-import { useDashboard } from "../hooks/useDashboard";
-import { useMusic } from "../hooks/useMusic";
-import { colors, radius, spacing } from "../theme";
+import { useDashboard } from "../hooks";
+import { useMusic } from "../hooks";
+import { colors, spacing } from "../theme";
 
 export default function MusicScreen() {
   const { data, refresh } = useDashboard();
@@ -109,13 +108,6 @@ export default function MusicScreen() {
         ))}
 
         <MusicHistoryCard history={history} />
-
-        <Pressable
-          onPress={() => router.replace("/(tabs)")}
-          style={styles.homeButton}
-        >
-          <Text style={styles.homeButtonText}>Back to Dashboard</Text>
-        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -134,16 +126,5 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "900",
     letterSpacing: -0.3,
-  },
-  homeButton: {
-    backgroundColor: colors.text,
-    borderRadius: radius.xl,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  homeButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "900",
   },
 });

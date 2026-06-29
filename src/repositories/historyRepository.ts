@@ -1,4 +1,4 @@
-import { WellnessHistoryRecord } from "../types/history";
+import { WellnessHistoryRecord } from "../types";
 
 export async function getHistoryRange(
   userId: string,

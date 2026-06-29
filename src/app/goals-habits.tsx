@@ -1,7 +1,7 @@
 import { router } from "expo-router";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { ErrorState, LoadingState, Screen, SectionHeader } from "../components/common";
+import { CommonBackButton, ErrorState, LoadingState, Screen, SectionHeader } from "../components/common";
 import {
   GoalHabitHero,
   GoalHabitInsights,
@@ -11,17 +11,8 @@ import {
   GoalSuggestionList,
   HabitList,
 } from "../components/goalsHabits";
-import { useGoalHabitDashboard } from "../hooks/useGoalHabitDashboard";
+import { useGoalHabitDashboard } from "../hooks";
 import { colors, spacing, typography } from "../theme";
-
-function goBackOrDashboard() {
-  if (router.canGoBack()) {
-    router.back();
-    return;
-  }
-
-  router.replace("/dashboard");
-}
 
 export default function GoalsHabitsScreen() {
   const {
@@ -57,9 +48,7 @@ export default function GoalsHabitsScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <Pressable style={styles.backButton} onPress={goBackOrDashboard}>
-          <Text style={styles.backText}>← Back to Dashboard</Text>
-        </Pressable>
+        <CommonBackButton />
 
         <SectionHeader
           label="Sprint 15"
@@ -134,19 +123,6 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: 40,
     gap: spacing.xl,
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 999,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  backText: {
-    color: colors.primary,
-    fontWeight: "900",
   },
   errorText: {
     color: colors.danger,

@@ -16,7 +16,7 @@ import {
   AICoachContextSnapshot,
   AICoachFollowUpSuggestion,
   AICoachQuickAction,
-} from "../types/aiCoach";
+} from "../types";
 
 export type AICoachMessage = {
   id: string;

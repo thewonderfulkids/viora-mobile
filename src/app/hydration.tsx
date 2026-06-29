@@ -1,15 +1,12 @@
-import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
-import { Screen } from "../components/common";
+import { CommonBackButton, Screen } from "../components/common";
 import {
   WaterGoalCard,
   WaterHistoryCard,
@@ -17,8 +14,8 @@ import {
   WaterQuickAdd,
 } from "../components/hydration";
 import { auth } from "../firebase/firebaseConfig";
-import { useDashboard } from "../hooks/useDashboard";
-import { useHydration } from "../hooks/useHydration";
+import { useDashboard } from "../hooks";
+import { useHydration } from "../hooks";
 import { ActivityLogger } from "../services/activity";
 import { colors, spacing } from "../theme";
 
@@ -82,12 +79,7 @@ export default function HydrationScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Pressable
-            onPress={() => router.replace("/(tabs)")}
-            style={styles.backButton}
-          >
-            <ArrowLeft size={20} color={colors.text} />
-          </Pressable>
+          <CommonBackButton compact fallbackPath="/(tabs)" />
 
           <View>
             <Text style={styles.kicker}>HYDRATION</Text>
@@ -123,16 +115,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
     marginBottom: spacing.sm,
-  },
-  backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
   },
   kicker: {
     color: colors.primary,

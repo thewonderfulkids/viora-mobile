@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useCallback, useMemo, useState } from "react";
 
 import { ToastViewport } from "../components/common/ToastViewport";
-import { ToastInput, ToastItem, ToastType } from "../types/toast";
+import { ToastInput, ToastItem, ToastType } from "../types";
 
 type ToastContextValue = {
   showToast: (type: ToastType, input: ToastInput) => void;

@@ -26,7 +26,7 @@ import {
     CreateMemoryInput,
     UpsertWellnessProfileInput,
     UserWellnessProfile,
-} from "../../types/aiMemory";
+} from "../../types";
 import { calculateReinforcedConfidence } from "./memoryScoring";
 
 function nowIso() {

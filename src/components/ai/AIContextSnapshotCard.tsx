@@ -1,7 +1,7 @@
 import { Brain, ShieldAlert, Sparkles, Target } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
-import { AICoachContextSnapshot } from "../../types/aiCoach";
+import { AICoachContextSnapshot } from "../../types";
 import { colors, radius, spacing } from "../../theme";
 
 type Props = {

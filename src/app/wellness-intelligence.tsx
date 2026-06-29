@@ -1,8 +1,7 @@
-import { router } from "expo-router";
-import { ArrowLeft, Brain, Sparkles } from "lucide-react-native";
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Brain, Sparkles } from "lucide-react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { ErrorState, LoadingState, Screen } from "../components/common";
+import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
 import {
   WellnessInsightList,
   WellnessIntelligenceHero,
@@ -13,17 +12,8 @@ import {
   WellnessStatisticGrid,
   WellnessTimeline,
 } from "../components/wellnessIntelligence";
-import { useWellnessIntelligence } from "../hooks/useWellnessIntelligence";
+import { useWellnessIntelligence } from "../hooks";
 import { colors, spacing } from "../theme";
-
-function goBackOrDashboard() {
-  if (router.canGoBack()) {
-    router.back();
-    return;
-  }
-
-  router.replace("/dashboard");
-}
 
 export default function WellnessIntelligenceScreen() {
   const { intelligence, loading, refreshing, error, refresh } = useWellnessIntelligence();
@@ -55,10 +45,7 @@ export default function WellnessIntelligenceScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.backButton} onPress={goBackOrDashboard} activeOpacity={0.85}>
-            <ArrowLeft size={18} color={colors.primaryDark} />
-            <Text style={styles.backText}>Dashboard</Text>
-          </TouchableOpacity>
+          <CommonBackButton />
 
           <View style={styles.statusPill}>
             <Sparkles size={14} color={colors.primaryDark} />
@@ -156,23 +143,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
-  },
-  backButton: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    borderRadius: 999,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backText: {
-    color: colors.primaryDark,
-    fontSize: 13,
-    fontWeight: "900",
   },
   statusPill: {
     flexDirection: "row",

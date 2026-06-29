@@ -20,7 +20,7 @@ import {
   GoalSuggestion,
   HabitDoc,
   HabitInput,
-} from "../types/goalsHabits";
+} from "../types";
 
 export function useGoalHabitDashboard() {
   const [dashboard, setDashboard] = useState<GoalHabitDashboard | null>(null);

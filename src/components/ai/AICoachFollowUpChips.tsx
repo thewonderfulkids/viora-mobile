@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { AICoachFollowUpSuggestion } from "../../types/aiCoach";
+import { AICoachFollowUpSuggestion } from "../../types";
 import { colors, radius, spacing } from "../../theme";
 
 type Props = {

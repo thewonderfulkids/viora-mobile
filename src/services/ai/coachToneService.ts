@@ -1,6 +1,6 @@
 import { DashboardData } from "../dashboardService";
-import { AICoachTone } from "../../types/aiCoach";
-import { WellnessIntelligenceDashboard } from "../../types/wellnessIntelligence";
+import { AICoachTone } from "../../types";
+import { WellnessIntelligenceDashboard } from "../../types";
 
 export function resolveAICoachTone({
   dashboard,
