@@ -1,6 +1,5 @@
 import { getTodayKey } from "../../firebase/firestoreHelpers";
 import { DailyStatsDoc } from "../../firebase/firestoreTypes";
-import { getRecentDailyStats, saveWellnessIntelligenceSnapshot } from "../../repositories/wellnessIntelligenceRepository";
 import {
   AIMemoryRecord,
   ConversationSummary,
@@ -20,6 +19,7 @@ import {
   WellnessTimelineEvent,
   WellnessTrend,
 } from "../../types/wellnessIntelligence";
+import { getRecentDailyStats, saveWellnessIntelligenceSnapshot } from "../../repositories/wellnessIntelligenceRepository";
 import { DashboardData } from "../dashboardService";
 
 export type BuildWellnessIntelligenceInput = {
@@ -484,8 +484,7 @@ export async function buildWellnessIntelligenceDashboard({
 
   const risks = buildRisks(core);
   const recommendations = buildRecommendations(core, dashboard);
-
-    const coreIntelligence = {
+  const coreIntelligence = {
     ...core,
     overallTrend: getOverallTrend({ dashboard, history: historyWithToday }),
   };

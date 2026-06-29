@@ -11,6 +11,9 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
+  AICoachFollowUpChips,
+  AICoachQuickActionGrid,
+  AIContextSnapshotCard,
   AIInputBar,
   AIMessageBubble,
   AISuggestionCard,
@@ -35,11 +38,15 @@ function formatThreadDate(value: Date | null) {
 export default function AIScreen() {
   const {
     loading,
+    contextLoading,
     historyLoading,
     historyError,
     messages,
     threads,
     activeConversationId,
+    contextSnapshot,
+    quickActions,
+    followUps,
     reloadHistory,
     openConversation,
     startNewConversation,
@@ -280,6 +287,14 @@ export default function AIScreen() {
           </View>
         ) : null}
 
+        <AIContextSnapshotCard snapshot={contextSnapshot} />
+
+        <AICoachQuickActionGrid
+          actions={quickActions}
+          disabled={loading || contextLoading}
+          onPress={handleAsk}
+        />
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.suggestions}>
             {suggestions.map((item) => (
@@ -331,6 +346,12 @@ export default function AIScreen() {
             </View>
           )}
         </View>
+
+        <AICoachFollowUpChips
+          suggestions={followUps}
+          disabled={loading}
+          onPress={handleAsk}
+        />
 
         {!loading && lastQuestion ? (
           <Pressable

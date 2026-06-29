@@ -5,3 +5,4 @@ export * from "./userPhotoRepository";
 export * from "./userRepository";
 export * from "./notificationRepository";
 export * from "./wellnessIntelligenceRepository";
+export * from "./aiCoachRepository";

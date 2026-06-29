@@ -60,3 +60,8 @@ export type {
     WellnessTimelineItem
 } from "../../types/wellnessTimeline";
 
+export { getAICoachConversation, getAICoachLatestHistory, getAICoachThreads, saveAICoachMessage } from "../../repositories/aiCoachRepository";
+export { buildAICoachContextBundle, buildAICoachFollowUps, buildAICoachQuickActions } from "./coachContextService";
+export { buildContextAwareCoachPrompt } from "./coachPromptBuilder";
+export { describeAICoachTone, resolveAICoachTone } from "./coachToneService";
+export { askContextAwareWellnessCoach, getCurrentAICoachContext } from "./contextAwareCoachService";

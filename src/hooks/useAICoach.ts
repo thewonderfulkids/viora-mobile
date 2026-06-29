@@ -2,21 +2,21 @@ import { useCallback, useEffect, useState } from "react";
 import { useDashboard } from "./useDashboard";
 
 import { auth } from "../firebase/firebaseConfig";
-import { ActivityLogger } from "../services/activity";
 import {
-  AIConversationThread,
-  buildAIContext,
-  buildAIMemoryContext,
-  buildWellnessIntelligence,
-  buildWellnessPrompt,
-  getAIConversationMessagesByConversationId,
-  getAIConversationThreads,
-  getLatestAIConversationMessages,
-  processConversationMemory,
-  processConversationSummary,
-  saveConversation,
-} from "../services/ai";
-import { generateWellnessAdvice } from "../services/ai/remoteAIService";
+  getAICoachConversation,
+  getAICoachLatestHistory,
+  getAICoachThreads,
+} from "../repositories/aiCoachRepository";
+import {
+  askContextAwareWellnessCoach,
+  getCurrentAICoachContext,
+} from "../services/ai/contextAwareCoachService";
+import { AIConversationThread } from "../services/ai";
+import {
+  AICoachContextSnapshot,
+  AICoachFollowUpSuggestion,
+  AICoachQuickAction,
+} from "../types/aiCoach";
 
 export type AICoachMessage = {
   id: string;
@@ -53,23 +53,52 @@ export function useAICoach() {
   const { data } = useDashboard();
 
   const [loading, setLoading] = useState(false);
+  const [contextLoading, setContextLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [messages, setMessages] = useState<AICoachMessage[]>([]);
   const [threads, setThreads] = useState<AIConversationThread[]>([]);
   const [activeConversationId, setActiveConversationId] =
     useState(createConversationId);
+  const [contextSnapshot, setContextSnapshot] =
+    useState<AICoachContextSnapshot | null>(null);
+  const [quickActions, setQuickActions] = useState<AICoachQuickAction[]>([]);
+  const [followUps, setFollowUps] = useState<AICoachFollowUpSuggestion[]>([]);
 
   const loadThreads = useCallback(async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
-    const conversationThreads = await getAIConversationThreads({
+    const conversationThreads = await getAICoachThreads({
       uid: currentUser.uid,
     });
 
     setThreads(conversationThreads);
   }, []);
+
+  const refreshCoachContext = useCallback(
+    async (conversationId = activeConversationId) => {
+      const currentUser = auth.currentUser;
+      if (!currentUser || !data) return;
+
+      setContextLoading(true);
+
+      try {
+        const context = await getCurrentAICoachContext({
+          uid: currentUser.uid,
+          dashboard: data,
+          conversationId,
+        });
+
+        setContextSnapshot(context.contextSnapshot);
+        setQuickActions(context.quickActions);
+        setFollowUps(context.followUps);
+      } finally {
+        setContextLoading(false);
+      }
+    },
+    [activeConversationId, data]
+  );
 
   const loadLatestHistory = useCallback(async () => {
     const currentUser = auth.currentUser;
@@ -83,18 +112,23 @@ export function useAICoach() {
     setHistoryError(null);
 
     try {
-      const latestMessages = await getLatestAIConversationMessages({
+      const latestHistory = await getAICoachLatestHistory({
         uid: currentUser.uid,
-        maxResults: 20,
       });
 
-      setMessages(mapMessages(latestMessages));
+      setMessages(mapMessages(latestHistory.messages));
+      setThreads(latestHistory.threads);
 
-      if (latestMessages.length > 0) {
-        setActiveConversationId(latestMessages[0].conversationId);
+      const nextConversationId =
+        latestHistory.messages.length > 0
+          ? latestHistory.messages[0].conversationId
+          : activeConversationId;
+
+      setActiveConversationId(nextConversationId);
+
+      if (data) {
+        await refreshCoachContext(nextConversationId);
       }
-
-      await loadThreads();
     } catch (error: any) {
       setHistoryError(
         error?.message || "Unable to load AI conversation history."
@@ -102,41 +136,54 @@ export function useAICoach() {
     } finally {
       setHistoryLoading(false);
     }
-  }, [loadThreads]);
+  }, [activeConversationId, data, refreshCoachContext]);
 
-  const openConversation = useCallback(async (conversationId: string) => {
-    const currentUser = auth.currentUser;
+  const openConversation = useCallback(
+    async (conversationId: string) => {
+      const currentUser = auth.currentUser;
 
-    if (!currentUser || !conversationId) return;
+      if (!currentUser || !conversationId) return;
 
-    setHistoryLoading(true);
-    setHistoryError(null);
+      setHistoryLoading(true);
+      setHistoryError(null);
 
-    try {
-      const conversationMessages =
-        await getAIConversationMessagesByConversationId({
+      try {
+        const conversationMessages = await getAICoachConversation({
           uid: currentUser.uid,
           conversationId,
         });
 
-      setActiveConversationId(conversationId);
-      setMessages(mapMessages(conversationMessages));
-    } catch (error: any) {
-      setHistoryError(error?.message || "Unable to open this conversation.");
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, []);
+        setActiveConversationId(conversationId);
+        setMessages(mapMessages(conversationMessages));
+        await refreshCoachContext(conversationId);
+      } catch (error: any) {
+        setHistoryError(error?.message || "Unable to open this conversation.");
+      } finally {
+        setHistoryLoading(false);
+      }
+    },
+    [refreshCoachContext]
+  );
 
   const startNewConversation = useCallback(() => {
-    setActiveConversationId(createConversationId());
+    const conversationId = createConversationId();
+    setActiveConversationId(conversationId);
     setMessages([]);
     setHistoryError(null);
-  }, []);
+    setFollowUps([]);
+
+    refreshCoachContext(conversationId);
+  }, [refreshCoachContext]);
 
   useEffect(() => {
     loadLatestHistory();
   }, [loadLatestHistory]);
+
+  useEffect(() => {
+    if (data) {
+      refreshCoachContext(activeConversationId);
+    }
+  }, [activeConversationId, data, refreshCoachContext]);
 
   async function askWellnessCoach(userQuestion?: string) {
     const currentUser = auth.currentUser;
@@ -161,82 +208,23 @@ export function useAICoach() {
     setLoading(true);
 
     try {
-      const memoryContext = await buildAIMemoryContext({
-        userId: currentUser.uid,
-        maxMemories: 8,
-        maxSummaries: 3,
-      });
-
-      const intelligence = buildWellnessIntelligence({
-        dashboard: data,
-        profile: memoryContext.profile,
-        memories: memoryContext.memories,
-        summaries: memoryContext.recentSummaries,
-      });
-
-      const intelligenceContext = buildAIContext({
-        memoryContext,
-        intelligence,
-      });
-
-      const prompt = buildWellnessPrompt(data, {
-        memoryContext,
-      });
-
-      const aiQuestion = `${prompt}
-
-Current user question:
-${question}`;
-
-      await saveConversation({
+      const result = await askContextAwareWellnessCoach({
         uid: currentUser.uid,
-        role: "user",
-        message: question,
-        conversationId: activeConversationId,
-        mode: "wellness",
-        dashboard: data,
-      });
-
-      const reply = await generateWellnessAdvice({
-        question: aiQuestion,
-        dashboard: data,
-      });
-
-      const assistantMessage = createLocalMessage("assistant", reply);
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      await saveConversation({
-        uid: currentUser.uid,
-        role: "assistant",
-        message: reply,
-        conversationId: activeConversationId,
-        mode: "wellness",
-        dashboard: data,
-        model: "gpt-5.5",
-      });
-
-      await ActivityLogger.aiChat({
-        userId: currentUser.uid,
         question,
         conversationId: activeConversationId,
-        model: "gpt-5.5",
+        dashboard: data,
       });
 
-      processConversationMemory({
-        userId: currentUser.uid,
-        userMessage: question,
-        assistantMessage: reply,
-      });
+      const assistantMessage = createLocalMessage("assistant", result.reply);
 
-      processConversationSummary({
-        userId: currentUser.uid,
-        conversationId: activeConversationId,
-      });
+      setMessages((prev) => [...prev, assistantMessage]);
+      setContextSnapshot(result.contextSnapshot);
+      setQuickActions(result.quickActions);
+      setFollowUps(result.followUps);
 
       await loadThreads();
 
-      return reply;
+      return result.reply;
     } finally {
       setLoading(false);
     }
@@ -244,12 +232,17 @@ ${question}`;
 
   return {
     loading,
+    contextLoading,
     historyLoading,
     historyError,
     messages,
     threads,
     activeConversationId,
+    contextSnapshot,
+    quickActions,
+    followUps,
     reloadHistory: loadLatestHistory,
+    refreshCoachContext,
     openConversation,
     startNewConversation,
     askWellnessCoach,
