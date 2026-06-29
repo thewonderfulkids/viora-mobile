@@ -4,6 +4,7 @@ export * from "./aiMemory";
 export * from "./goalsHabits";
 export * from "./history";
 export * from "./notifications";
+export * from "./nutrition";
 export * from "./toast";
 export * from "./wellnessIntelligence";
 export * from "./wellnessTimeline";

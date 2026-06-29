@@ -63,10 +63,10 @@ const wellnessModules = [
   },
   {
     icon: "🍎",
-    title: "Food Vision AI",
-    text: "Scan meals and get nutrition guidance.",
-    route: null,
-    status: "Coming Soon",
+    title: "Nutrition Intelligence",
+    text: "Log meals, understand macros and get AI nutrition guidance.",
+    route: "/nutrition",
+    status: "Available",
   },
   {
     icon: "⌚",

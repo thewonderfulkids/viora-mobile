@@ -176,6 +176,43 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+
+    match /nutritionEntries/{docId} {
+      allow read, update: if ownsExistingUserIdDoc();
+      allow create: if ownsIncomingUserIdDoc();
+      allow delete: if false;
+    }
+
+    match /nutritionSummaries/{docId} {
+      allow read, update: if ownsExistingUserIdDoc();
+      allow create: if ownsIncomingUserIdDoc();
+      allow delete: if false;
+    }
+
+    match /nutritionGoals/{docId} {
+      allow read, update: if ownsExistingUserIdDoc();
+      allow create: if ownsIncomingUserIdDoc();
+      allow delete: if false;
+    }
+
+    match /nutritionEntries/{docId} {
+      allow read, update: if ownsExistingUserIdDoc();
+      allow create: if ownsIncomingUserIdDoc();
+      allow delete: if ownsExistingUserIdDoc();
+    }
+
+    match /nutritionSummaries/{docId} {
+      allow read, update: if ownsExistingUserIdDoc();
+      allow create: if ownsIncomingUserIdDoc();
+      allow delete: if false;
+    }
+
+    match /nutritionGoals/{docId} {
+      allow read, update: if ownsExistingUserIdDoc();
+      allow create: if ownsIncomingUserIdDoc();
+      allow delete: if false;
+    }
+
     match /appSettings/{docId} {
       allow read: if true;
       allow write: if false;

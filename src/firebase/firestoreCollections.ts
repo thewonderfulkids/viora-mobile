@@ -16,6 +16,9 @@ export const COLLECTIONS = {
   wellnessGoals: "wellnessGoals",
   wellnessHabits: "wellnessHabits",
   habitCompletions: "habitCompletions",
+  nutritionEntries: "nutritionEntries",
+  nutritionSummaries: "nutritionSummaries",
+  nutritionGoals: "nutritionGoals",
 } as const;
 export const AI_MEMORY_COLLECTION = "aiMemory";
 export const CONVERSATION_SUMMARIES_COLLECTION = "conversationSummaries";

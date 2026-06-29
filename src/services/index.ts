@@ -9,6 +9,7 @@ export * from "./history/historyService";
 export * from "./hydrationService";
 export * from "./musicService";
 export * from "./notifications";
+export * from "./nutrition";
 export * from "./sleepService";
 export * from "./user/profilePhotoService";
 export * from "./user/userService";

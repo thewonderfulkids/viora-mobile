@@ -5,6 +5,7 @@ export * from "./useGoalHabitDashboard";
 export * from "./useHydration";
 export * from "./useMusic";
 export * from "./useNetwork";
+export * from "./useNutrition";
 export * from "./useSleep";
 export * from "./useSmartNotifications";
 export * from "./useToast";
