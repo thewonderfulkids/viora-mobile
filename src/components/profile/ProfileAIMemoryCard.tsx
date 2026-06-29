@@ -1,10 +1,19 @@
 import { Brain, ChevronRight } from "lucide-react-native";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
 
-export function ProfileAIMemoryCard() {
+type ProfileAIMemoryCardProps = {
+  onPress?: () => void;
+};
+
+export function ProfileAIMemoryCard({ onPress }: ProfileAIMemoryCardProps) {
   return (
-    <View style={styles.card}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel="Open AI Memory Dashboard"
+    >
       <View style={styles.row}>
         <View style={styles.iconBox}>
           <Brain size={22} color={colors.primary} />
@@ -19,7 +28,7 @@ export function ProfileAIMemoryCard() {
 
         <ChevronRight size={20} color={colors.mutedText} />
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -30,6 +39,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
+  },
+  pressed: {
+    opacity: 0.82,
   },
   row: {
     flexDirection: "row",

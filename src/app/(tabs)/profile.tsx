@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { signOut } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
@@ -139,7 +140,13 @@ export default function ProfileScreen() {
           stress={stressLevel}
         />
 
-        <ProfileAIMemoryCard />
+        <ProfileAIMemoryCard
+          onPress={() =>
+            router.push({
+              pathname: "/ai-memory" as never,
+            })
+          }
+        />
 
         <ProfileSubscriptionCard onUpgrade={handleUpgrade} />
 

@@ -26,6 +26,7 @@ export type { AIErrorCode } from "./aiErrors";
 export { saveAIRequestLog } from "./aiRequestLogService";
 export { processConversationSummary } from "./conversationSummaryService";
 export { buildAIMemoryContext } from "./memoryContextBuilder";
+export { getAIMemoryDashboard } from "./memoryDashboardService";
 export type { AIMemoryContext } from "./memoryContextBuilder";
 export { extractMemoriesFromConversation } from "./memoryExtractor";
 export { processConversationMemory } from "./memoryIntelligenceService";

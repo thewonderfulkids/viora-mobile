@@ -9,6 +9,7 @@ import {
     reinforceMemory,
     upsertWellnessProfile,
 } from "../services/ai/memoryService";
+import { getAIMemoryDashboard } from "../services/ai/memoryDashboardService";
 import {
     AIMemoryRecord,
     ConversationSummary,
@@ -16,6 +17,7 @@ import {
     CreateMemoryInput,
     UpsertWellnessProfileInput,
     UserWellnessProfile,
+    AIMemoryDashboard,
 } from "../types/aiMemory";
 
 type GetRelevantMemoriesOptions = {
@@ -87,4 +89,9 @@ export async function saveOrReinforceMemory(
   }
 
   await createAIMemory(memory);
+}
+export async function getMemoryDashboard(
+  userId: string
+): Promise<AIMemoryDashboard> {
+  return getAIMemoryDashboard(userId);
 }

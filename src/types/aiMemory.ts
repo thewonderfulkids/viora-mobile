@@ -101,3 +101,50 @@ export type UpsertWellnessProfileInput = {
   yogaGoalMinutes?: number | null;
   musicPreference?: string | null;
 };
+
+export type AIMemoryStat = {
+  label: string;
+  value: string;
+  helper: string;
+};
+
+export type AIMemoryInsight = {
+  id: string;
+  title: string;
+  description: string;
+  source: MemorySource | "profile" | "system";
+  confidence: number;
+};
+
+export type AIMemoryTimelineItem = {
+  id: string;
+  title: string;
+  description: string;
+  dateLabel: string;
+  source: MemorySource | "profile" | "system";
+  importance: MemoryImportance;
+};
+
+export type AIMemoryRecommendation = {
+  id: string;
+  title: string;
+  description: string;
+  actionLabel: string;
+  priority: MemoryImportance;
+};
+
+export type AIMemoryDashboard = {
+  userId: string;
+  generatedAt: string;
+  wellnessProfile: UserWellnessProfile | null;
+  learnedHabits: AIMemoryRecord[];
+  wellnessPatterns: AIMemoryInsight[];
+  conversationMemories: ConversationSummary[];
+  weeklyInsights: AIMemoryInsight[];
+  recommendations: AIMemoryRecommendation[];
+  timeline: AIMemoryTimelineItem[];
+  statistics: AIMemoryStat[];
+  memoryCount: number;
+  confidenceAverage: number;
+  highPriorityCount: number;
+};
