@@ -36,6 +36,7 @@ export default function TabsLayout() {
         name="wellness"
         options={{
           title: "Wellness",
+          tabBarBadge: "Soon",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="leaf-outline" color={color} size={size} />
           ),
@@ -56,6 +57,7 @@ export default function TabsLayout() {
         name="progress"
         options={{
           title: "Progress",
+          tabBarBadge: "Soon",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="analytics-outline" color={color} size={size} />
           ),

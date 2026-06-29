@@ -33,6 +33,7 @@ export type UserDoc = BaseFirestoreDoc & {
   fullName: string;
   email: string;
   mobile?: string;
+  photoURL?: string;
 
   onboardingCompleted: boolean;
 

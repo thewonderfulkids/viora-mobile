@@ -1,14 +1,66 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+
 import { AppCard, Screen, SectionHeader } from "../../components/common";
 import { colors, spacing, typography } from "../../theme";
 
-const wellnessCategories = [
-  { icon: "🏠", title: "Home Fitness", text: "No equipment workouts for busy days." },
-  { icon: "🧘", title: "Yoga", text: "Morning, office, stress relief and sleep yoga." },
-  { icon: "😌", title: "Meditation", text: "Calm your mind with guided sessions." },
-  { icon: "🎵", title: "Sound Therapy", text: "Rain, ocean, forest and sleep sounds." },
-  { icon: "💼", title: "Office Wellness", text: "Eye, neck, wrist and chair stretch routines." },
-  { icon: "🚶", title: "Walking", text: "Daily steps, walking goals and challenges." },
+const wellnessModules = [
+  {
+    icon: "💧",
+    title: "Hydration",
+    text: "Track your daily water intake and hydration goal.",
+    route: "/hydration",
+    status: "Available",
+  },
+  {
+    icon: "😴",
+    title: "Sleep",
+    text: "Log your sleep duration and quality.",
+    route: "/sleep",
+    status: "Available",
+  },
+  {
+    icon: "🧘",
+    title: "Yoga",
+    text: "Start short guided movement sessions.",
+    route: "/yoga",
+    status: "Available",
+  },
+  {
+    icon: "🤖",
+    title: "AI Coach",
+    text: "Get personalized wellness guidance from Viora AI.",
+    route: "/ai-coach",
+    status: "Available",
+  },
+  {
+    icon: "🎵",
+    title: "Music Therapy",
+    text: "Relax with calming sound therapy sessions.",
+    route: "/music",
+    status: "Beta",
+  },
+  {
+    icon: "😌",
+    title: "Meditation",
+    text: "Guided breathing and calming sessions are coming soon.",
+    route: null,
+    status: "Coming Soon",
+  },
+  {
+    icon: "🍎",
+    title: "Food Vision AI",
+    text: "Scan meals and get nutrition guidance.",
+    route: null,
+    status: "Coming Soon",
+  },
+  {
+    icon: "⌚",
+    title: "Wearables",
+    text: "Connect smart watches and health devices.",
+    route: null,
+    status: "Coming Soon",
+  },
 ];
 
 export default function WellnessScreen() {
@@ -16,18 +68,44 @@ export default function WellnessScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <SectionHeader
-          label="Explore"
-          title="Wellness Library"
-          subtitle="Pick what fits your day. Viora will help you stay consistent."
+          label="Wellness Hub"
+          title="Your Daily Wellness Tools"
+          subtitle="Choose what you want to improve today. Viora will connect your activity with AI insights."
         />
 
         <View style={styles.grid}>
-          {wellnessCategories.map((item) => (
-            <AppCard key={item.title}>
-              <Text style={styles.icon}>{item.icon}</Text>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardText}>{item.text}</Text>
-            </AppCard>
+          {wellnessModules.map((item) => (
+            <Pressable
+              key={item.title}
+              disabled={!item.route}
+              onPress={
+                item.route ? () => router.push(item.route as any) : undefined
+              }
+            >
+              <AppCard>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.icon}>{item.icon}</Text>
+                  <View
+                    style={[
+                      styles.badge,
+                      item.status === "Coming Soon" && styles.comingBadge,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        item.status === "Coming Soon" && styles.comingBadgeText,
+                      ]}
+                    >
+                      {item.status}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardText}>{item.text}</Text>
+              </AppCard>
+            </Pressable>
           ))}
         </View>
       </ScrollView>
@@ -44,8 +122,32 @@ const styles = StyleSheet.create({
   grid: {
     gap: spacing.md,
   },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   icon: {
     fontSize: 34,
+  },
+  badge: {
+    backgroundColor: colors.softGreen,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  comingBadge: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  badgeText: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  comingBadgeText: {
+    color: colors.mutedText,
   },
   cardTitle: {
     marginTop: spacing.md,
