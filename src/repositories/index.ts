@@ -6,3 +6,4 @@ export * from "./userRepository";
 export * from "./notificationRepository";
 export * from "./wellnessIntelligenceRepository";
 export * from "./aiCoachRepository";
+export * from "./goalHabitRepository";

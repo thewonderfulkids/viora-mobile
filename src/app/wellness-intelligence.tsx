@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft, Brain, Sparkles } from "lucide-react-native";
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { ErrorState, LoadingState, Screen } from "../components/common";
@@ -15,6 +15,15 @@ import {
 } from "../components/wellnessIntelligence";
 import { useWellnessIntelligence } from "../hooks/useWellnessIntelligence";
 import { colors, spacing } from "../theme";
+
+function goBackOrDashboard() {
+  if (router.canGoBack()) {
+    router.back();
+    return;
+  }
+
+  router.replace("/dashboard");
+}
 
 export default function WellnessIntelligenceScreen() {
   const { intelligence, loading, refreshing, error, refresh } = useWellnessIntelligence();
@@ -45,10 +54,31 @@ export default function WellnessIntelligenceScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.85}>
-          <ArrowLeft size={18} color={colors.primaryDark} />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.backButton} onPress={goBackOrDashboard} activeOpacity={0.85}>
+            <ArrowLeft size={18} color={colors.primaryDark} />
+            <Text style={styles.backText}>Dashboard</Text>
+          </TouchableOpacity>
+
+          <View style={styles.statusPill}>
+            <Sparkles size={14} color={colors.primaryDark} />
+            <Text style={styles.statusText}>AI Live</Text>
+          </View>
+        </View>
+
+        <View style={styles.premiumHeader}>
+          <View style={styles.iconShell}>
+            <Brain size={24} color={colors.white} />
+          </View>
+
+          <View style={styles.headerCopy}>
+            <Text style={styles.kicker}>Viora Intelligence</Text>
+            <Text style={styles.title}>Your wellness system, interpreted by AI.</Text>
+            <Text style={styles.subtitle}>
+              Viora reads your activity, hydration, sleep, yoga and memory signals to turn raw habits into clear next steps.
+            </Text>
+          </View>
+        </View>
 
         {intelligence ? (
           <>
@@ -111,7 +141,7 @@ export default function WellnessIntelligenceScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
-    paddingTop: 58,
+    paddingTop: 36,
     paddingBottom: 42,
     gap: spacing.xl,
   },
@@ -120,6 +150,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
   },
   backButton: {
     alignSelf: "flex-start",
@@ -137,5 +173,64 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
     fontSize: 13,
     fontWeight: "900",
+  },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 999,
+    backgroundColor: colors.softGreen,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  statusText: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  premiumHeader: {
+    borderRadius: 32,
+    backgroundColor: colors.primaryDark,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    padding: spacing.xl,
+    flexDirection: "row",
+    gap: spacing.lg,
+    alignItems: "flex-start",
+  },
+  iconShell: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.mint,
+  },
+  headerCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  kicker: {
+    color: colors.mint,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  title: {
+    color: colors.white,
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: "900",
+  },
+  subtitle: {
+    color: colors.softGreen,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "600",
   },
 });

@@ -41,6 +41,13 @@ const wellnessModules = [
     status: "Available",
   },
   {
+    icon: "🎯",
+    title: "Goals & Habits",
+    text: "Create smart goals, complete habits and track streak-powered wellness progress.",
+    route: "/goals-habits",
+    status: "Available",
+  },
+  {
     icon: "🎵",
     title: "Music Therapy",
     text: "Relax with calming sound therapy sessions.",

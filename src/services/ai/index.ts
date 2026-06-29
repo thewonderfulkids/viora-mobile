@@ -65,3 +65,13 @@ export { buildAICoachContextBundle, buildAICoachFollowUps, buildAICoachQuickActi
 export { buildContextAwareCoachPrompt } from "./coachPromptBuilder";
 export { describeAICoachTone, resolveAICoachTone } from "./coachToneService";
 export { askContextAwareWellnessCoach, getCurrentAICoachContext } from "./contextAwareCoachService";
+
+export type {
+    GoalDoc,
+    GoalHabitDashboard,
+    GoalInsight,
+    GoalPrediction,
+    GoalSuggestion,
+    HabitDoc
+} from "../../types/goalsHabits";
+export { getGoalHabitDashboard } from "../goalsHabits";

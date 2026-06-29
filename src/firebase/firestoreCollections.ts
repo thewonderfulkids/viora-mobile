@@ -13,6 +13,9 @@ export const COLLECTIONS = {
   reminderSettings: "reminderSettings",
   appSettings: "appSettings",
   wellnessIntelligenceSnapshots: "wellnessIntelligenceSnapshots",
+  wellnessGoals: "wellnessGoals",
+  wellnessHabits: "wellnessHabits",
+  habitCompletions: "habitCompletions",
 } as const;
 export const AI_MEMORY_COLLECTION = "aiMemory";
 export const CONVERSATION_SUMMARIES_COLLECTION = "conversationSummaries";
