@@ -1,4 +1,4 @@
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 import { db } from "../firebase/firebaseConfig";
 import { COLLECTIONS } from "../firebase/firestoreCollections";
@@ -11,6 +11,15 @@ export type UpdateUserProfileInput = {
   goal?: WellnessGoal;
   stressLevel?: UserDoc["stressLevel"];
 };
+
+export async function getUserProfile(uid: string): Promise<UserDoc | null> {
+  const userRef = doc(db, COLLECTIONS.users, uid);
+  const snapshot = await getDoc(userRef);
+
+  if (!snapshot.exists()) return null;
+
+  return snapshot.data() as UserDoc;
+}
 
 export async function updateUserProfile(input: UpdateUserProfileInput) {
   const userRef = doc(db, COLLECTIONS.users, input.uid);

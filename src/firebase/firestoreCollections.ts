@@ -10,6 +10,7 @@ export const COLLECTIONS = {
   subscriptions: "subscriptions",
   payments: "payments",
   notifications: "notifications",
+  reminderSettings: "reminderSettings",
   appSettings: "appSettings",
 } as const;
 export const AI_MEMORY_COLLECTION = "aiMemory";

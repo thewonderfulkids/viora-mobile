@@ -1,12 +1,13 @@
 import {
-    ChevronRight,
-    FileText,
-    Globe2,
-    Lock,
-    LogOut,
-    ShieldCheck,
-    Users,
-    WalletCards,
+  BellRing,
+  ChevronRight,
+  FileText,
+  Globe2,
+  Lock,
+  LogOut,
+  ShieldCheck,
+  Users,
+  WalletCards,
 } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
@@ -15,11 +16,16 @@ type MenuItemProps = {
   icon: any;
   title: string;
   subtitle: string;
+  onPress?: () => void;
 };
 
-function MenuItem({ icon: Icon, title, subtitle }: MenuItemProps) {
+function MenuItem({ icon: Icon, title, subtitle, onPress }: MenuItemProps) {
   return (
-    <View style={styles.menuItem}>
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      style={({ pressed }) => [styles.menuItem, pressed && onPress ? styles.pressed : null]}
+    >
       <View style={styles.menuIcon}>
         <Icon size={20} color={colors.primary} />
       </View>
@@ -30,19 +36,26 @@ function MenuItem({ icon: Icon, title, subtitle }: MenuItemProps) {
       </View>
 
       <ChevronRight size={19} color={colors.mutedText} />
-    </View>
+    </Pressable>
   );
 }
 
 type Props = {
   onLogout: () => void;
+  onNotificationsPress?: () => void;
 };
 
-export function ProfileSettingsList({ onLogout }: Props) {
+export function ProfileSettingsList({ onLogout, onNotificationsPress }: Props) {
   return (
     <View style={styles.menu}>
       <MenuItem icon={Globe2} title="Language" subtitle="English / Hindi ready" />
       <MenuItem icon={WalletCards} title="Subscription & Payments" subtitle="Plans, invoices and billing" />
+      <MenuItem
+        icon={BellRing}
+        title="Smart Notifications"
+        subtitle="Hydration, sleep, yoga and AI memory reminders"
+        onPress={onNotificationsPress}
+      />
       <MenuItem icon={Users} title="Family Wellness" subtitle="Add family members later" />
       <MenuItem icon={FileText} title="Reports" subtitle="Weekly and monthly reports" />
       <MenuItem icon={ShieldCheck} title="Privacy & AI Safety" subtitle="Control memory and data" />
@@ -72,6 +85,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+  },
+  pressed: {
+    opacity: 0.78,
   },
   menuIcon: {
     width: 42,

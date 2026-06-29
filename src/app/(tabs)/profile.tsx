@@ -152,7 +152,14 @@ export default function ProfileScreen() {
 
         <Text style={styles.sectionTitle}>Settings & Control Center</Text>
 
-        <ProfileSettingsList onLogout={handleLogout} />
+        <ProfileSettingsList
+          onLogout={handleLogout}
+          onNotificationsPress={() =>
+            router.push({
+              pathname: "/smart-notifications" as never,
+            })
+          }
+        />
       </ScrollView>
     </Screen>
   );
