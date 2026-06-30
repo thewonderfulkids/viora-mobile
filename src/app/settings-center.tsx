@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { BellRing, FileText, Globe2, Lock, ShieldCheck, Trash2, WalletCards } from "lucide-react-native";
+import { BellRing, FileText, Globe2, Lock, ShieldCheck, Trash2, UsersRound, WalletCards } from "lucide-react-native";
 import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 
 import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
@@ -7,7 +7,7 @@ import { AccountSummaryCard, SettingsSection } from "../components/settings";
 import { useSettingsCenter } from "../hooks";
 import { colors, radius, spacing } from "../theme";
 
-type RoutePath = "/language-settings" | "/premium" | "/notification-preferences" | "/privacy-ai-safety" | "/account-security" | "/delete-account";
+type RoutePath = "/language-settings" | "/premium" | "/notification-preferences" | "/privacy-ai-safety" | "/account-security" | "/delete-account" | "/family-wellness" | "/reports";
 
 type SettingsRouteCardProps = {
   icon: any;
@@ -51,16 +51,14 @@ export default function SettingsCenterScreen() {
           <SettingsRouteCard icon={Globe2} title="Language" subtitle="English, Hindi and Hinglish preference" route="/language-settings" />
           <SettingsRouteCard icon={WalletCards} title="Subscription & Payments" subtitle="Plans, invoices and billing" route="/premium" />
           <SettingsRouteCard icon={BellRing} title="Smart Notifications" subtitle="Reminder preferences" route="/notification-preferences" />
+          <SettingsRouteCard icon={UsersRound} title="Family Wellness" subtitle="Members, invites and Elite Family access" route="/family-wellness" />
           <SettingsRouteCard icon={ShieldCheck} title="Privacy & AI Safety" subtitle="AI memory, personalization and data export" route="/privacy-ai-safety" />
           <SettingsRouteCard icon={Lock} title="Account Security" subtitle="Password reset and account protection" route="/account-security" />
           <SettingsRouteCard icon={Trash2} title="Delete Account" subtitle="Safe account deletion request" route="/delete-account" />
         </SettingsSection>
 
         <SettingsSection title="Coming through V1 roadmap" subtitle="These cards are active roadmap placeholders, not broken buttons.">
-          <View style={styles.futureCard}>
-            <FileText size={18} color={colors.primary} />
-            <Text style={styles.futureText}>Reports activate in Sprint 20. Family Wellness activates in Sprint 22.</Text>
-          </View>
+          <SettingsRouteCard icon={FileText} title="Reports" subtitle="Daily, weekly and monthly AI wellness reports" route="/reports" />
         </SettingsSection>
       </ScrollView>
     </Screen>

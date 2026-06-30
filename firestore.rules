@@ -47,6 +47,14 @@ service cloud.firestore {
       return signedIn() && docId.matches(request.auth.uid + "_.*");
     }
 
+    function ownsExistingOwnerUserDoc() {
+      return signedIn() && resource.data.ownerUserId == request.auth.uid;
+    }
+
+    function ownsIncomingOwnerUserDoc() {
+      return signedIn() && request.resource.data.ownerUserId == request.auth.uid;
+    }
+
     match /users/{uid} {
       allow read, create, update: if isOwner(uid);
       allow delete: if false;
@@ -283,6 +291,24 @@ service cloud.firestore {
 
     match /voicePreferences/{uid} {
       allow read, create, update: if isOwner(uid);
+      allow delete: if false;
+    }
+
+
+    match /familyGroups/{docId} {
+      allow read, update: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if false;
+    }
+
+    match /familyMembers/{docId} {
+      allow read, update, delete: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+    }
+
+    match /familyInvites/{docId} {
+      allow read, update: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
       allow delete: if false;
     }
 

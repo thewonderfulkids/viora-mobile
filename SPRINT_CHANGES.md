@@ -1,14 +1,19 @@
-# Sprint 21.4 — AI Coach Stabilization
+# Sprint 22.1 — Family Invite Flow Completion
 
 ## Fixed
-- New Chat no longer gets overwritten by latest history reload.
-- New Chat opens a blank conversation state immediately.
-- History is hidden automatically when starting a new chat on mobile/tablet.
-- Voice AI remains integrated inside AI Coach composer.
-- Removed broken white-on-white voice badge styling.
-- Fixed mobile overflow and vertical text compression.
-- Rebuilt AI Coach layout as a stable flex workspace with fixed composer and scrollable chat content.
+- Family invite fields are now editable when setup slots are available.
+- Family setup supports up to 4 members in V1 so the invite flow can be tested before Elite subscription enforcement.
+- Elite Family still controls premium shared AI/family intelligence messaging.
+- Added email/mobile normalization.
+- Added relationship selector and shared permission selector.
+- Create Invite now creates a pending family member in Firestore.
+- Updated family type to allow invite-specific permissions.
 
-## Modified Files
-- `src/app/ai-coach.tsx`
-- `src/hooks/useAICoach.ts`
+## Validation
+Run:
+
+```bash
+npx tsc --noEmit
+npx expo-doctor
+npx expo export --platform web
+```

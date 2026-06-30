@@ -15,3 +15,4 @@ export * from "./wellnessIntelligenceRepository";
 export * from "./settingsRepository";
 export * from "./reportRepository";
 export * from "./voiceRepository";
+export * from "./familyRepository";

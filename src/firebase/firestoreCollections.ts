@@ -32,6 +32,9 @@ export const COLLECTIONS = {
   voiceCommands: "voiceCommands",
   voiceSessions: "voiceSessions",
   voicePreferences: "voicePreferences",
+  familyGroups: "familyGroups",
+  familyMembers: "familyMembers",
+  familyInvites: "familyInvites",
 } as const;
 
 export const AI_MEMORY_COLLECTION = "aiMemory";

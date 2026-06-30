@@ -62,6 +62,14 @@ const wellnessModules = [
     route: "/mental-wellness",
     status: "Available",
   },
+
+  {
+    icon: "👨‍👩‍👧‍👦",
+    title: "Family Wellness",
+    text: "Invite family members, manage shared wellness visibility and prepare Elite Family insights.",
+    route: "/family-wellness",
+    status: "Available",
+  },
   {
     icon: "📄",
     title: "Health Reports",

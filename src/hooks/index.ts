@@ -16,3 +16,4 @@ export * from "./useYoga";
 export * from "./useSettingsCenter";
 export * from "./useReports";
 export * from "./useVoiceAI";
+export * from "./useFamilyDashboard";
