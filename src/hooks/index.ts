@@ -1,6 +1,8 @@
 export * from "./useAICoach";
 export * from "./useAIMemoryDashboard";
 export * from "./useDashboard";
+export * from "./useDashboardIntelligence";
+export * from "./useFamilyDashboard";
 export * from "./useGoalHabitDashboard";
 export * from "./useHydration";
 export * from "./useMentalWellness";
@@ -8,12 +10,12 @@ export * from "./useMusic";
 export * from "./useNetwork";
 export * from "./useNutrition";
 export * from "./usePremium";
+export * from "./useReports";
+export * from "./useSettingsCenter";
 export * from "./useSleep";
 export * from "./useSmartNotifications";
 export * from "./useToast";
+export * from "./useVoiceAI";
 export * from "./useWellnessIntelligence";
 export * from "./useYoga";
-export * from "./useSettingsCenter";
-export * from "./useReports";
-export * from "./useVoiceAI";
-export * from "./useFamilyDashboard";
+

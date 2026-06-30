@@ -1,13 +1,28 @@
-# Sprint 22.1 — Family Invite Flow Completion
+# Sprint 23 — Dashboard Intelligence 2.0
 
-## Fixed
-- Family invite fields are now editable when setup slots are available.
-- Family setup supports up to 4 members in V1 so the invite flow can be tested before Elite subscription enforcement.
-- Elite Family still controls premium shared AI/family intelligence messaging.
-- Added email/mobile normalization.
-- Added relationship selector and shared permission selector.
-- Create Invite now creates a pending family member in Firestore.
-- Updated family type to allow invite-specific permissions.
+## Added
+- AI Daily Briefing dashboard card
+- Live Wellness Analytics cards
+- Smart Action Grid with working navigation
+- Today Timeline cards with working navigation
+- Family Snapshot card
+- Achievements & Streak Signal cards
+- Dashboard intelligence service
+- Dashboard intelligence hook
+- Dashboard intelligence types
+
+## Modified
+- `src/app/(tabs)/index.tsx`
+- `src/components/index.ts`
+- `src/hooks/index.ts`
+- `src/services/index.ts`
+- `src/types/index.ts`
+
+## Architecture
+- No new Firestore collections required.
+- No Firestore rules changes required.
+- No Firestore indexes changes required.
+- Uses existing dashboard data and current module routes.
 
 ## Validation
 Run:

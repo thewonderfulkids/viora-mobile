@@ -1,155 +1,79 @@
-import { router } from "expo-router";
-import {
-  Droplets,
-  Moon,
-  Music2,
-  Plus,
-  Sparkles,
-  Waves,
-} from "lucide-react-native";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+
 import { Screen } from "../../components/common";
 import {
-  AIInsightCard,
-  DashboardHeader,
-  QuickActionCard,
-  StatCard,
-  TodayFocusCard,
-  TodaysPlanCard,
-  WellnessScoreCard,
-} from "../../components/dashboard";
-import { useDashboard } from "../../hooks";
-import { buildDashboardViewModel } from "../../services/dashboard";
+  DashboardAchievementGrid,
+  DashboardBriefingCard,
+  DashboardFamilySnapshotCard,
+  DashboardIntelligenceSection,
+  DashboardSmartActionGrid,
+  DashboardTimelineCard,
+  DashboardTrendGrid,
+} from "../../components/dashboardIntelligence";
+import { useDashboardIntelligence } from "../../hooks";
 import { colors, spacing } from "../../theme";
 
 export default function DashboardScreen() {
-  const { data, loading, error } = useDashboard();
+  const { intelligence, loading, error, refresh } = useDashboardIntelligence();
 
-  if (loading) {
+  if (loading && !intelligence) {
     return (
       <Screen>
         <View style={styles.centerState}>
-          <Text style={styles.loadingText}>Loading your Viora dashboard...</Text>
+          <Text style={styles.loadingText}>Loading your intelligent dashboard...</Text>
         </View>
       </Screen>
     );
   }
 
-  if (error || !data) {
+  if (error || !intelligence) {
     return (
       <Screen>
         <View style={styles.centerState}>
-          <Text style={styles.errorText}>
-            {error || "Unable to load dashboard"}
-          </Text>
+          <Text style={styles.errorText}>{error || "Unable to load dashboard"}</Text>
+          <Text style={styles.retryText} onPress={refresh}>Tap to retry</Text>
         </View>
       </Screen>
     );
   }
-
-  const viewModel = buildDashboardViewModel(data);
-
-  const dashboard = viewModel.dashboard;
-  const analytics = viewModel.analytics;
-
-  const firstName =
-    dashboard.user?.fullName?.split(" ")?.[0] || "there";
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <DashboardHeader
-          greeting={dashboard.greeting}
-          name={firstName}
-          subtitle={`Goal: ${
-            dashboard.user?.goal || "Healthy Lifestyle"
-          } • Stress: ${dashboard.user?.stressLevel || "Moderate"}`}
-        />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}
+      >
+        <DashboardBriefingCard briefing={intelligence.briefing} />
 
-        <WellnessScoreCard score={dashboard.wellnessScore} />
-        <TodayFocusCard focus={analytics.todayFocus} />
+        <DashboardIntelligenceSection
+          title="Live Wellness Analytics"
+          subtitle="Your hydration, sleep, movement and mindfulness signals in one AI-ready command center."
+        >
+          <DashboardTrendGrid trends={intelligence.trends} />
+        </DashboardIntelligenceSection>
 
-        <AIInsightCard
-          title={analytics.insight.title}
-          insight={analytics.insight.description}
-        />
+        <DashboardIntelligenceSection
+          title="Smart Actions"
+          subtitle="Viora prioritizes actions based on today&apos;s wellness state. Every card opens a working module."
+        >
+          <DashboardSmartActionGrid actions={intelligence.smartActions} />
+        </DashboardIntelligenceSection>
 
-        <View style={styles.grid}>
-          <StatCard
-            icon={Droplets}
-            label="Water"
-            value={`${dashboard.todayStats.waterMl} ml`}
-            hint={`Goal ${dashboard.user?.waterGoalMl || 2500} ml`}
-          />
+        <DashboardIntelligenceSection
+          title="Today&apos;s Timeline"
+          subtitle="A guided flow for hydration, nutrition, movement and AI review."
+        >
+          <DashboardTimelineCard items={intelligence.timeline} />
+        </DashboardIntelligenceSection>
 
-          <StatCard
-            icon={Moon}
-            label="Sleep"
-            value={`${Math.round(dashboard.todayStats.sleepMinutes / 60)}h`}
-            hint="Target 7h+"
-          />
-        </View>
+        <DashboardFamilySnapshotCard snapshot={intelligence.familySnapshot} />
 
-        <View style={styles.grid}>
-          <StatCard
-            icon={Waves}
-            label="Yoga"
-            value={`${dashboard.todayStats.yogaMinutes} min`}
-            hint="Move gently"
-          />
-
-          <StatCard
-            icon={Music2}
-            label="Music"
-            value={`${dashboard.todayStats.musicMinutes} min`}
-            hint="Relax mind"
-          />
-        </View>
-
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-        <View style={styles.grid}>
-          <QuickActionCard
-            icon={Plus}
-            title="Add Water"
-            subtitle="Log your hydration"
-            onPress={() => router.push("/hydration")}
-          />
-
-          <QuickActionCard
-            icon={Waves}
-            title="Yoga"
-            subtitle="Daily movement"
-            onPress={() => router.push("/yoga" as any)}
-          />
-        </View>
-
-        <View style={styles.grid}>
-          <QuickActionCard
-            icon={Moon}
-            title="Sleep"
-            subtitle="Track your sleep"
-            onPress={() => router.push("/sleep")}
-          />
-
-          <QuickActionCard
-            icon={Sparkles}
-            title="AI Coach"
-            subtitle="Get daily guidance"
-            onPress={() => router.push("/ai-coach" as any)}
-          />
-        </View>
-
-        <View style={styles.grid}>
-          <QuickActionCard
-            icon={Music2}
-            title="Music Therapy"
-            subtitle="Relax your mind"
-            onPress={() => router.push("/music" as any)}
-          />
-        </View>
-
-        <TodaysPlanCard items={dashboard.tasks.map((task) => task.title)} />
+        <DashboardIntelligenceSection
+          title="Achievements & Streak Signals"
+          subtitle="Live highlights from your day. These cards will power future badges, challenges and family celebrations."
+        >
+          <DashboardAchievementGrid achievements={intelligence.achievements} />
+        </DashboardIntelligenceSection>
       </ScrollView>
     </Screen>
   );
@@ -158,36 +82,32 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
-    paddingTop: 64,
-    paddingBottom: 40,
-    gap: spacing.md,
+    paddingTop: 44,
+    paddingBottom: 48,
+    gap: spacing.xl,
   },
   centerState: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: spacing.xl,
+    gap: spacing.sm,
   },
   loadingText: {
     color: colors.mutedText,
     fontSize: 15,
-    fontWeight: "700",
-  },
-  errorText: {
-    color: "#B42318",
-    fontSize: 15,
     fontWeight: "800",
     textAlign: "center",
   },
-  grid: {
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  sectionTitle: {
-    marginTop: spacing.lg,
-    color: colors.text,
-    fontSize: 20,
+  errorText: {
+    color: colors.danger,
+    fontSize: 15,
     fontWeight: "900",
-    letterSpacing: -0.3,
+    textAlign: "center",
+  },
+  retryText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "900",
   },
 });

@@ -19,4 +19,5 @@ export * from "./yogaService";
 export * from "./settings";
 export * from "./reports";
 export * from "./voice";
-export * from "./family";
+
+export * from "./dashboardIntelligence";
