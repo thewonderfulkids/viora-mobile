@@ -199,13 +199,25 @@ service cloud.firestore {
     }
 
     match /subscriptions/{docId} {
-      allow read: if ownsExistingAnyUserDoc();
-      allow create, update, delete: if false;
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if false;
     }
 
     match /payments/{docId} {
-      allow read: if ownsExistingAnyUserDoc();
-      allow create, update, delete: if false;
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if false;
+    }
+
+    match /premiumFeatures/{docId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /premiumProgramEntitlements/{docId} {
+      allow read: if signedIn();
+      allow write: if false;
     }
 
     match /appSettings/{docId} {

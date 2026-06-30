@@ -1,6 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Sparkles } from "lucide-react-native";
+import { Crown, Sparkles } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+
 import { colors, radius, spacing } from "../../theme";
 
 type Props = {
@@ -9,23 +10,24 @@ type Props = {
 
 export function ProfileSubscriptionCard({ onUpgrade }: Props) {
   return (
-    <LinearGradient colors={["#111827", "#0B6E4F"]} style={styles.card}>
+    <LinearGradient colors={[colors.primaryDark, colors.primary]} style={styles.card}>
       <View style={styles.row}>
         <View style={styles.icon}>
-          <Sparkles size={24} color="#FDE68A" />
+          <Crown size={24} color={colors.warning} />
         </View>
 
-        <View style={{ flex: 1 }}>
-          <Text style={styles.label}>Viora Plus</Text>
-          <Text style={styles.title}>Unlock premium wellness intelligence</Text>
+        <View style={styles.copy}>
+          <Text style={styles.label}>Viora Membership</Text>
+          <Text style={styles.title}>Premium AI wellness plans are ready</Text>
           <Text style={styles.text}>
-            Voice AI, weekly reports, advanced memory and smart recommendations.
+            Plus, Pro and Elite Family unlock advanced AI, reports, programs and voice-ready wellness.
           </Text>
         </View>
       </View>
 
       <Pressable onPress={onUpgrade} style={styles.button}>
-        <Text style={styles.buttonText}>Upgrade Plan</Text>
+        <Sparkles size={16} color={colors.primaryDark} />
+        <Text style={styles.buttonText}>View Premium Plans</Text>
       </Pressable>
     </LinearGradient>
   );
@@ -49,9 +51,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.16)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  copy: {
+    flex: 1,
   },
   label: {
-    color: "#A7F3D0",
+    color: colors.mint,
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 0.8,
@@ -65,19 +72,22 @@ const styles = StyleSheet.create({
   },
   text: {
     marginTop: 5,
-    color: "#D1FAE5",
+    color: colors.softGreen,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "600",
   },
   button: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
     backgroundColor: colors.white,
     borderRadius: radius.pill,
     paddingVertical: spacing.md,
-    alignItems: "center",
   },
   buttonText: {
-    color: colors.primary,
+    color: colors.primaryDark,
     fontSize: 14,
     fontWeight: "900",
   },
