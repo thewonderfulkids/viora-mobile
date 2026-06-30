@@ -15,3 +15,4 @@ export * from "./useWellnessIntelligence";
 export * from "./useYoga";
 export * from "./useSettingsCenter";
 export * from "./useReports";
+export * from "./useVoiceAI";

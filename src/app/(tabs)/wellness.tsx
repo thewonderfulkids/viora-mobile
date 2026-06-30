@@ -26,6 +26,14 @@ const wellnessModules = [
     route: "/yoga",
     status: "Available",
   },
+
+  {
+    icon: "🎙️",
+    title: "Voice AI",
+    text: "Speak to Viora to open reports, log water and control wellness tools hands-free.",
+    route: "/voice-ai",
+    status: "Available",
+  },
   {
     icon: "🤖",
     title: "AI Coach",

@@ -29,6 +29,9 @@ export const COLLECTIONS = {
   mentalWellnessReports: "mentalWellnessReports",
   goalReports: "goalReports",
   reportExports: "reportExports",
+  voiceCommands: "voiceCommands",
+  voiceSessions: "voiceSessions",
+  voicePreferences: "voicePreferences",
 } as const;
 
 export const AI_MEMORY_COLLECTION = "aiMemory";

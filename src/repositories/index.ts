@@ -14,3 +14,4 @@ export * from "./userRepository";
 export * from "./wellnessIntelligenceRepository";
 export * from "./settingsRepository";
 export * from "./reportRepository";
+export * from "./voiceRepository";

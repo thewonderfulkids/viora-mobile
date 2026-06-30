@@ -12,3 +12,4 @@ export * from "./wellnessIntelligence";
 export * from "./wellnessTimeline";
 export * from "./settings";
 export * from "./reports";
+export * from "./voice";

@@ -1,25 +1,14 @@
-# Sprint 20.1 — Progress Navigation Completion
+# Sprint 21.4 — AI Coach Stabilization
 
-## Updated
+## Fixed
+- New Chat no longer gets overwritten by latest history reload.
+- New Chat opens a blank conversation state immediately.
+- History is hidden automatically when starting a new chat on mobile/tablet.
+- Voice AI remains integrated inside AI Coach composer.
+- Removed broken white-on-white voice badge styling.
+- Fixed mobile overflow and vertical text compression.
+- Rebuilt AI Coach layout as a stable flex workspace with fixed composer and scrollable chat content.
 
-- `src/app/(tabs)/progress.tsx`
-
-## What changed
-
-- Replaced inactive placeholder cards with working navigation actions.
-- Connected progress cards to:
-  - `/reports`
-  - `/goals-habits`
-  - `/wellness-intelligence`
-  - `/smart-notifications`
-- Added premium hero card and consistent back navigation.
-
-## Validation
-
-Run:
-
-```bash
-npx tsc --noEmit
-npx expo-doctor
-npx expo export --platform web
-```
+## Modified Files
+- `src/app/ai-coach.tsx`
+- `src/hooks/useAICoach.ts`

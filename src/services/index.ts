@@ -18,3 +18,4 @@ export * from "./user/userService";
 export * from "./yogaService";
 export * from "./settings";
 export * from "./reports";
+export * from "./voice";

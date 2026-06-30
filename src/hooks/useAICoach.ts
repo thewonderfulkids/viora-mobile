@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { useDashboard } from "./useDashboard";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useDashboard } from "./useDashboard";
 import { auth } from "../firebase/firebaseConfig";
 import {
   getAICoachConversation,
@@ -51,6 +51,7 @@ function mapMessages(items: any[]): AICoachMessage[] {
 
 export function useAICoach() {
   const { data } = useDashboard();
+  const didLoadInitialHistory = useRef(false);
 
   const [loading, setLoading] = useState(false);
   const [contextLoading, setContextLoading] = useState(false);
@@ -58,23 +59,10 @@ export function useAICoach() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [messages, setMessages] = useState<AICoachMessage[]>([]);
   const [threads, setThreads] = useState<AIConversationThread[]>([]);
-  const [activeConversationId, setActiveConversationId] =
-    useState(createConversationId);
-  const [contextSnapshot, setContextSnapshot] =
-    useState<AICoachContextSnapshot | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState(createConversationId);
+  const [contextSnapshot, setContextSnapshot] = useState<AICoachContextSnapshot | null>(null);
   const [quickActions, setQuickActions] = useState<AICoachQuickAction[]>([]);
   const [followUps, setFollowUps] = useState<AICoachFollowUpSuggestion[]>([]);
-
-  const loadThreads = useCallback(async () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-
-    const conversationThreads = await getAICoachThreads({
-      uid: currentUser.uid,
-    });
-
-    setThreads(conversationThreads);
-  }, []);
 
   const refreshCoachContext = useCallback(
     async (conversationId = activeConversationId) => {
@@ -100,6 +88,14 @@ export function useAICoach() {
     [activeConversationId, data]
   );
 
+  const loadThreads = useCallback(async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    const conversationThreads = await getAICoachThreads({ uid: currentUser.uid });
+    setThreads(conversationThreads);
+  }, []);
+
   const loadLatestHistory = useCallback(async () => {
     const currentUser = auth.currentUser;
 
@@ -112,36 +108,26 @@ export function useAICoach() {
     setHistoryError(null);
 
     try {
-      const latestHistory = await getAICoachLatestHistory({
-        uid: currentUser.uid,
-      });
-
-      setMessages(mapMessages(latestHistory.messages));
-      setThreads(latestHistory.threads);
-
+      const latestHistory = await getAICoachLatestHistory({ uid: currentUser.uid });
+      const mappedMessages = mapMessages(latestHistory.messages);
       const nextConversationId =
         latestHistory.messages.length > 0
           ? latestHistory.messages[0].conversationId
-          : activeConversationId;
+          : createConversationId();
 
+      setMessages(mappedMessages);
+      setThreads(latestHistory.threads);
       setActiveConversationId(nextConversationId);
-
-      if (data) {
-        await refreshCoachContext(nextConversationId);
-      }
     } catch (error: any) {
-      setHistoryError(
-        error?.message || "Unable to load AI conversation history."
-      );
+      setHistoryError(error?.message || "Unable to load AI conversation history.");
     } finally {
       setHistoryLoading(false);
     }
-  }, [activeConversationId, data, refreshCoachContext]);
+  }, []);
 
   const openConversation = useCallback(
     async (conversationId: string) => {
       const currentUser = auth.currentUser;
-
       if (!currentUser || !conversationId) return;
 
       setHistoryLoading(true);
@@ -167,21 +153,25 @@ export function useAICoach() {
 
   const startNewConversation = useCallback(() => {
     const conversationId = createConversationId();
+
     setActiveConversationId(conversationId);
     setMessages([]);
     setHistoryError(null);
     setFollowUps([]);
 
-    refreshCoachContext(conversationId);
+    void refreshCoachContext(conversationId);
   }, [refreshCoachContext]);
 
   useEffect(() => {
-    loadLatestHistory();
+    if (didLoadInitialHistory.current) return;
+
+    didLoadInitialHistory.current = true;
+    void loadLatestHistory();
   }, [loadLatestHistory]);
 
   useEffect(() => {
     if (data) {
-      refreshCoachContext(activeConversationId);
+      void refreshCoachContext(activeConversationId);
     }
   }, [activeConversationId, data, refreshCoachContext]);
 
