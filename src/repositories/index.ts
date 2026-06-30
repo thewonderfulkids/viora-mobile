@@ -8,3 +8,4 @@ export * from "./profilePhotoRepository";
 export * from "./userPhotoRepository";
 export * from "./userRepository";
 export * from "./wellnessIntelligenceRepository";
+export * from "./mentalWellnessRepository";

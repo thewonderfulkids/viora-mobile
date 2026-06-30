@@ -48,6 +48,13 @@ const wellnessModules = [
     status: "Available",
   },
   {
+    icon: "😌",
+    title: "Mental Wellness",
+    text: "Log mood, stress, triggers and coping actions with AI-powered emotional intelligence.",
+    route: "/mental-wellness",
+    status: "Available",
+  },
+  {
     icon: "🎵",
     title: "Music Therapy",
     text: "Relax with calming sound therapy sessions.",

@@ -18,7 +18,7 @@ service cloud.firestore {
     function ownsIncomingDoc() {
       return signedIn() && request.resource.data.uid == request.auth.uid;
     }
-    
+
     function ownsExistingUserIdDoc() {
       return signedIn() && resource.data.userId == request.auth.uid;
     }
@@ -27,25 +27,34 @@ service cloud.firestore {
       return signedIn() && request.resource.data.userId == request.auth.uid;
     }
 
+    function ownsExistingAnyUserDoc() {
+      return signedIn()
+        && (
+          resource.data.uid == request.auth.uid
+          || resource.data.userId == request.auth.uid
+        );
+    }
+
+    function ownsIncomingAnyUserDoc() {
+      return signedIn()
+        && (
+          request.resource.data.uid == request.auth.uid
+          || request.resource.data.userId == request.auth.uid
+        );
+    }
+
+    function ownsDocIdPrefix(docId) {
+      return signedIn() && docId.matches(request.auth.uid + "_.*");
+    }
+
     match /users/{uid} {
       allow read, create, update: if isOwner(uid);
       allow delete: if false;
     }
 
     match /dailyStats/{docId} {
-      allow read: if signedIn()
-        && (
-          docId.matches(request.auth.uid + "_.*")
-          || resource.data.uid == request.auth.uid
-        );
-
-      allow create, update: if signedIn()
-        && request.resource.data.uid == request.auth.uid
-        && (
-          docId.matches(request.auth.uid + "_.*")
-          || request.resource.data.uid == request.auth.uid
-        );
-
+      allow read: if ownsDocIdPrefix(docId) || ownsExistingAnyUserDoc();
+      allow create, update: if ownsDocIdPrefix(docId) || ownsIncomingAnyUserDoc();
       allow delete: if false;
     }
 
@@ -56,55 +65,50 @@ service cloud.firestore {
     }
 
     match /sleepLogs/{docId} {
-      allow read: if signedIn()
-        && resource.data.uid == request.auth.uid;
-
-      allow create, update: if signedIn()
-        && request.resource.data.uid == request.auth.uid;
-
-      allow delete: if false;
-    }
-
-    match /yogaSessions/{docId} {
-      allow read: if signedIn()
-        && resource.data.uid == request.auth.uid;
-
-      allow create, update: if signedIn()
-        && request.resource.data.uid == request.auth.uid;
-
-      allow delete: if false;
-    }
-
-    match /musicSessions/{docId} {
-      allow read: if signedIn()
-        && resource.data.uid == request.auth.uid;
-
-      allow create, update: if signedIn()
-        && request.resource.data.uid == request.auth.uid;
-
-      allow delete: if false;
-    }
-
-    match /aiConversations/{docId} {
       allow read: if ownsExistingDoc();
       allow create, update: if ownsIncomingDoc();
       allow delete: if false;
     }
-    
+
+    match /yogaSessions/{docId} {
+      allow read: if ownsExistingDoc();
+      allow create, update: if ownsIncomingDoc();
+      allow delete: if false;
+    }
+
+    match /musicSessions/{docId} {
+      allow read: if ownsExistingDoc();
+      allow create, update: if ownsIncomingDoc();
+      allow delete: if false;
+    }
+
+    match /activities/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc();
+      allow create: if ownsIncomingAnyUserDoc();
+      allow delete: if false;
+    }
+
+    match /journalEntries/{docId} {
+      allow read: if ownsExistingAnyUserDoc();
+      allow create, update: if ownsIncomingAnyUserDoc();
+      allow delete: if false;
+    }
+
+    match /aiConversations/{docId} {
+      allow read: if ownsExistingAnyUserDoc();
+      allow create, update: if ownsIncomingAnyUserDoc();
+      allow delete: if false;
+    }
+
     match /aiMemory/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
+      allow read, update: if ownsExistingAnyUserDoc();
+      allow create: if ownsIncomingAnyUserDoc();
       allow delete: if false;
     }
 
     match /conversationSummaries/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
-      allow delete: if false;
-    }
-
-    match /userWellnessProfiles/{uid} {
-      allow read, create, update: if isOwner(uid);
+      allow read, update: if ownsExistingAnyUserDoc();
+      allow create: if ownsIncomingAnyUserDoc();
       allow delete: if false;
     }
 
@@ -113,56 +117,36 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
-    match /activities/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
+    match /userWellnessProfiles/{uid} {
+      allow read, create, update: if isOwner(uid);
       allow delete: if false;
     }
 
-    match /journalEntries/{docId} {
-      allow read: if ownsExistingDoc();
-      allow create, update: if ownsIncomingDoc();
-      allow delete: if false;
-    }
-
-    match /subscriptions/{docId} {
-      allow read: if ownsExistingDoc();
-      allow create, update, delete: if false;
-    }
-
-    match /payments/{docId} {
-      allow read: if ownsExistingDoc();
-      allow create, update, delete: if false;
-    }
-
-    match /notifications/{docId} {
-      allow read, update: if ownsExistingDoc();
-      allow create: if ownsIncomingDoc();
+    match /wellnessIntelligence/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
       allow delete: if false;
     }
 
     match /wellnessIntelligenceSnapshots/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
       allow delete: if false;
     }
 
     match /wellnessGoals/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
-      allow delete: if false;
+      allow read, update, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
     }
 
     match /wellnessHabits/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
-      allow delete: if false;
+      allow read, update, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
     }
 
     match /habitCompletions/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
-      allow delete: if false;
+      allow read, update, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
     }
 
     match /reminderSettings/{uid} {
@@ -170,47 +154,58 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /wellnessIntelligence/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
-      allow delete: if false;
-    }
-
-
-    match /nutritionEntries/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
-      allow delete: if false;
-    }
-
-    match /nutritionSummaries/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
-      allow delete: if false;
-    }
-
-    match /nutritionGoals/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
+    match /notifications/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc();
+      allow create: if ownsIncomingAnyUserDoc();
       allow delete: if false;
     }
 
     match /nutritionEntries/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
-      allow delete: if ownsExistingUserIdDoc();
+      allow read, update, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
     }
 
     match /nutritionSummaries/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
       allow delete: if false;
     }
 
     match /nutritionGoals/{docId} {
-      allow read, update: if ownsExistingUserIdDoc();
-      allow create: if ownsIncomingUserIdDoc();
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
       allow delete: if false;
+    }
+
+    match /moodEntries/{docId} {
+      allow read, update, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+    }
+
+    match /moodCheckIns/{docId} {
+      allow read, update, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+    }
+
+    match /mentalWellnessSummaries/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if false;
+    }
+
+    match /mentalWellnessGoals/{docId} {
+      allow read, update, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+    }
+
+    match /subscriptions/{docId} {
+      allow read: if ownsExistingAnyUserDoc();
+      allow create, update, delete: if false;
+    }
+
+    match /payments/{docId} {
+      allow read: if ownsExistingAnyUserDoc();
+      allow create, update, delete: if false;
     }
 
     match /appSettings/{docId} {

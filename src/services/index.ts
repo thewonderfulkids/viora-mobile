@@ -5,6 +5,7 @@ export * from "./authService";
 export * from "./dashboard";
 export * from "./dashboardService";
 export * from "./goalsHabits";
+export * from "./mentalWellness";
 export * from "./history/historyService";
 export * from "./hydrationService";
 export * from "./musicService";

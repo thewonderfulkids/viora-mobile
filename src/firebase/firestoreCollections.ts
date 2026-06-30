@@ -19,6 +19,8 @@ export const COLLECTIONS = {
   nutritionEntries: "nutritionEntries",
   nutritionSummaries: "nutritionSummaries",
   nutritionGoals: "nutritionGoals",
+  moodEntries: "moodEntries",
+  mentalWellnessSummaries: "mentalWellnessSummaries",
 } as const;
 export const AI_MEMORY_COLLECTION = "aiMemory";
 export const CONVERSATION_SUMMARIES_COLLECTION = "conversationSummaries";

@@ -5,6 +5,7 @@ export * from "./dashboard";
 export * from "./goalsHabits";
 export * from "./hydration";
 export * from "./music";
+export * from "./mentalWellness";
 export * from "./notifications";
 export * from "./nutrition";
 export * from "./profile";

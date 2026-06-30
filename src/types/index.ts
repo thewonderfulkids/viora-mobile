@@ -8,3 +8,4 @@ export * from "./nutrition";
 export * from "./toast";
 export * from "./wellnessIntelligence";
 export * from "./wellnessTimeline";
+export * from "./mentalWellness";
