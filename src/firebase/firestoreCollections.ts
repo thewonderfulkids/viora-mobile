@@ -24,6 +24,11 @@ export const COLLECTIONS = {
   mentalWellnessSummaries: "mentalWellnessSummaries",
   premiumFeatures: "premiumFeatures",
   premiumProgramEntitlements: "premiumProgramEntitlements",
+  wellnessReports: "wellnessReports",
+  nutritionReports: "nutritionReports",
+  mentalWellnessReports: "mentalWellnessReports",
+  goalReports: "goalReports",
+  reportExports: "reportExports",
 } as const;
 
 export const AI_MEMORY_COLLECTION = "aiMemory";

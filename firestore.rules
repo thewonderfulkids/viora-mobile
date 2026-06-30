@@ -223,6 +223,54 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /privacySettings/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || isOwner(docId);
+      allow create: if ownsIncomingAnyUserDoc() || isOwner(docId);
+      allow delete: if false;
+    }
+
+    match /securitySettings/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || isOwner(docId);
+      allow create: if ownsIncomingAnyUserDoc() || isOwner(docId);
+      allow delete: if false;
+    }
+
+    match /accountDeletionRequests/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || isOwner(docId);
+      allow create: if ownsIncomingAnyUserDoc() || isOwner(docId);
+      allow delete: if false;
+    }
+
+    match /wellnessReports/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if false;
+    }
+
+    match /nutritionReports/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if false;
+    }
+
+    match /mentalWellnessReports/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if false;
+    }
+
+    match /goalReports/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if false;
+    }
+
+    match /reportExports/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if false;
+    }
+
     match /appSettings/{docId} {
       allow read: if true;
       allow write: if false;

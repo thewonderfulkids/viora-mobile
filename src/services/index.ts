@@ -17,3 +17,4 @@ export * from "./user/profilePhotoService";
 export * from "./user/userService";
 export * from "./yogaService";
 export * from "./settings";
+export * from "./reports";

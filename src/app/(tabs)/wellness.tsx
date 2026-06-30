@@ -55,6 +55,13 @@ const wellnessModules = [
     status: "Available",
   },
   {
+    icon: "📄",
+    title: "Health Reports",
+    text: "Generate AI daily, weekly and monthly wellness reports with PDF-ready summaries.",
+    route: "/reports",
+    status: "Available",
+  },
+  {
     icon: "🎵",
     title: "Music Therapy",
     text: "Relax with calming sound therapy sessions.",
