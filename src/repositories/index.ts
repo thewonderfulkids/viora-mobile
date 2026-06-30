@@ -12,3 +12,4 @@ export * from "./subscriptionRepository";
 export * from "./userPhotoRepository";
 export * from "./userRepository";
 export * from "./wellnessIntelligenceRepository";
+export * from "./settingsRepository";

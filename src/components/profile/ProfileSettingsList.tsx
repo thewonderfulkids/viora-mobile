@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import {
   BellRing,
   ChevronRight,
@@ -6,25 +7,51 @@ import {
   Lock,
   LogOut,
   ShieldCheck,
+  Trash2,
   Users,
   WalletCards,
 } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing } from "../../theme";
 
+type MenuRoute =
+  | "/language-settings"
+  | "/premium"
+  | "/notification-preferences"
+  | "/privacy-ai-safety"
+  | "/account-security"
+  | "/delete-account";
+
 type MenuItemProps = {
   icon: any;
   title: string;
   subtitle: string;
+  route?: MenuRoute;
   onPress?: () => void;
+  disabled?: boolean;
 };
 
-function MenuItem({ icon: Icon, title, subtitle, onPress }: MenuItemProps) {
+function MenuItem({ icon: Icon, title, subtitle, route, onPress, disabled }: MenuItemProps) {
+  const canPress = Boolean(route || onPress) && !disabled;
+
   return (
     <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      style={({ pressed }) => [styles.menuItem, pressed && onPress ? styles.pressed : null]}
+      onPress={() => {
+        if (onPress) {
+          onPress();
+          return;
+        }
+
+        if (route) {
+          router.push({ pathname: route as never });
+        }
+      }}
+      disabled={!canPress}
+      style={({ pressed }) => [
+        styles.menuItem,
+        disabled ? styles.disabledItem : null,
+        pressed && canPress ? styles.pressed : null,
+      ]}
     >
       <View style={styles.menuIcon}>
         <Icon size={20} color={colors.primary} />
@@ -48,18 +75,19 @@ type Props = {
 export function ProfileSettingsList({ onLogout, onNotificationsPress }: Props) {
   return (
     <View style={styles.menu}>
-      <MenuItem icon={Globe2} title="Language" subtitle="English / Hindi ready" />
-      <MenuItem icon={WalletCards} title="Subscription & Payments" subtitle="Plans, invoices and billing" />
+      <MenuItem icon={Globe2} title="Language" subtitle="English, Hindi and Hinglish preference" route="/language-settings" />
+      <MenuItem icon={WalletCards} title="Subscription & Payments" subtitle="Plans, invoices and billing" route="/premium" />
       <MenuItem
         icon={BellRing}
         title="Smart Notifications"
-        subtitle="Hydration, sleep, yoga and AI memory reminders"
-        onPress={onNotificationsPress}
+        subtitle="Hydration, sleep, yoga, nutrition and mood reminders"
+        onPress={onNotificationsPress || (() => router.push({ pathname: "/notification-preferences" as never }))}
       />
-      <MenuItem icon={Users} title="Family Wellness" subtitle="Add family members later" />
-      <MenuItem icon={FileText} title="Reports" subtitle="Weekly and monthly reports" />
-      <MenuItem icon={ShieldCheck} title="Privacy & AI Safety" subtitle="Control memory and data" />
-      <MenuItem icon={Lock} title="Account Security" subtitle="Login and data protection" />
+      <MenuItem icon={Users} title="Family Wellness" subtitle="Activates in Sprint 22" disabled />
+      <MenuItem icon={FileText} title="Reports" subtitle="Activates in Sprint 20" disabled />
+      <MenuItem icon={ShieldCheck} title="Privacy & AI Safety" subtitle="Control memory, AI and data" route="/privacy-ai-safety" />
+      <MenuItem icon={Lock} title="Account Security" subtitle="Password reset and protection" route="/account-security" />
+      <MenuItem icon={Trash2} title="Delete Account" subtitle="Safe deletion request" route="/delete-account" />
 
       <Pressable onPress={onLogout} style={styles.logoutItem}>
         <LogOut size={20} color="#B42318" />
@@ -85,6 +113,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+  },
+  disabledItem: {
+    opacity: 0.68,
   },
   pressed: {
     opacity: 0.78,

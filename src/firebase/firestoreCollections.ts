@@ -1,5 +1,6 @@
 export const COLLECTIONS = {
   users: "users",
+  userSettings: "userSettings",
   dailyStats: "dailyStats",
   hydrationLogs: "hydrationLogs",
   sleepLogs: "sleepLogs",

@@ -52,6 +52,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /userSettings/{uid} {
+      allow read, create, update: if isOwner(uid);
+      allow delete: if false;
+    }
+
     match /dailyStats/{docId} {
       allow read: if ownsDocIdPrefix(docId) || ownsExistingAnyUserDoc();
       allow create, update: if ownsDocIdPrefix(docId) || ownsIncomingAnyUserDoc();
@@ -199,15 +204,13 @@ service cloud.firestore {
     }
 
     match /subscriptions/{docId} {
-      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow delete: if false;
+      allow read: if ownsExistingAnyUserDoc();
+      allow create, update, delete: if false;
     }
 
     match /payments/{docId} {
-      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow delete: if false;
+      allow read: if ownsExistingAnyUserDoc();
+      allow create, update, delete: if false;
     }
 
     match /premiumFeatures/{docId} {
@@ -216,8 +219,8 @@ service cloud.firestore {
     }
 
     match /premiumProgramEntitlements/{docId} {
-      allow read: if signedIn();
-      allow write: if false;
+      allow read: if ownsExistingAnyUserDoc();
+      allow create, update, delete: if false;
     }
 
     match /appSettings/{docId} {

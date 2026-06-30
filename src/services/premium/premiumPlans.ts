@@ -139,6 +139,10 @@ export function getPlanByCode(code: PremiumPlanCode): PremiumPlan {
   return PREMIUM_PLANS.find((plan) => plan.code === code) || PREMIUM_PLANS[0];
 }
 
+export function getPremiumPlanByCode(code: PremiumPlanCode): PremiumPlan {
+  return getPlanByCode(code);
+}
+
 export function isPremiumPlan(code: PremiumPlanCode) {
   return code !== "FREE";
 }

@@ -16,3 +16,4 @@ export * from "./sleepService";
 export * from "./user/profilePhotoService";
 export * from "./user/userService";
 export * from "./yogaService";
+export * from "./settings";

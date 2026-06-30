@@ -14,3 +14,4 @@ export * from "./sleep";
 export * from "./wellness";
 export * from "./wellnessIntelligence";
 export * from "./yoga";
+export * from "./settings";

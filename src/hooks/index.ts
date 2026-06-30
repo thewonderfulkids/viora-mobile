@@ -13,3 +13,4 @@ export * from "./useSmartNotifications";
 export * from "./useToast";
 export * from "./useWellnessIntelligence";
 export * from "./useYoga";
+export * from "./useSettingsCenter";

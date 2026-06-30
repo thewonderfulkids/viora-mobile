@@ -10,3 +10,4 @@ export * from "./premium";
 export * from "./toast";
 export * from "./wellnessIntelligence";
 export * from "./wellnessTimeline";
+export * from "./settings";
