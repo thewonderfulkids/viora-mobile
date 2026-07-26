@@ -17,7 +17,7 @@ export default function PrivacyAISafetyScreen() {
   function requestDataExport() {
     Alert.alert(
       "Request data export",
-      "Viora will mark your account for data export. Sprint 20 will generate downloadable reports and export packages.",
+      "Viora will mark your account for data export. Downloadable reports and export packages will be prepared through the production safety flow.",
       [
         { text: "Cancel", style: "cancel" },
         { text: "Request", onPress: () => updatePreferences({ dataExportRequestedAt: new Date().toISOString() }) },
@@ -61,7 +61,7 @@ export default function PrivacyAISafetyScreen() {
 
           <SettingsInfoCard
             title="Data export"
-            subtitle={prefs.dataExportRequestedAt ? `Requested on ${new Date(prefs.dataExportRequestedAt).toLocaleDateString()}` : "Generate a formal export request for Sprint 20 reports and exports."}
+            subtitle={prefs.dataExportRequestedAt ? `Requested on ${new Date(prefs.dataExportRequestedAt).toLocaleDateString()}` : "Generate a formal export request for reports and exports."}
           >
             <Text style={styles.actionText} onPress={requestDataExport}>Request data export →</Text>
           </SettingsInfoCard>

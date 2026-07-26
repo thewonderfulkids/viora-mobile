@@ -1,11 +1,12 @@
 import { WifiOff } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { useNetwork } from "../../hooks";
+import { useNetwork, useSyncStatus } from "../../hooks";
 import { colors, radius, spacing } from "../../theme";
 
 export function OfflineBanner() {
   const { isOnline, isChecking, refreshNetworkStatus } = useNetwork();
+  const { dashboard, runSync } = useSyncStatus();
 
   if (isOnline) return null;
 
@@ -19,13 +20,16 @@ export function OfflineBanner() {
         <View style={styles.textWrap}>
           <Text style={styles.title}>You are offline</Text>
           <Text style={styles.message}>
-            Some AI and cloud features may not work until internet is back.
+            Some AI and cloud features may not work until internet is back. Pending sync: {dashboard.summary.pendingCount}.
           </Text>
         </View>
       </View>
 
       <Pressable
-        onPress={refreshNetworkStatus}
+        onPress={async () => {
+          const online = await refreshNetworkStatus();
+          if (online) await runSync();
+        }}
         disabled={isChecking}
         style={[styles.retryButton, isChecking && styles.disabled]}
       >

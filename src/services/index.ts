@@ -7,6 +7,7 @@ export * from "./dashboardService";
 export * from "./goalsHabits";
 export * from "./history/historyService";
 export * from "./hydrationService";
+export * from "./launchCandidate";
 export * from "./mentalWellness";
 export * from "./musicService";
 export * from "./notifications";
@@ -21,3 +22,9 @@ export * from "./reports";
 export * from "./voice";
 
 export * from "./dashboardIntelligence";
+export * from "./sync";
+
+export * from "./support";
+export * from "./adminAccess";
+export * from "./adminControl";
+export * from "./programs";

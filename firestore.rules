@@ -11,6 +11,14 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isVioraAdmin() {
+      return signedIn()
+        && request.auth.token.email in [
+          "support@winflyindia.in",
+          "drdigiweb@gmail.com"
+        ];
+    }
+
     function ownsExistingDoc() {
       return signedIn() && resource.data.uid == request.auth.uid;
     }
@@ -56,7 +64,9 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read, create, update: if isOwner(uid);
+      allow read: if isOwner(uid) || isVioraAdmin();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isVioraAdmin();
       allow delete: if false;
     }
 
@@ -212,13 +222,23 @@ service cloud.firestore {
     }
 
     match /subscriptions/{docId} {
-      allow read: if ownsExistingAnyUserDoc();
-      allow create, update, delete: if false;
+      allow read: if ownsExistingAnyUserDoc() || isVioraAdmin();
+      allow create, update: if (isVioraAdmin()
+          && request.resource.data.source == "admin_access_grant"
+          && request.resource.data.provider == "manual")
+        || (signedIn()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.provider == "manual"
+          && request.resource.data.status == "active");
+      allow delete: if false;
     }
 
     match /payments/{docId} {
-      allow read: if ownsExistingAnyUserDoc();
-      allow create, update, delete: if false;
+      allow read: if ownsExistingAnyUserDoc() || isVioraAdmin();
+      allow create, update: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.provider == "manual";
+      allow delete: if false;
     }
 
     match /premiumFeatures/{docId} {
@@ -312,9 +332,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /betaFeedback/{docId} {
+      allow read, update: if ownsExistingAnyUserDoc() || isVioraAdmin();
+      allow create: if ownsIncomingAnyUserDoc();
+      allow delete: if false;
+    }
+
+    match /clientErrorLogs/{docId} {
+      allow read: if ownsExistingAnyUserDoc() || isVioraAdmin();
+      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == null);
+      allow update: if isVioraAdmin();
+      allow delete: if false;
+    }
+
     match /appSettings/{docId} {
       allow read: if true;
-      allow write: if false;
+      allow create, update: if isVioraAdmin();
+      allow delete: if false;
+    }
+
+    match /adminContent/{docId} {
+      allow read: if true;
+      allow create, update: if isVioraAdmin();
+      allow delete: if false;
     }
 
     match /{document=**} {

@@ -5,6 +5,7 @@ export * from "./dashboardIntelligence";
 export * from "./family";
 export * from "./goalsHabits";
 export * from "./history";
+export * from "./launchCandidate";
 export * from "./mentalWellness";
 export * from "./notifications";
 export * from "./nutrition";
@@ -15,4 +16,9 @@ export * from "./toast";
 export * from "./voice";
 export * from "./wellnessIntelligence";
 export * from "./wellnessTimeline";
+export * from "./sync";
 
+export * from "./betaFeedback";
+export * from "./errorLog";
+export * from "./adminAccess";
+export * from "./adminControl";

@@ -2,65 +2,70 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
 import {
-    updateUserPhoto,
-    uploadProfilePhoto,
+  updateUserPhoto,
+  uploadProfilePhoto,
 } from "../../repositories";
+
+function isNativeStorageUploadIssue(error: unknown) {
+  const message = String((error as any)?.message || error || "").toLowerCase();
+  return (
+    message.includes("arraybuffer") ||
+    message.includes("blob") ||
+    message.includes("network request failed") ||
+    message.includes("storage")
+  );
+}
 
 export async function pickAndUploadProfilePhoto(
   uid: string
 ): Promise<string | null> {
-  console.log("PHOTO_UPLOAD_START", { uid });
-
-  const permission =
-    await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-  console.log("PHOTO_PERMISSION", permission);
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
   if (!permission.granted) {
     throw new Error("Gallery permission denied.");
   }
 
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ["images"],
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
     quality: 0.8,
     allowsEditing: true,
     aspect: [1, 1],
+    base64: false,
   });
 
-  console.log("PHOTO_PICKER_RESULT", {
-    canceled: result.canceled,
-    assets: result.canceled ? 0 : result.assets.length,
-  });
-
-  if (result.canceled) return null;
+  if (result.canceled || result.assets.length === 0) return null;
 
   const asset = result.assets[0];
 
-  console.log("PHOTO_ASSET_URI", asset.uri);
-
   const image = await ImageManipulator.manipulateAsync(
     asset.uri,
-    [{ resize: { width: 600 } }],
+    [{ resize: { width: 420 } }],
     {
-      compress: 0.75,
+      compress: 0.64,
       format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
     }
   );
 
-  console.log("PHOTO_MANIPULATED_URI", image.uri);
+  if (!image.base64) {
+    throw new Error("Unable to prepare image for upload on this device.");
+  }
 
-  const response = await fetch(image.uri);
-  const blob = await response.blob();
+  const dataUrl = `data:image/jpeg;base64,${image.base64}`;
 
-  console.log("PHOTO_BLOB_SIZE", blob.size);
+  try {
+    const url = await uploadProfilePhoto(uid, image.base64);
+    await updateUserPhoto(uid, url);
+    return url;
+  } catch (error) {
+    if (!isNativeStorageUploadIssue(error)) {
+      throw error;
+    }
 
-  const url = await uploadProfilePhoto(uid, blob);
-
-  console.log("PHOTO_STORAGE_URL", url);
-
-  await updateUserPhoto(uid, url);
-
-  console.log("PHOTO_FIRESTORE_UPDATED", { uid, url });
-
-  return url;
+    // Android beta fallback: keep a small compressed data URL in Firestore so
+    // users can continue testing profile photos even if native Storage upload
+    // hits the Firebase Web SDK Blob/ArrayBuffer issue on a device.
+    await updateUserPhoto(uid, dataUrl);
+    return dataUrl;
+  }
 }

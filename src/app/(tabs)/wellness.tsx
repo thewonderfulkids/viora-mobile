@@ -28,6 +28,21 @@ const wellnessModules = [
   },
 
   {
+    icon: "✨",
+    title: "Programs Hub",
+    text: "Open Yoga, Home Workout, Weight Loss and admin-controlled guided programs.",
+    route: "/programs",
+    status: "Available",
+  },
+  {
+    icon: "💪",
+    title: "Home Workout",
+    text: "Start beginner-friendly workouts at home with or without simple household items.",
+    route: "/home-workout",
+    status: "Available",
+  },
+
+  {
     icon: "🎙️",
     title: "Voice AI",
     text: "Speak to Viora to open reports, log water and control wellness tools hands-free.",
@@ -82,14 +97,14 @@ const wellnessModules = [
     title: "Music Therapy",
     text: "Relax with calming sound therapy sessions.",
     route: "/music",
-    status: "Beta",
+    status: "Available",
   },
   {
     icon: "😌",
     title: "Meditation",
-    text: "Guided breathing and calming sessions are coming soon.",
-    route: null,
-    status: "Coming Soon",
+    text: "Open guided calm breathing, focus and sleep routines.",
+    route: "/meditation",
+    status: "Available",
   },
   {
     icon: "🍎",
@@ -101,9 +116,9 @@ const wellnessModules = [
   {
     icon: "⌚",
     title: "Wearables",
-    text: "Connect smart watches and health devices.",
+    text: "Wearable sync will be released after V1. Use manual tracking for beta.",
     route: null,
-    status: "Coming Soon",
+    status: "Planned",
   },
 ];
 
@@ -132,13 +147,13 @@ export default function WellnessScreen() {
                   <View
                     style={[
                       styles.badge,
-                      item.status === "Coming Soon" && styles.comingBadge,
+                      item.status !== "Available" && styles.comingBadge,
                     ]}
                   >
                     <Text
                       style={[
                         styles.badgeText,
-                        item.status === "Coming Soon" && styles.comingBadgeText,
+                        item.status !== "Available" && styles.comingBadgeText,
                       ]}
                     >
                       {item.status}

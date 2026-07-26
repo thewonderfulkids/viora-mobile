@@ -13,6 +13,7 @@ export const COLLECTIONS = {
   notifications: "notifications",
   reminderSettings: "reminderSettings",
   appSettings: "appSettings",
+  adminContent: "adminContent",
   wellnessIntelligenceSnapshots: "wellnessIntelligenceSnapshots",
   wellnessGoals: "wellnessGoals",
   wellnessHabits: "wellnessHabits",
@@ -35,6 +36,8 @@ export const COLLECTIONS = {
   familyGroups: "familyGroups",
   familyMembers: "familyMembers",
   familyInvites: "familyInvites",
+  betaFeedback: "betaFeedback",
+  clientErrorLogs: "clientErrorLogs",
 } as const;
 
 export const AI_MEMORY_COLLECTION = "aiMemory";

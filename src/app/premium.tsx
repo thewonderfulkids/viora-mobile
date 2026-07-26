@@ -11,6 +11,7 @@ import {
   SubscriptionStatusCard,
 } from "../components/premium";
 import { usePremium } from "../hooks";
+import { PremiumEntryHero } from "../components/firstImpression";
 import { colors, spacing } from "../theme";
 import { PremiumPlanCode } from "../types";
 
@@ -33,12 +34,12 @@ export default function PremiumScreen() {
     if (!plan) return;
 
     Alert.alert(
-      "Confirm upgrade",
-      `${plan.displayName} costs ₹${plan.priceInr.toLocaleString("en-IN")}. Continue with payment setup?`,
+      "Activate beta access",
+      `${plan.displayName} will be activated for beta testing. Razorpay checkout will be connected in the payment release.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Continue",
+          text: "Activate",
           onPress: () => {
             startPlanCheckout(planCode, "manual");
           },
@@ -79,6 +80,8 @@ export default function PremiumScreen() {
       >
         <CommonBackButton label="Dashboard" />
 
+        <PremiumEntryHero compact eyebrow="Viora membership" title="Go deeper with your wellness." subtitle="Unlock richer guidance, programs and family experiences while keeping your current progress intact." />
+
         <PremiumHero currentPlan={dashboard.currentPlan} />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -87,7 +90,7 @@ export default function PremiumScreen() {
 
         <PremiumSection
           title="Choose your Viora plan"
-          subtitle="Pricing is designed for individual users, power users and the flagship Elite Family plan. Family invoice ownership remains member-specific for clean billing records."
+          subtitle="Choose a plan for beta testing. During beta, paid plan cards activate access directly without opening payment checkout."
         >
           {dashboard.plans.map((plan) => (
             <PremiumPlanCard

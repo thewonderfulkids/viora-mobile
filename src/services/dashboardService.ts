@@ -41,15 +41,21 @@ function createEmptyTodayStats(uid: string): DailyStatsDoc {
   };
 }
 
+function clampScore(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function calculateWellnessScore(stats: DailyStatsDoc) {
-  let score = 30;
+  const hydrationScore = clampScore((Math.min(stats.waterMl, 2500) / 2500) * 35);
+  const sleepScore = clampScore((Math.min(stats.sleepMinutes, 480) / 480) * 30);
+  const yogaScore = clampScore((Math.min(stats.yogaMinutes, 30) / 30) * 20);
+  const mindfulnessScore = clampScore((Math.min(stats.musicMinutes, 20) / 20) * 15);
 
-  if (stats.waterMl >= 1500) score += 20;
-  if (stats.sleepMinutes >= 360) score += 20;
-  if (stats.yogaMinutes >= 10) score += 15;
-  if (stats.musicMinutes >= 10) score += 15;
+  const hasAnySignal = stats.waterMl > 0 || stats.sleepMinutes > 0 || stats.yogaMinutes > 0 || stats.musicMinutes > 0;
+  const baseline = hasAnySignal ? 12 : 0;
 
-  return Math.min(score, 100);
+  return clampScore(baseline + hydrationScore + sleepScore + yogaScore + mindfulnessScore);
 }
 
 function buildTasks(user: UserDoc | null, stats: DailyStatsDoc) {

@@ -18,7 +18,7 @@ export function PremiumHero({ currentPlan }: { currentPlan: PremiumPlan }) {
         </View>
       </View>
 
-      <Text style={styles.kicker}>Sprint 18</Text>
+      <Text style={styles.kicker}>Premium Membership</Text>
       <Text style={styles.title}>Upgrade Viora into your premium AI wellness system.</Text>
       <Text style={styles.subtitle}>
         Current plan: {currentPlan.displayName}. Unlock AI coaching, advanced intelligence, reports, programs and family-ready wellness.

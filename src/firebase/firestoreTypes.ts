@@ -29,9 +29,12 @@ export type BaseFirestoreDoc = {
   updatedAt: string;
 };
 
+export type UserAccessRole = "user" | "admin" | "super_admin";
+
 export type UserDoc = BaseFirestoreDoc & {
   fullName: string;
   email: string;
+  accessRole?: UserAccessRole;
   mobile?: string;
   photoURL?: string;
 

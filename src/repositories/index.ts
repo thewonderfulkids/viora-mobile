@@ -2,6 +2,7 @@ export * from "./activityRepository";
 export * from "./aiCoachRepository";
 export * from "./goalHabitRepository";
 export * from "./historyRepository";
+export * from "./launchAuditRepository";
 export * from "./memoryRepository";
 export * from "./mentalWellnessRepository";
 export * from "./notificationRepository";
@@ -16,3 +17,9 @@ export * from "./settingsRepository";
 export * from "./reportRepository";
 export * from "./voiceRepository";
 export * from "./familyRepository";
+export * from "./syncQueueRepository";
+
+export * from "./betaFeedbackRepository";
+export * from "./errorLogRepository";
+export * from "./adminAccessRepository";
+export * from "./adminControlRepository";

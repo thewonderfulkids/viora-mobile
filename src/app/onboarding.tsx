@@ -1,15 +1,16 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useMemo, useState } from "react";
 import {
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../context/AuthContext";
 import { auth, db } from "../firebase/firebaseConfig";
 import { COLLECTIONS } from "../firebase/firestoreCollections";
 
@@ -58,16 +59,18 @@ const steps = [
 ];
 
 export default function OnboardingScreen() {
+  const { refreshUserDoc } = useAuth();
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
 
   const currentStep = steps[stepIndex];
 
   const selectedValue = answers[currentStep.key] || "";
 
   const canContinue = useMemo(() => {
-    return selectedValue.trim().length > 0;
-  }, [selectedValue]);
+    return selectedValue.trim().length > 0 && !saving;
+  }, [selectedValue, saving]);
 
   function handleSelect(value: string) {
     setAnswers((prev) => ({
@@ -85,6 +88,7 @@ export default function OnboardingScreen() {
     }
 
     try {
+      setSaving(true);
       const currentUser = auth.currentUser;
 
       if (!currentUser) {
@@ -94,34 +98,51 @@ export default function OnboardingScreen() {
 
       const userRef = doc(db, COLLECTIONS.users, currentUser.uid);
 
-      await updateDoc(userRef, {
-        fullName: answers.name || "Viora User",
+      await setDoc(
+        userRef,
+        {
+          uid: currentUser.uid,
+          email: currentUser.email || "",
+          fullName: answers.name || currentUser.email?.split("@")[0] || "Viora User",
 
-        goal:
-          answers.goal === "Reduce Stress"
-            ? "Stress Relief"
-            : answers.goal || "Healthy Lifestyle",
+          goal:
+            answers.goal === "Reduce Stress"
+              ? "Stress Relief"
+              : answers.goal || "Healthy Lifestyle",
 
-        lifestyle:
-          answers.routine === "Work From Home"
-            ? "WFH"
-            : answers.routine === "Business Owner"
-            ? "Business"
-            : answers.routine || "Office",
+          lifestyle:
+            answers.routine === "Work From Home"
+              ? "WFH"
+              : answers.routine === "Business Owner"
+              ? "Business"
+              : answers.routine || "Office",
 
-        dailyTimeCommitment: answers.time || "15 minutes",
-        stressLevel: answers.stress || "Moderate",
+          dailyTimeCommitment: answers.time || "15 minutes",
+          stressLevel: answers.stress || "Moderate",
 
-        onboardingCompleted: true,
-        aiCoachEnabled: true,
-        notificationsEnabled: true,
+          onboardingCompleted: true,
+          aiCoachEnabled: true,
+          notificationsEnabled: true,
+          waterGoalMl: 2500,
+          language: "en",
+          country: "IN",
+          timezone: "Asia/Kolkata",
+          plan: "Free",
+          subscriptionStatus: "Trial",
+          isDeleted: false,
 
-        updatedAt: serverTimestamp(),
-      });
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
+      await refreshUserDoc();
       router.replace("/(tabs)");
     } catch (error: any) {
       console.log("Onboarding error:", error);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -136,18 +157,16 @@ export default function OnboardingScreen() {
 
   return (
     <LinearGradient
-      colors={["#F8FCFA", "#EEF9F3", "#FFFFFF"]}
+      colors={["#F4FBF7", "#E9F7EF", "#FFFFFF"]}
       style={styles.container}
     >
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <View style={styles.header}>
-          <Pressable onPress={handleBack}>
+          <Pressable onPress={handleBack} disabled={saving}>
             <Text style={styles.backText}>Back</Text>
           </Pressable>
 
-          <Text style={styles.stepText}>
-            Step {stepIndex + 1} of {steps.length}
-          </Text>
+          <Text style={styles.stepText}>Your plan · {stepIndex + 1}/{steps.length}</Text>
         </View>
 
         <View style={styles.progressTrack}>
@@ -169,6 +188,7 @@ export default function OnboardingScreen() {
                 <Pressable
                   key={option}
                   onPress={() => handleSelect(option)}
+                  disabled={saving}
                   style={[
                     styles.optionCard,
                     selectedValue === option && styles.optionCardSelected,
@@ -192,6 +212,7 @@ export default function OnboardingScreen() {
               placeholder={currentStep.placeholder}
               placeholderTextColor="#8CA399"
               style={styles.input}
+              editable={!saving}
             />
           )}
         </View>
@@ -203,7 +224,7 @@ export default function OnboardingScreen() {
             style={[styles.button, !canContinue && styles.buttonDisabled]}
           >
             <Text style={styles.buttonText}>
-              {stepIndex === steps.length - 1 ? "Enter Viora" : "Continue"}
+              {saving ? "Saving..." : stepIndex === steps.length - 1 ? "Enter Viora" : "Continue"}
             </Text>
           </Pressable>
         </View>
@@ -217,90 +238,88 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
     paddingHorizontal: 24,
-    paddingTop: 18,
+    paddingTop: 12,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   backText: {
-    color: "#0B6E4F",
-    fontWeight: "800",
-    fontSize: 15,
+    color: "#047857",
+    fontWeight: "900",
   },
   stepText: {
-    color: "#6B7C73",
-    fontWeight: "700",
-    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "800",
+    fontSize: 12,
   },
   progressTrack: {
-    height: 8,
-    backgroundColor: "#DDEBE3",
     marginHorizontal: 24,
     marginTop: 18,
-    borderRadius: 999,
+    height: 8,
+    backgroundColor: "#DDEBE3",
+    borderRadius: 99,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
     backgroundColor: "#0B6E4F",
-    borderRadius: 999,
+    borderRadius: 99,
   },
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 42,
+    paddingTop: 34,
   },
   title: {
-    fontSize: 33,
+    color: "#063B2C",
+    fontSize: 34,
     fontWeight: "900",
-    color: "#10231C",
-    lineHeight: 41,
-    letterSpacing: -0.6,
+    letterSpacing: -0.8,
   },
   subtitle: {
     marginTop: 12,
-    fontSize: 16,
-    color: "#6B7C73",
-    lineHeight: 24,
+    color: "#6B7280",
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "700",
   },
   optionsWrap: {
-    marginTop: 34,
+    marginTop: 28,
+    gap: 12,
   },
   optionCard: {
     backgroundColor: "#FFFFFF",
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    borderRadius: 22,
-    marginBottom: 16,
+    borderRadius: 26,
     borderWidth: 1,
-    borderColor: "#E3ECE7",
+    borderColor: "#DDEBE3",
+    padding: 20,
   },
   optionCardSelected: {
     backgroundColor: "#0B6E4F",
-    borderColor: "#0B6E4F",
+    borderColor: "#047857",
   },
   optionText: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#10231C",
+    color: "#063B2C",
+    fontSize: 15,
+    fontWeight: "900",
   },
   optionTextSelected: {
     color: "#FFFFFF",
   },
   input: {
-    marginTop: 34,
+    marginTop: 28,
     backgroundColor: "#FFFFFF",
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: "#DDEBE3",
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 18,
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#10231C",
+    padding: 20,
+    color: "#063B2C",
+    fontWeight: "800",
+    fontSize: 16,
   },
   bottom: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 18,
   },
   button: {
     backgroundColor: "#0B6E4F",
@@ -309,11 +328,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonDisabled: {
-    opacity: 0.4,
+    opacity: 0.45,
   },
   buttonText: {
     color: "#FFFFFF",
-    fontSize: 17,
     fontWeight: "900",
+    fontSize: 16,
   },
 });

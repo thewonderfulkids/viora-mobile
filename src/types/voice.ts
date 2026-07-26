@@ -58,7 +58,7 @@ export type VoiceCommandResult = {
 export type VoiceCommandRecord = VoiceCommandResult & {
   userId: string;
   rawTranscript: string;
-  provider: "browser" | "manual" | "mock";
+  provider: "browser" | "native" | "manual" | "mock";
   isDeleted: boolean;
   updatedAt: string;
 };

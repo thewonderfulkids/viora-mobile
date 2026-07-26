@@ -12,6 +12,8 @@ import {
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,6 +22,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   AICoachFollowUpChips,
@@ -59,6 +62,7 @@ export default function AIScreen() {
   const params = useLocalSearchParams<{ mode?: string }>();
   const { width } = useWindowDimensions();
   const isCompact = width < 760;
+  const insets = useSafeAreaInsets();
   const messageScrollRef = useRef<ScrollView | null>(null);
 
   const {
@@ -268,7 +272,10 @@ export default function AIScreen() {
 
   return (
     <Screen>
-      <View style={styles.screen}>
+      <KeyboardAvoidingView
+        style={styles.screen}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <View style={styles.topShell}>
           <View style={styles.topBar}>
             <CommonBackButton label="Back" />
@@ -339,11 +346,13 @@ export default function AIScreen() {
 
                   <View style={styles.flexOne}>
                     <Text style={styles.assistantTitle}>
-                      {voiceMode ? "Voice mode is ready" : "Your personal wellness coach"}
+                      {voiceMode ? (voiceStatus === "listening" ? "Listening…" : "Voice mode") : "Your personal wellness coach"}
                     </Text>
                     <Text style={styles.assistantSubtitle}>
                       {voiceMode
-                        ? "Use the mic in the message box. Answers stay inside this chat."
+                        ? voiceStatus === "unsupported"
+                          ? "Native voice needs a development build or APK. Typing still works here."
+                          : "Tap the mic and speak in Hindi, Hinglish or English."
                         : "Ask about sleep, hydration, stress, yoga, mood, nutrition, reports or today's wellness score."}
                     </Text>
                   </View>
@@ -416,7 +425,7 @@ export default function AIScreen() {
               </View>
             </ScrollView>
 
-            <View style={styles.inputDock}>
+            <View style={[styles.inputDock, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
               <View style={styles.composer}>
                 <TextInput
                   value={input}
@@ -454,7 +463,7 @@ export default function AIScreen() {
             </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

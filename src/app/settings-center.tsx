@@ -1,133 +1,56 @@
 import { router } from "expo-router";
-import { BellRing, FileText, Globe2, Lock, ShieldCheck, Trash2, UsersRound, WalletCards } from "lucide-react-native";
+import { BellRing, FileText, Globe2, KeyRound, Lock, ShieldCheck, Trash2, UsersRound, WalletCards, SlidersHorizontal } from "lucide-react-native";
 import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 
 import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
+import { PremiumEntryHero } from "../components/firstImpression";
 import { AccountSummaryCard, SettingsSection } from "../components/settings";
 import { useSettingsCenter } from "../hooks";
+import { useAuth } from "../context/AuthContext";
+import { isVioraAccessAdmin } from "../services/adminAccess";
 import { colors, radius, spacing } from "../theme";
 
-type RoutePath = "/language-settings" | "/premium" | "/notification-preferences" | "/privacy-ai-safety" | "/account-security" | "/delete-account" | "/family-wellness" | "/reports";
+type RoutePath = "/language-settings" | "/premium" | "/notification-preferences" | "/privacy-ai-safety" | "/account-security" | "/delete-account" | "/family-wellness" | "/reports" | "/admin" | "/programs";
 
-type SettingsRouteCardProps = {
-  icon: any;
-  title: string;
-  subtitle: string;
-  route: RoutePath;
-};
-
-function SettingsRouteCard({ icon: Icon, title, subtitle, route }: SettingsRouteCardProps) {
-  return (
-    <Pressable onPress={() => router.push({ pathname: route as never })} style={({ pressed }) => [styles.routeCard, pressed ? styles.pressed : null]}>
-      <View style={styles.routeIcon}>
-        <Icon size={20} color={colors.primary} />
-      </View>
-      <View style={styles.routeCopy}>
-        <Text style={styles.routeTitle}>{title}</Text>
-        <Text style={styles.routeSubtitle}>{subtitle}</Text>
-      </View>
-      <Text style={styles.chevron}>›</Text>
-    </Pressable>
-  );
+type CardProps = { icon: any; title: string; subtitle: string; route: RoutePath; tone?: "green" | "gold" };
+function RouteCard({ icon: Icon, title, subtitle, route, tone = "green" }: CardProps) {
+  return <Pressable onPress={() => router.push({ pathname: route as never })} style={({ pressed }) => [styles.routeCard, pressed && styles.pressed]}>
+    <View style={[styles.routeIcon, tone === "gold" && styles.goldIcon]}><Icon size={20} color={tone === "gold" ? "#9A6700" : colors.primary} /></View>
+    <View style={styles.routeCopy}><Text style={styles.routeTitle}>{title}</Text><Text style={styles.routeSubtitle}>{subtitle}</Text></View><Text style={styles.chevron}>›</Text>
+  </Pressable>;
 }
 
 export default function SettingsCenterScreen() {
+  const { user } = useAuth();
   const { dashboard, loading, refreshing, error, refresh } = useSettingsCenter();
-
-  if (loading && !dashboard) return <LoadingState message="Loading settings center..." />;
+  const showAdmin = isVioraAccessAdmin(user?.email);
+  if (loading && !dashboard) return <LoadingState message="Loading your preferences..." />;
   if (error && !dashboard) return <ErrorState title="Unable to load settings" message={error} onRetry={refresh} />;
   if (!dashboard) return <ErrorState title="Settings unavailable" message="Please try again." onRetry={refresh} />;
-
-  return (
-    <Screen>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
-      >
-        <CommonBackButton label="Profile" fallbackPath="/(tabs)" />
-        <AccountSummaryCard dashboard={dashboard} />
-
-        <SettingsSection title="Settings & Preferences" subtitle="Your active control center for Viora V1.">
-          <SettingsRouteCard icon={Globe2} title="Language" subtitle="English, Hindi and Hinglish preference" route="/language-settings" />
-          <SettingsRouteCard icon={WalletCards} title="Subscription & Payments" subtitle="Plans, invoices and billing" route="/premium" />
-          <SettingsRouteCard icon={BellRing} title="Smart Notifications" subtitle="Reminder preferences" route="/notification-preferences" />
-          <SettingsRouteCard icon={UsersRound} title="Family Wellness" subtitle="Members, invites and Elite Family access" route="/family-wellness" />
-          <SettingsRouteCard icon={ShieldCheck} title="Privacy & AI Safety" subtitle="AI memory, personalization and data export" route="/privacy-ai-safety" />
-          <SettingsRouteCard icon={Lock} title="Account Security" subtitle="Password reset and account protection" route="/account-security" />
-          <SettingsRouteCard icon={Trash2} title="Delete Account" subtitle="Safe account deletion request" route="/delete-account" />
-        </SettingsSection>
-
-        <SettingsSection title="Coming through V1 roadmap" subtitle="These cards are active roadmap placeholders, not broken buttons.">
-          <SettingsRouteCard icon={FileText} title="Reports" subtitle="Daily, weekly and monthly AI wellness reports" route="/reports" />
-        </SettingsSection>
-      </ScrollView>
-    </Screen>
-  );
+  return <Screen><ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+    <CommonBackButton label="Profile" fallbackPath="/(tabs)" />
+    <PremiumEntryHero compact eyebrow="Your control center" title="Make Viora work your way." subtitle="Manage your plan, privacy, reminders and account from one clean space." />
+    <AccountSummaryCard dashboard={dashboard} />
+    <SettingsSection title="Membership & experience" subtitle="Personalize how Viora supports your routine.">
+      <RouteCard icon={WalletCards} title="Subscription & payments" subtitle="Plans, access and billing history" route="/premium" tone="gold" />
+      <RouteCard icon={Globe2} title="Language" subtitle="English, Hindi or Hinglish" route="/language-settings" />
+      <RouteCard icon={BellRing} title="Notifications" subtitle="Choose reminders that actually help" route="/notification-preferences" />
+      <RouteCard icon={SlidersHorizontal} title="Programs hub" subtitle="Yoga, workout and wellness programs" route="/programs" />
+      <RouteCard icon={UsersRound} title="Family wellness" subtitle="Members, invites and shared access" route="/family-wellness" />
+    </SettingsSection>
+    <SettingsSection title="Privacy & account" subtitle="Your data and account remain under your control.">
+      <RouteCard icon={ShieldCheck} title="Privacy & AI safety" subtitle="Memory, personalization and exports" route="/privacy-ai-safety" />
+      <RouteCard icon={Lock} title="Account security" subtitle="Password and account protection" route="/account-security" />
+      <RouteCard icon={FileText} title="Reports" subtitle="Daily, weekly and monthly summaries" route="/reports" />
+      {showAdmin ? <RouteCard icon={KeyRound} title="Admin control panel" subtitle="Restricted Viora operations access" route="/admin" /> : null}
+      <RouteCard icon={Trash2} title="Delete account" subtitle="Request permanent account deletion" route="/delete-account" />
+    </SettingsSection>
+  </ScrollView></Screen>;
 }
-
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: 32,
-    paddingBottom: 44,
-    gap: spacing.xl,
-  },
-  routeCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
-    padding: spacing.lg,
-  },
-  routeIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.softGreen,
-  },
-  routeCopy: {
-    flex: 1,
-  },
-  routeTitle: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  routeSubtitle: {
-    marginTop: 3,
-    color: colors.mutedText,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: "700",
-  },
-  chevron: {
-    color: colors.mutedText,
-    fontSize: 32,
-    fontWeight: "600",
-  },
-  pressed: {
-    opacity: 0.75,
-  },
-  futureCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.softGreen,
-    padding: spacing.lg,
-  },
-  futureText: {
-    flex: 1,
-    color: colors.mutedText,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: "700",
-  },
+  content:{paddingHorizontal:spacing.xl,paddingTop:24,paddingBottom:44,gap:spacing.xl},
+  routeCard:{flexDirection:"row",alignItems:"center",gap:spacing.md,borderRadius:radius.xl,borderWidth:1,borderColor:colors.border,backgroundColor:colors.white,padding:spacing.lg},
+  routeIcon:{width:46,height:46,borderRadius:17,alignItems:"center",justifyContent:"center",backgroundColor:colors.softGreen},goldIcon:{backgroundColor:"#FFF7DA"},
+  routeCopy:{flex:1},routeTitle:{color:colors.text,fontSize:15,fontWeight:"900"},routeSubtitle:{marginTop:3,color:colors.mutedText,fontSize:12,lineHeight:17,fontWeight:"700"},
+  chevron:{color:colors.mutedText,fontSize:30,fontWeight:"600"},pressed:{opacity:.72}
 });

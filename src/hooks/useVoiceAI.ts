@@ -91,7 +91,7 @@ export function useVoiceAI(options: UseVoiceAIOptions = {}) {
   const submitCommand = useCallback(
     async (
       commandText = transcript,
-      provider: "browser" | "manual" | "mock" = "manual"
+      provider: "browser" | "native" | "manual" | "mock" = "manual"
     ) => {
       const currentUser = auth.currentUser;
 

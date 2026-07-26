@@ -27,10 +27,13 @@ function buildBriefing(data: DashboardData): DashboardBriefing {
   const sleepHours = Math.round(data.todayStats.sleepMinutes / 60);
   const yogaMinutes = data.todayStats.yogaMinutes;
 
-  let focus = "Maintain your wellness rhythm";
-  let recommendation = "Keep your hydration, movement and sleep routine consistent today.";
+  let focus = "Start with one simple win";
+  let recommendation = "Log one wellness action now so Viora can personalize the rest of your day.";
 
-  if (waterPercent < 60) {
+  if (data.wellnessScore <= 0) {
+    focus = "First wellness signal";
+    recommendation = "Start by logging water, sleep or a short yoga session. One entry is enough to activate better intelligence.";
+  } else if (waterPercent < 60) {
     focus = "Hydration recovery";
     recommendation = "Start with 300–500 ml water now and spread the remaining goal through the day.";
   } else if (data.todayStats.sleepMinutes < 360) {
@@ -131,7 +134,7 @@ function buildSmartActions(data: DashboardData): DashboardSmartAction[] {
       id: "view-reports",
       kind: "reports",
       title: "View Reports",
-      subtitle: "Open daily, weekly and monthly wellness reports.",
+      subtitle: "Review daily, weekly and monthly wellness reports.",
       route: "/reports",
       priority: "low",
     },
@@ -163,7 +166,7 @@ function buildTimeline(data: DashboardData): DashboardTimelineItem[] {
       timeLabel: "Meal time",
       title: "Nutrition Logging",
       description: "Add your meal items to improve calorie and macro intelligence.",
-      completed: false,
+      completed: data.todayStats.waterMl > 0 || data.todayStats.yogaMinutes > 0 || data.todayStats.sleepMinutes > 0,
       route: "/nutrition",
     },
     {

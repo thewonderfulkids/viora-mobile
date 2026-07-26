@@ -14,6 +14,7 @@ import {
   WellnessReminderStatus,
 } from "../../types";
 import { buildSmartReminders } from "./reminderEngine";
+import { syncNativeWellnessReminders } from "./nativeNotificationService";
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -94,6 +95,8 @@ export async function getSmartNotificationDashboard(
   if (reminders.length > 0) {
     await saveWellnessReminders(reminders);
   }
+
+  await syncNativeWellnessReminders(reminders, settings);
 
   const activeReminders = reminders.filter((item) => item.status === "scheduled");
   const completedReminders = reminders.filter((item) => item.status === "completed");

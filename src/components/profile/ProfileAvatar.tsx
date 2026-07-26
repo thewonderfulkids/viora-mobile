@@ -31,7 +31,6 @@ export function ProfileAvatar({
   photoURL,
   onPress,
 }: ProfileAvatarProps) {
-  console.log("PROFILE_AVATAR_RENDER", { name, photoURL });
   return (
     <View style={styles.avatarWrap}>
       <View style={styles.avatar}>
@@ -61,7 +60,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 94,
     height: 94,
-    borderRadius: 34,
+    borderRadius: 47,
     backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
@@ -75,7 +74,7 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%",
-    borderRadius: 34,
+    borderRadius: 47,
   },
 
   cameraButton: {

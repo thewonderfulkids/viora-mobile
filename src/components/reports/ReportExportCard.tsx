@@ -1,5 +1,5 @@
 import { Download, Save } from "lucide-react-native";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, spacing } from "../../theme";
 
@@ -15,16 +15,16 @@ export function ReportExportCard({ canExport, saving, onSave, onExport }: Report
     <View style={styles.card}>
       <View>
         <Text style={styles.title}>Export & Save</Text>
-        <Text style={styles.subtitle}>Save this report and prepare a PDF-ready snapshot for sharing or future doctor-friendly exports.</Text>
+        <Text style={styles.subtitle}>Save this report or export it as a shareable PDF for doctor visits and personal records.</Text>
       </View>
       <View style={styles.actions}>
         <Pressable disabled={saving} style={styles.secondaryButton} onPress={onSave}>
-          <Save size={16} color={colors.primaryDark} />
-          <Text style={styles.secondaryText}>{saving ? "Saving..." : "Save Report"}</Text>
+          {saving ? <ActivityIndicator size="small" color={colors.primaryDark} /> : <Save size={16} color={colors.primaryDark} />}
+          <Text style={styles.secondaryText}>{saving ? "Working..." : "Save Report"}</Text>
         </Pressable>
         <Pressable disabled={!canExport || saving} style={[styles.primaryButton, (!canExport || saving) && styles.disabledButton]} onPress={onExport}>
-          <Download size={16} color={colors.white} />
-          <Text style={styles.primaryText}>{canExport ? "Export PDF" : "Upgrade to Export"}</Text>
+          {saving ? <ActivityIndicator size="small" color={colors.white} /> : <Download size={16} color={colors.white} />}
+          <Text style={styles.primaryText}>{canExport ? "Download PDF" : "Upgrade to Export"}</Text>
         </Pressable>
       </View>
     </View>

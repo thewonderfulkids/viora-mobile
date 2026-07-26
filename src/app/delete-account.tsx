@@ -15,7 +15,7 @@ export default function DeleteAccountScreen() {
   function requestDeleteAccount() {
     Alert.alert(
       "Request account deletion",
-      "This will mark your account for deletion review. Permanent deletion will be handled through the production safety flow in Sprint 25.",
+      "This will mark your account for deletion review. Permanent deletion will be handled through the production safety flow.",
       [
         { text: "Cancel", style: "cancel" },
         { text: "Request deletion", style: "destructive", onPress: () => updatePreferences({ deleteAccountRequestedAt: new Date().toISOString() }) },

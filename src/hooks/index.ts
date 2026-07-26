@@ -5,6 +5,7 @@ export * from "./useDashboardIntelligence";
 export * from "./useFamilyDashboard";
 export * from "./useGoalHabitDashboard";
 export * from "./useHydration";
+export * from "./useLaunchCandidate";
 export * from "./useMentalWellness";
 export * from "./useMusic";
 export * from "./useNetwork";
@@ -14,8 +15,14 @@ export * from "./useReports";
 export * from "./useSettingsCenter";
 export * from "./useSleep";
 export * from "./useSmartNotifications";
+export * from "./useSyncStatus";
 export * from "./useToast";
 export * from "./useVoiceAI";
 export * from "./useWellnessIntelligence";
 export * from "./useYoga";
 
+
+export * from "./useBetaFeedback";
+export * from "./useAdminAccess";
+export * from "./useAdminControl";
+export * from "./useProgramContent";

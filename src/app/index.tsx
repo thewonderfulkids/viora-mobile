@@ -1,17 +1,15 @@
 import { Redirect } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
+import { useState } from "react";
 
+import { LaunchExperience } from "../components/launch/LaunchExperience";
 import { useAuth } from "../context/AuthContext";
 
 export default function Index() {
   const { user, userDoc, loading } = useAuth();
+  const [launchComplete, setLaunchComplete] = useState(false);
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
+  if (!launchComplete || loading) {
+    return <LaunchExperience onComplete={() => setLaunchComplete(true)} />;
   }
 
   if (!user) {

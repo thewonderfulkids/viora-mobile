@@ -1,6 +1,6 @@
 import { getVoiceCommandsByUser } from "../../repositories";
 import { VoiceAICapability, VoiceAIDashboard, VoiceQuickAction } from "../../types";
-import { captureSpeechFromBrowser, supportsBrowserSpeechRecognition } from "./speechToText";
+import { captureSpeech, supportsSpeechRecognition } from "./speechToText";
 import { speakText, stopSpeaking, supportsBrowserTextToSpeech } from "./textToSpeech";
 import { processVoiceCommand } from "./voiceCommandEngine";
 
@@ -14,20 +14,19 @@ const QUICK_ACTIONS: VoiceQuickAction[] = [
 ];
 
 const CAPABILITIES: VoiceAICapability[] = [
-  { id: "browser_stt", title: "Speech-to-text", description: "Browser speech recognition where supported, with manual fallback everywhere.", status: "active" },
+  { id: "native_stt", title: "Native speech-to-text", description: "Android and iOS native speech recognition with browser fallback on web.", status: "active" },
   { id: "voice_navigation", title: "Voice navigation", description: "Open reports, nutrition, mental wellness, reminders, dashboard and AI Coach by command.", status: "active" },
   { id: "hydration_logging", title: "Hydration logging", description: "Commands like 'I drank 500 ml water' update hydration immediately.", status: "active" },
   { id: "confirmation_logging", title: "Safe confirmation logging", description: "Nutrition, mood, sleep and goals open the right screen for confirmation before saving.", status: "ready" },
-  { id: "native_voice", title: "Native voice providers", description: "Ready for future native Speech APIs, OpenAI voice and advanced Hindi/Hinglish models.", status: "future" },
 ];
 
 export async function getVoiceAIDashboard(userId: string): Promise<VoiceAIDashboard> {
   const history = await getVoiceCommandsByUser(userId, 12);
-  const speechSupported = supportsBrowserSpeechRecognition();
+  const speechSupported = supportsSpeechRecognition();
 
   return {
     status: speechSupported ? "idle" : "unsupported",
-    providerLabel: speechSupported ? "Browser Speech Provider" : "Manual voice command mode",
+    providerLabel: speechSupported ? "Native Speech Provider" : "Manual command mode",
     lastTranscript: history[0]?.transcript || "",
     lastResult: history[0] || null,
     quickActions: QUICK_ACTIONS,
@@ -38,13 +37,13 @@ export async function getVoiceAIDashboard(userId: string): Promise<VoiceAIDashbo
 }
 
 export async function captureVoiceCommand(language = "en-IN") {
-  return captureSpeechFromBrowser(language);
+  return captureSpeech(language);
 }
 
 export async function runVoiceCommand(input: {
   userId: string;
   transcript: string;
-  provider: "browser" | "manual" | "mock";
+  provider: "browser" | "native" | "manual" | "mock";
 }) {
   return processVoiceCommand(input);
 }

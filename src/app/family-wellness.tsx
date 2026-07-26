@@ -1,6 +1,8 @@
 import { RefreshControl, ScrollView, StyleSheet, Text } from "react-native";
+import { UsersRound } from "lucide-react-native";
 
 import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
+import { PremiumJourneyHero } from "../components/premiumExperience";
 import { FamilyHero, FamilyInsightList, FamilyInviteCard, FamilyMemberList, FamilyMetricGrid, FamilySection } from "../components/family";
 import { useFamilyDashboard } from "../hooks";
 import { colors, spacing } from "../theme";
@@ -19,6 +21,14 @@ export default function FamilyWellnessScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
         <CommonBackButton label="Wellness" fallbackPath="/(tabs)" />
+        <PremiumJourneyHero
+          eyebrow="Family Wellness"
+          title="A shared view, with personal boundaries."
+          subtitle="Support family members through consent-based visibility, invitations and meaningful wellness insights without exposing private details."
+          icon={<UsersRound size={29} color="#BE185D" />}
+          colors={["#831843", "#BE185D", "#F472B6"]}
+          chips={["Up to 4 members", "Consent based", "Separate profiles"]}
+        />
         <FamilyHero dashboard={dashboard} />
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -49,7 +59,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
     paddingTop: 32,
-    paddingBottom: 46,
+    paddingBottom: 170,
     gap: spacing.xl,
   },
   errorText: {

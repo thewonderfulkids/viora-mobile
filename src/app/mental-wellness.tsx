@@ -1,6 +1,8 @@
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { BrainCircuit } from "lucide-react-native";
 
-import { CommonBackButton, ErrorState, LoadingState, Screen, SectionHeader } from "../components/common";
+import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
+import { PremiumJourneyHero } from "../components/premiumExperience";
 import {
   CopingSuggestionList,
   MentalInsightList,
@@ -47,10 +49,13 @@ export default function MentalWellnessScreen() {
       >
         <CommonBackButton />
 
-        <SectionHeader
-          label="Sprint 17"
-          title="Mental Wellness & Mood Intelligence"
-          subtitle="Track mood, stress, emotions, triggers and coping actions. Viora connects mental wellness with AI Coach, reports and future voice commands."
+        <PremiumJourneyHero
+          eyebrow="Mental Wellness"
+          title="Understand your emotional rhythm."
+          subtitle="Track mood, stress, triggers and recovery actions while Viora turns your check-ins into useful, private wellness context."
+          icon={<BrainCircuit size={29} color="#7C3AED" />}
+          colors={["#312E81", "#6D28D9", "#A855F7"]}
+          chips={["Mood patterns", "Stress signals", "Private AI context"]}
         />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}

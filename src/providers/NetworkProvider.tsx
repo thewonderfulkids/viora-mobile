@@ -1,5 +1,5 @@
 import NetInfo from "@react-native-community/netinfo";
-import { createContext, ReactNode, useEffect, useMemo, useState } from "react";
+import { createContext, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
 type NetworkContextValue = {
   isOnline: boolean;
@@ -27,7 +27,7 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
 
-  async function refreshNetworkStatus() {
+  const refreshNetworkStatus = useCallback(async () => {
     setIsChecking(true);
 
     try {
@@ -37,17 +37,17 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
         state.isInternetReachable
       );
 
-      setIsOnline(online);
+      setIsOnline((current) => (current === online ? current : online));
       setLastCheckedAt(Date.now());
 
       return online;
     } finally {
       setIsChecking(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    refreshNetworkStatus();
+    void refreshNetworkStatus();
 
     const unsubscribe = NetInfo.addEventListener((state) => {
       const online = resolveOnlineState(
@@ -55,12 +55,12 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
         state.isInternetReachable
       );
 
-      setIsOnline(online);
+      setIsOnline((current) => (current === online ? current : online));
       setLastCheckedAt(Date.now());
     });
 
     return unsubscribe;
-  }, []);
+  }, [refreshNetworkStatus]);
 
   const value = useMemo(
     () => ({
@@ -69,7 +69,7 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
       lastCheckedAt,
       refreshNetworkStatus,
     }),
-    [isOnline, isChecking, lastCheckedAt]
+    [isOnline, isChecking, lastCheckedAt, refreshNetworkStatus]
   );
 
   return (

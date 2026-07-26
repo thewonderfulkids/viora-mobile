@@ -169,6 +169,7 @@ export function NutritionFoodLogger({ presets, saving, onAddEntry }: NutritionFo
                 onChangeText={setQuantity}
                 keyboardType="numeric"
                 placeholder="Qty"
+                placeholderTextColor={colors.mutedText}
                 style={styles.input}
               />
             </View>
@@ -192,7 +193,7 @@ export function NutritionFoodLogger({ presets, saving, onAddEntry }: NutritionFo
 
       <View style={styles.customCard}>
         <Text style={styles.customTitle}>Custom Food</Text>
-        <TextInput value={customName} onChangeText={setCustomName} placeholder="Example: Homemade sandwich" style={styles.input} />
+        <TextInput value={customName} onChangeText={setCustomName} placeholder="Example: Homemade sandwich" placeholderTextColor={colors.mutedText} style={styles.input} />
 
         <View style={styles.unitWrap}>
           {UNIT_OPTIONS.map((unit) => {
@@ -205,10 +206,39 @@ export function NutritionFoodLogger({ presets, saving, onAddEntry }: NutritionFo
           })}
         </View>
 
-        <View style={styles.inputRow}>
-          <TextInput value={customCalories} onChangeText={setCustomCalories} keyboardType="numeric" placeholder="Calories" style={[styles.input, styles.flexInput]} />
-          <TextInput value={customProtein} onChangeText={setCustomProtein} keyboardType="numeric" placeholder="Protein g" style={[styles.input, styles.flexInput]} />
-          <TextInput value={customSugar} onChangeText={setCustomSugar} keyboardType="numeric" placeholder="Sugar g" style={[styles.input, styles.flexInput]} />
+        <View style={styles.customInputGrid}>
+          <View style={styles.customInputBox}>
+            <TextInput
+              value={customCalories}
+              onChangeText={setCustomCalories}
+              keyboardType="numeric"
+              placeholder="Calories"
+              placeholderTextColor={colors.mutedText}
+              style={styles.input}
+            />
+          </View>
+
+          <View style={styles.customInputBox}>
+            <TextInput
+              value={customProtein}
+              onChangeText={setCustomProtein}
+              keyboardType="numeric"
+              placeholder="Protein g"
+              placeholderTextColor={colors.mutedText}
+              style={styles.input}
+            />
+          </View>
+
+          <View style={styles.customInputBox}>
+            <TextInput
+              value={customSugar}
+              onChangeText={setCustomSugar}
+              keyboardType="numeric"
+              placeholder="Sugar g"
+              placeholderTextColor={colors.mutedText}
+              style={styles.input}
+            />
+          </View>
         </View>
 
         <Pressable disabled={saving || !customName.trim()} style={[styles.secondaryButton, !customName.trim() && styles.disabledButton]} onPress={addCustomFood}>
@@ -222,17 +252,21 @@ export function NutritionFoodLogger({ presets, saving, onAddEntry }: NutritionFo
 
 const styles = StyleSheet.create({
   card: {
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
     borderRadius: radius.xxl,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.white,
-    padding: spacing.lg,
+    padding: spacing.md,
     gap: spacing.lg,
   },
   headerRow: {
     flexDirection: "row",
     gap: spacing.md,
     alignItems: "center",
+    maxWidth: "100%",
   },
   iconShell: {
     width: 44,
@@ -334,18 +368,27 @@ const styles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
+    maxWidth: "100%",
   },
   quantityBox: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 150,
+    minWidth: 0,
     gap: spacing.xs,
   },
   unitBox: {
-    width: 92,
+    flexGrow: 0,
+    flexShrink: 1,
+    flexBasis: 92,
+    minWidth: 82,
     gap: spacing.xs,
   },
   input: {
-    minHeight: 42,
+    width: "100%",
+    minHeight: 46,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
@@ -357,6 +400,19 @@ const styles = StyleSheet.create({
   },
   flexInput: {
     flex: 1,
+    minWidth: 0,
+  },
+  customInputGrid: {
+    width: "100%",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  customInputBox: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 145,
+    minWidth: 0,
   },
   staticUnit: {
     minHeight: 42,
@@ -397,6 +453,9 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   customCard: {
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.border,
@@ -428,9 +487,10 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   secondaryButton: {
-    alignSelf: "flex-start",
+    alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     borderRadius: radius.pill,
     backgroundColor: colors.white,

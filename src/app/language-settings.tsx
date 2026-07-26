@@ -33,7 +33,7 @@ export default function LanguageSettingsScreen() {
         >
           <SettingsInfoCard
             title="Language foundation"
-            subtitle="Sprint 19 stores your preference now. Full content translation will continue through the V1 roadmap without changing this setting model."
+            subtitle="Viora stores your preference now. Full content translation will continue through the launch roadmap without changing this setting model."
           />
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}

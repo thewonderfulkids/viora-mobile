@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
+import { Headphones } from "lucide-react-native";
 
-import { Screen } from "../components/common";
+import { CommonBackButton, Screen } from "../components/common";
+import { PremiumJourneyHero } from "../components/premiumExperience";
 import {
     MusicHistoryCard,
     MusicPlayerCard,
     MusicProgressCard,
     MusicSessionCard,
 } from "../components/music";
-import { WellnessHeader } from "../components/wellness";
 import { useDashboard } from "../hooks";
 import { useMusic } from "../hooks";
 import { colors, spacing } from "../theme";
@@ -78,9 +79,14 @@ export default function MusicScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        <WellnessHeader
-          title="Music Therapy"
-          subtitle="Relax, focus, sleep better and reset your mood with guided sound therapy."
+        <CommonBackButton label="Wellness" fallbackPath="/(tabs)/wellness" />
+        <PremiumJourneyHero
+          eyebrow="Music Therapy"
+          title="Soundscapes for the state you need."
+          subtitle="Use guided audio sessions for focus, calm, sleep and emotional reset, with every completed minute reflected in your wellness progress."
+          icon={<Headphones size={29} color="#0369A1" />}
+          colors={["#0C4A6E", "#0369A1", "#38BDF8"]}
+          chips={["Focus", "Calm", "Sleep", "Mood reset"]}
         />
 
         <MusicProgressCard minutes={data?.todayStats.musicMinutes || 0} />
@@ -116,8 +122,8 @@ export default function MusicScreen() {
 const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
-    paddingTop: 64,
-    paddingBottom: 40,
+    paddingTop: 32,
+    paddingBottom: 170,
     gap: spacing.md,
   },
   sectionTitle: {

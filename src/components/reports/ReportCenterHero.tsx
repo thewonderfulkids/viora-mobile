@@ -22,7 +22,7 @@ export function ReportCenterHero({ score, summary, activePlanCode }: ReportCente
         </View>
       </View>
 
-      <Text style={styles.kicker}>Sprint 20</Text>
+      <Text style={styles.kicker}>Health Reports</Text>
       <Text style={styles.title}>Health Reports</Text>
       <Text style={styles.score}>{score}/100</Text>
       <Text style={styles.summary}>{summary}</Text>

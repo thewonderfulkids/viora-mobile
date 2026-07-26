@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { auth } from "../firebase/firebaseConfig";
-import { createReportExport, getReportCenter, saveGeneratedReport } from "../services";
+import { createAndShareReportPdf, createReportExport, getReportCenter, saveGeneratedReport, shareSavedReportExport } from "../services";
 import { HealthReportDoc, ReportCenterDashboard, ReportRange } from "../types";
 
 export function useReports() {
@@ -66,6 +66,7 @@ export function useReports() {
     setError(null);
 
     try {
+      await createAndShareReportPdf(report);
       await createReportExport(currentUser.uid, report);
       await refresh(report.range);
     } catch (error: any) {
@@ -74,6 +75,22 @@ export function useReports() {
       setSaving(false);
     }
   }, [refresh]);
+
+  const openSavedExport = useCallback(async (exportId: string) => {
+    const record = dashboard?.exports.find((item) => item.id === exportId);
+    if (!record) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      await shareSavedReportExport(record);
+    } catch (error: any) {
+      setError(error?.message || "Unable to open saved report.");
+    } finally {
+      setSaving(false);
+    }
+  }, [dashboard?.exports]);
 
   return {
     dashboard,
@@ -86,5 +103,6 @@ export function useReports() {
     changeRange,
     saveCurrentReport,
     exportCurrentReport,
+    openSavedExport,
   };
 }

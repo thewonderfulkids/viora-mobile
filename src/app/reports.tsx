@@ -1,7 +1,9 @@
 import { router } from "expo-router";
 import { RefreshControl, ScrollView, StyleSheet, Text } from "react-native";
+import { FileChartColumnIncreasing } from "lucide-react-native";
 
 import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
+import { PremiumJourneyHero } from "../components/premiumExperience";
 import {
   ReportCenterHero,
   ReportExportCard,
@@ -28,6 +30,7 @@ export default function ReportsScreen() {
     changeRange,
     saveCurrentReport,
     exportCurrentReport,
+    openSavedExport,
   } = useReports();
 
   if (loading && !dashboard) {
@@ -62,7 +65,15 @@ export default function ReportsScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => refresh(selectedRange)} />}
       >
-        <CommonBackButton label="Dashboard" />
+        <CommonBackButton label="Progress" fallbackPath="/(tabs)/progress" />
+        <PremiumJourneyHero
+          eyebrow="Health Reports"
+          title="Your wellness story, clearly explained."
+          subtitle="Turn daily signals into readable trends, AI highlights and doctor-friendly report snapshots you can save or export."
+          icon={<FileChartColumnIncreasing size={29} color="#1D4ED8" />}
+          colors={["#172554", "#1D4ED8", "#60A5FA"]}
+          chips={["Trends", "Risk flags", "PDF export", "Doctor friendly"]}
+        />
 
         <ReportCenterHero
           score={dashboard.heroScore}
@@ -110,7 +121,7 @@ export default function ReportsScreen() {
         </ReportSection>
 
         <ReportSection title="Export History" subtitle="Saved PDF-ready report snapshots stay connected to your account.">
-          <ReportExportHistory exports={dashboard.exports} />
+          <ReportExportHistory exports={dashboard.exports} onOpenExport={openSavedExport} />
         </ReportSection>
       </ScrollView>
     </Screen>
@@ -121,7 +132,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.xl,
     paddingTop: 32,
-    paddingBottom: 44,
+    paddingBottom: 170,
     gap: spacing.xl,
   },
   errorText: {

@@ -69,7 +69,7 @@ function responseForIntent(intent: VoiceIntent) {
 export async function processVoiceCommand(input: {
   userId: string;
   transcript: string;
-  provider: "browser" | "manual" | "mock";
+  provider: "browser" | "native" | "manual" | "mock";
 }): Promise<VoiceCommandResult> {
   if (!input.userId) throw new Error("Please login again.");
   if (!input.transcript.trim()) throw new Error("Please say or type a voice command.");

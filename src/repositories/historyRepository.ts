@@ -6,7 +6,7 @@ export async function getHistoryRange(
   endDate: string
 ): Promise<WellnessHistoryRecord[]> {
   /**
-   * Sprint 9.5.3
+   * History repository
    *
    * Firestore implementation
    * will be added next patch.

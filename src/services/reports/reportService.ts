@@ -110,7 +110,7 @@ function buildWellnessSection(sections: ReportSectionSummary[]): ReportSectionSu
     metrics: [
       metric("score", "Wellness Score", `${score}/100`, "Composite report score", score >= 75 ? "positive" : "warning"),
       metric("sections", "Tracked Areas", String(sections.filter((item) => item.score > 0).length), "Nutrition, mood, goals and habits", "neutral"),
-      metric("readiness", "Doctor-ready", "Yes", "Summary format is ready for Sprint 20 exports", "positive"),
+      metric("readiness", "Doctor-ready", "Yes", "Summary format is ready for report exports", "positive"),
     ],
     trend: sections.map((item) => ({ id: item.id, label: item.title.split(" ")[0], value: item.score, helper: item.summary })),
   };
@@ -214,9 +214,580 @@ export async function saveGeneratedReport(report: HealthReportDoc) {
   return saveHealthReport(report);
 }
 
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function scoreTone(score: number) {
+  if (score >= 75) return "positive";
+  if (score >= 55) return "neutral";
+  return "warning";
+}
+
+function scoreLabel(score: number) {
+  if (score >= 80) return "Excellent";
+  if (score >= 70) return "Strong";
+  if (score >= 55) return "Balanced";
+  if (score > 0) return "Needs Attention";
+  return "Not Enough Data";
+}
+
+function safeBarWidth(value: number) {
+  return Math.min(Math.max(Math.round(value), 0), 100);
+}
+
+function formatReportDate(value: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function renderList(items: string[], emptyText: string, tone: "positive" | "warning") {
+  const listItems = (items.length ? items : [emptyText])
+    .map((item) => `<li>${escapeHtml(item)}</li>`)
+    .join("");
+
+  return `<ul class="clean-list ${tone}">${listItems}</ul>`;
+}
+
+function renderMetricCards(section: ReportSectionSummary) {
+  if (!section.metrics.length) {
+    return `<div class="empty-card">More metrics will appear when more wellness data is logged.</div>`;
+  }
+
+  return `
+    <div class="metric-grid">
+      ${section.metrics.map((item) => `
+        <div class="metric-card ${item.tone}">
+          <div class="metric-label">${escapeHtml(item.label)}</div>
+          <div class="metric-value">${escapeHtml(item.value)}</div>
+          <div class="metric-helper">${escapeHtml(item.helper)}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderTrendRows(section: ReportSectionSummary) {
+  if (!section.trend.length) {
+    return `<div class="empty-card">Trend data will appear here after more check-ins.</div>`;
+  }
+
+  return `
+    <div class="trend-list">
+      ${section.trend.slice(0, 8).map((item) => {
+        const width = safeBarWidth(item.value);
+        return `
+          <div class="trend-row">
+            <div class="trend-main">
+              <span class="trend-label">${escapeHtml(item.label)}</span>
+              <span class="trend-helper">${escapeHtml(item.helper)}</span>
+            </div>
+            <div class="trend-track"><div class="trend-fill" style="width:${width}%"></div></div>
+            <div class="trend-value">${width}</div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderSection(section: ReportSectionSummary) {
+  const tone = scoreTone(section.score);
+
+  return `
+    <section class="report-section">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Wellness Area</p>
+          <h2>${escapeHtml(section.title)}</h2>
+        </div>
+        <div class="mini-score ${tone}">
+          <strong>${escapeHtml(section.score)}</strong>
+          <span>/100</span>
+        </div>
+      </div>
+      <p class="section-summary">${escapeHtml(section.summary)}</p>
+      ${renderMetricCards(section)}
+      <h3>Trend Snapshot</h3>
+      ${renderTrendRows(section)}
+    </section>
+  `;
+}
+
 export function buildReportHtml(report: HealthReportDoc) {
-  const sections = report.sections.map((section) => `<h2>${section.title} — ${section.score}/100</h2><p>${section.summary}</p>`).join("");
-  return `<html><body><h1>${report.title}</h1><p>${report.subtitle}</p><h2>AI Summary</h2><p>${report.aiSummary}</p>${sections}</body></html>`;
+  const overallTone = scoreTone(report.score);
+  const generatedOn = formatReportDate(report.generatedAt);
+  const startDate = formatReportDate(report.startDate);
+  const endDate = formatReportDate(report.endDate);
+  const sections = report.sections.map(renderSection).join("");
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(report.title)}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm 16mm 18mm;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f4fbf7;
+      color: #10251c;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 24px;
+      overflow: hidden;
+      border: 1px solid #dbeee5;
+    }
+
+    .hero {
+      padding: 28px;
+      background: linear-gradient(135deg, #0b6e4f 0%, #13a579 58%, #a8f0d1 100%);
+      color: #ffffff;
+      position: relative;
+    }
+
+    .brand-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    .brand {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+    }
+
+    .tagline {
+      margin-top: 4px;
+      color: rgba(255, 255, 255, 0.86);
+      font-weight: 700;
+    }
+
+    .report-chip {
+      border: 1px solid rgba(255, 255, 255, 0.42);
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .score-ring {
+      width: 154px;
+      height: 154px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      border: 12px solid rgba(255, 255, 255, 0.55);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 18px 40px rgba(8, 74, 52, 0.25);
+    }
+
+    .score-ring strong {
+      font-size: 48px;
+      line-height: 1;
+      font-weight: 950;
+    }
+
+    .score-ring span {
+      font-size: 12px;
+      font-weight: 900;
+      opacity: 0.9;
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 31px;
+      line-height: 1.12;
+      letter-spacing: -0.6px;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .meta-grid {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .meta-card {
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      padding: 12px;
+    }
+
+    .meta-label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.78);
+      font-weight: 900;
+    }
+
+    .meta-value {
+      display: block;
+      margin-top: 4px;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .content {
+      padding: 26px;
+      background: #ffffff;
+    }
+
+    .summary-card {
+      border-radius: 22px;
+      border: 1px solid #dbeee5;
+      background: #f6fcf9;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .eyebrow {
+      margin: 0 0 5px;
+      color: #0b6e4f;
+      font-size: 10px;
+      font-weight: 950;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .summary-card h2,
+    .report-section h2 {
+      margin: 0;
+      color: #10251c;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .summary-card p,
+    .section-summary {
+      margin: 10px 0 0;
+      color: #52665d;
+      font-weight: 700;
+    }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .list-card {
+      border-radius: 20px;
+      border: 1px solid #e3efe9;
+      padding: 18px;
+      background: #ffffff;
+      break-inside: avoid;
+    }
+
+    .list-card h3,
+    .report-section h3 {
+      margin: 0 0 12px;
+      color: #10251c;
+      font-size: 15px;
+      font-weight: 950;
+    }
+
+    .clean-list {
+      margin: 0;
+      padding-left: 18px;
+      color: #52665d;
+      font-weight: 750;
+    }
+
+    .clean-list li {
+      margin-bottom: 8px;
+    }
+
+    .clean-list.positive li::marker {
+      color: #0b8f67;
+    }
+
+    .clean-list.warning li::marker {
+      color: #e29b22;
+    }
+
+    .report-section {
+      border-radius: 24px;
+      border: 1px solid #dbeee5;
+      background: #ffffff;
+      padding: 22px;
+      margin-top: 18px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .mini-score {
+      min-width: 78px;
+      border-radius: 18px;
+      padding: 10px 12px;
+      text-align: center;
+      border: 1px solid #dbeee5;
+      background: #f6fcf9;
+    }
+
+    .mini-score strong {
+      display: block;
+      font-size: 25px;
+      line-height: 1;
+      color: #0b6e4f;
+    }
+
+    .mini-score span {
+      color: #789188;
+      font-weight: 900;
+      font-size: 11px;
+    }
+
+    .mini-score.warning strong {
+      color: #b76d00;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+      margin-bottom: 18px;
+    }
+
+    .metric-card {
+      border-radius: 18px;
+      border: 1px solid #e3efe9;
+      background: #f8fcfa;
+      padding: 14px;
+      min-height: 104px;
+    }
+
+    .metric-card.positive {
+      border-color: #c7eadb;
+      background: #f1fbf6;
+    }
+
+    .metric-card.warning {
+      border-color: #ffe1ad;
+      background: #fff8eb;
+    }
+
+    .metric-label {
+      color: #6d8078;
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      margin-top: 8px;
+      color: #10251c;
+      font-size: 21px;
+      font-weight: 950;
+      line-height: 1.15;
+    }
+
+    .metric-helper {
+      margin-top: 7px;
+      color: #60756c;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .trend-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .trend-row {
+      display: grid;
+      grid-template-columns: 132px 1fr 38px;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border-radius: 16px;
+      background: #f8fcfa;
+      border: 1px solid #edf5f1;
+    }
+
+    .trend-label {
+      display: block;
+      color: #10251c;
+      font-size: 12px;
+      font-weight: 950;
+    }
+
+    .trend-helper {
+      display: block;
+      color: #789188;
+      font-size: 10px;
+      font-weight: 750;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .trend-track {
+      height: 8px;
+      border-radius: 999px;
+      background: #e7f2ec;
+      overflow: hidden;
+    }
+
+    .trend-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #0b6e4f, #13a579);
+    }
+
+    .trend-value {
+      color: #0b6e4f;
+      font-size: 12px;
+      font-weight: 950;
+      text-align: right;
+    }
+
+    .empty-card {
+      border-radius: 18px;
+      border: 1px dashed #cfe6dc;
+      background: #f8fcfa;
+      padding: 14px;
+      color: #60756c;
+      font-weight: 800;
+      margin-top: 12px;
+    }
+
+    .footer {
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #e4f1eb;
+      color: #6f837a;
+      font-size: 10px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .footer strong {
+      color: #0b6e4f;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="brand-row">
+        <div>
+          <div class="brand">Viora</div>
+          <div class="tagline">AI-powered wellness report</div>
+        </div>
+        <div class="report-chip">${escapeHtml(report.range.toUpperCase())} REPORT</div>
+      </div>
+
+      <div class="hero-grid">
+        <div class="score-ring">
+          <strong>${escapeHtml(report.score)}</strong>
+          <span>${escapeHtml(scoreLabel(report.score))}</span>
+        </div>
+        <div>
+          <h1>${escapeHtml(report.title)}</h1>
+          <p class="subtitle">${escapeHtml(report.subtitle)}</p>
+          <div class="meta-grid">
+            <div class="meta-card"><span class="meta-label">From</span><span class="meta-value">${escapeHtml(startDate)}</span></div>
+            <div class="meta-card"><span class="meta-label">To</span><span class="meta-value">${escapeHtml(endDate)}</span></div>
+            <div class="meta-card"><span class="meta-label">Generated</span><span class="meta-value">${escapeHtml(generatedOn)}</span></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="content">
+      <div class="summary-card">
+        <p class="eyebrow">AI Summary</p>
+        <h2>Your wellness snapshot</h2>
+        <p>${escapeHtml(report.aiSummary)}</p>
+      </div>
+
+      <div class="two-column">
+        <div class="list-card">
+          <h3>Highlights</h3>
+          ${renderList(report.highlights, "More highlights will appear as you log daily wellness activity.", "positive")}
+        </div>
+        <div class="list-card">
+          <h3>Risk Flags</h3>
+          ${renderList(report.risks, "No major risk flags detected from available data.", "warning")}
+        </div>
+      </div>
+
+      ${sections}
+
+      <div class="footer">
+        <strong>Viora Wellness Report</strong> - This report is generated from self-tracked wellness data and AI summaries. It is not a medical diagnosis. Please consult a qualified professional for medical advice.
+      </div>
+    </section>
+  </main>
+</body>
+</html>`;
 }
 
 export async function createReportExport(userId: string, report: HealthReportDoc) {

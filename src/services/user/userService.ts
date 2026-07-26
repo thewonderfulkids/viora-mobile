@@ -20,6 +20,10 @@ export async function saveUserProfile(
     throw new Error("Please enter a valid 10 digit mobile number.");
   }
 
+  if (input.age && (input.age < 13 || input.age > 100)) {
+    throw new Error("Please enter a valid age between 13 and 100.");
+  }
+
   await updateUserProfile({
     ...input,
     mobile: cleanMobile,

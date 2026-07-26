@@ -34,7 +34,7 @@ export function VoiceAIHero({ status, providerLabel, aiCoachContext }: Props) {
         </View>
       </View>
 
-      <Text style={styles.kicker}>Sprint 21</Text>
+      <Text style={styles.kicker}>Voice AI</Text>
       <Text style={styles.title}>Voice AI Foundation</Text>
       <Text style={styles.subtitle}>
         Speak naturally to open modules, log hydration, ask AI Coach and prepare safe confirmation flows for food, mood, sleep and goals.

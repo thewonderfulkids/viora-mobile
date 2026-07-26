@@ -20,7 +20,9 @@ type MenuRoute =
   | "/notification-preferences"
   | "/privacy-ai-safety"
   | "/account-security"
-  | "/delete-account";
+  | "/delete-account"
+  | "/family-wellness"
+  | "/reports";
 
 type MenuItemProps = {
   icon: any;
@@ -83,8 +85,8 @@ export function ProfileSettingsList({ onLogout, onNotificationsPress }: Props) {
         subtitle="Hydration, sleep, yoga, nutrition and mood reminders"
         onPress={onNotificationsPress || (() => router.push({ pathname: "/notification-preferences" as never }))}
       />
-      <MenuItem icon={Users} title="Family Wellness" subtitle="Activates in Sprint 22" disabled />
-      <MenuItem icon={FileText} title="Reports" subtitle="Activates in Sprint 20" disabled />
+      <MenuItem icon={Users} title="Family Wellness" subtitle="Manage family members and shared wellness" route="/family-wellness" />
+      <MenuItem icon={FileText} title="Reports" subtitle="Weekly, monthly and AI wellness reports" route="/reports" />
       <MenuItem icon={ShieldCheck} title="Privacy & AI Safety" subtitle="Control memory, AI and data" route="/privacy-ai-safety" />
       <MenuItem icon={Lock} title="Account Security" subtitle="Password reset and protection" route="/account-security" />
       <MenuItem icon={Trash2} title="Delete Account" subtitle="Safe deletion request" route="/delete-account" />

@@ -6,12 +6,12 @@ import { colors, radius, spacing } from "../../theme";
 
 type CommonBackButtonProps = {
   label?: string;
-  fallbackPath?: "/dashboard" | "/(tabs)";
+  fallbackPath?: string;
   accessibilityLabel?: string;
   compact?: boolean;
 };
 
-function navigateBackOrFallback(fallbackPath: "/dashboard" | "/(tabs)") {
+function navigateBackOrFallback(fallbackPath: string) {
   if (router.canGoBack()) {
     router.back();
     return;

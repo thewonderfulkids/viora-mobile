@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { auth } from "../firebase/firebaseConfig";
 import {
     completeMusicSession,
-    getMusicCatalog,
+    getMusicCatalogWithAdminContent,
     getTodayMusicHistory,
     MusicCatalogItem,
     MusicHistoryItem,
@@ -14,7 +14,7 @@ export function useMusic() {
   const [saving, setSaving] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [history, setHistory] = useState<MusicHistoryItem[]>([]);
-  const [catalog] = useState<MusicCatalogItem[]>(getMusicCatalog());
+  const [catalog, setCatalog] = useState<MusicCatalogItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory(currentUser?: User | null) {
@@ -73,7 +73,17 @@ export function useMusic() {
     }
   }
 
+  async function loadCatalog() {
+    try {
+      const items = await getMusicCatalogWithAdminContent();
+      setCatalog(items);
+    } catch {
+      setCatalog([]);
+    }
+  }
+
   useEffect(() => {
+    loadCatalog();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       loadHistory(currentUser);
     });
@@ -89,5 +99,6 @@ export function useMusic() {
     error,
     completeSession,
     refreshHistory: () => loadHistory(auth.currentUser),
+    refreshCatalog: loadCatalog,
   };
 }

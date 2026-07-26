@@ -1,7 +1,9 @@
 import { router } from "expo-router";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Target } from "lucide-react-native";
 
-import { CommonBackButton, ErrorState, LoadingState, Screen, SectionHeader } from "../components/common";
+import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
+import { PremiumJourneyHero } from "../components/premiumExperience";
 import {
   GoalHabitHero,
   GoalHabitInsights,
@@ -50,10 +52,13 @@ export default function GoalsHabitsScreen() {
       >
         <CommonBackButton />
 
-        <SectionHeader
-          label="Sprint 15"
-          title="Goals & Habit Intelligence"
-          subtitle="Create measurable wellness goals, track daily habits and let Viora connect your progress with AI coaching."
+        <PremiumJourneyHero
+          eyebrow="Goals & Habits"
+          title="Small actions. Visible momentum."
+          subtitle="Build measurable goals and repeatable routines, then let Viora connect consistency with your wider wellness progress."
+          icon={<Target size={29} color="#0F766E" />}
+          colors={["#064E3B", "#0F766E", "#14B8A6"]}
+          chips={["Daily streaks", "Goal forecasts", "AI coaching"]}
         />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}

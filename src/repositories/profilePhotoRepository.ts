@@ -1,4 +1,4 @@
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref, uploadString } from "firebase/storage";
 
 import { storage } from "../firebase/firebaseConfig";
 
@@ -9,23 +9,25 @@ function buildAvatarPath(uid: string) {
 
 export async function uploadProfilePhoto(
   uid: string,
-  blob: Blob
+  base64Image: string
 ): Promise<string> {
-  console.log("PHOTO_STORAGE_UPLOAD_START", {
-    uid,
-    size: blob.size,
-    type: blob.type,
-  });
+  if (!base64Image) {
+    throw new Error("Selected image could not be prepared for upload.");
+  }
 
   const storageRef = ref(storage, buildAvatarPath(uid));
+  const dataUrl = base64Image.startsWith("data:")
+    ? base64Image
+    : `data:image/jpeg;base64,${base64Image}`;
 
-  await uploadBytes(storageRef, blob, {
+  await uploadString(storageRef, dataUrl, "data_url", {
     contentType: "image/jpeg",
+    customMetadata: {
+      uid,
+      source: "viora-mobile-profile-avatar",
+      uploadedAt: new Date().toISOString(),
+    },
   });
 
-  const url = await getDownloadURL(storageRef);
-
-  console.log("PHOTO_STORAGE_UPLOAD_DONE", url);
-
-  return url;
+  return getDownloadURL(storageRef);
 }

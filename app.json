@@ -1,44 +1,82 @@
 {
-  "expo": {
-    "name": "viora-mobile",
-    "slug": "viora-mobile",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "vioramobile",
-    "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#208AEF",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
-          }
-        }
-      ]
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    }
-  }
+    "expo":  {
+                 "name":  "Viora",
+                 "slug":  "viora-mobile",
+                 "version":  "1.0.0",
+                 "orientation":  "portrait",
+                 "icon":  "./assets/images/icon.png",
+                 "scheme":  "vioramobile",
+                 "userInterfaceStyle":  "automatic",
+                 "ios":  {
+                             "icon":  "./assets/expo.icon",
+                             "buildNumber":  "1"
+                         },
+                 "android":  {
+                                 "adaptiveIcon":  {
+                                                      "backgroundColor":  "#044330",
+                                                      "foregroundImage":  "./assets/images/android-icon-foreground.png",
+                                                      "backgroundImage":  "./assets/images/android-icon-background.png",
+                                                      "monochromeImage":  "./assets/images/android-icon-monochrome.png"
+                                                  },
+                                 "predictiveBackGestureEnabled":  false,
+                                 "package":  "com.drdigiweb.vioramobile",
+                                 "permissions":  [
+                                                     "POST_NOTIFICATIONS",
+                                                     "RECORD_AUDIO"
+                                                 ],
+                                 "versionCode":  1
+                             },
+                 "web":  {
+                             "output":  "static",
+                             "favicon":  "./assets/images/favicon.png"
+                         },
+                 "plugins":  [
+                                 "expo-router",
+                                 [
+                                     "expo-splash-screen",
+                                     {
+                                         "backgroundColor":  "#044330",
+                                         "android":  {
+                                                         "image":  "./assets/images/splash-icon.png",
+                                                         "imageWidth":  150
+                                                     },
+                                         "image":  "./assets/images/splash-icon.png",
+                                         "imageWidth":  150
+                                     }
+                                 ],
+                                 [
+                                     "expo-notifications",
+                                     {
+                                         "color":  "#0B6E4F",
+                                         "defaultChannel":  "viora-reminders"
+                                     }
+                                 ],
+                                 "expo-sharing",
+                                 [
+                                     "expo-speech-recognition",
+                                     {
+                                         "microphonePermission":  "Allow Viora to use the microphone for Voice AI.",
+                                         "speechRecognitionPermission":  "Allow Viora to convert your speech into wellness commands.",
+                                         "androidSpeechServicePackages":  [
+                                                                              "com.google.android.googlequicksearchbox",
+                                                                              "com.google.android.tts"
+                                                                          ]
+                                     }
+                                 ],
+                                 "expo-web-browser",
+                                 "expo-video"
+                             ],
+                 "experiments":  {
+                                     "typedRoutes":  true,
+                                     "reactCompiler":  true
+                                 },
+                 "extra":  {
+                               "router":  {
+
+                                          },
+                               "eas":  {
+                                           "projectId":  "d459f525-122a-4265-b496-6b2bf0f2211c"
+                                       }
+                           }
+             }
 }

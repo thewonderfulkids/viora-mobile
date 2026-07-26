@@ -11,6 +11,7 @@ import {
 
 import { db } from "../firebase/firebaseConfig";
 import { COLLECTIONS } from "../firebase/firestoreCollections";
+import { listActiveProgramContent } from "../repositories/adminControlRepository";
 import { getTodayKey } from "../firebase/firestoreHelpers";
 import {
     MusicSource,
@@ -38,6 +39,8 @@ export type MusicCatalogItem = {
   therapyType: MusicTherapyType;
   durationMinutes: number;
   description: string;
+  audioUrl?: string;
+  provider?: string;
 };
 
 export const MUSIC_CATALOG: MusicCatalogItem[] = [
@@ -86,8 +89,32 @@ function formatLogTime(value: string) {
   });
 }
 
+function therapyTypeFromCategory(category: string): MusicTherapyType {
+  if (category === "sleep") return "Sleep";
+  if (category === "meditation") return "Meditation";
+  if (category === "music") return "Relax";
+  return "Relax";
+}
+
 export function getMusicCatalog() {
   return MUSIC_CATALOG;
+}
+
+export async function getMusicCatalogWithAdminContent(): Promise<MusicCatalogItem[]> {
+  const remoteContent = await listActiveProgramContent();
+  const remoteMusic = remoteContent
+    .filter((item) => item.kind === "music")
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      therapyType: therapyTypeFromCategory(item.category),
+      durationMinutes: item.durationMinutes || 10,
+      description: item.subtitle || "Admin-managed Viora sound therapy track.",
+      audioUrl: item.url,
+      provider: item.provider,
+    }));
+
+  return remoteMusic.length ? remoteMusic : MUSIC_CATALOG;
 }
 
 export async function completeMusicSession({

@@ -50,7 +50,7 @@ export default function NutritionScreen() {
         <CommonBackButton />
 
         <SectionHeader
-          label="Sprint 16"
+          label="Nutrition"
           title="Nutrition Intelligence"
           subtitle="Log real food items under breakfast, lunch, dinner and snacks. Viora calculates calories, protein, sugar and sodium from the item-level breakdown."
         />

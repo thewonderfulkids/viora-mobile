@@ -4,6 +4,7 @@ export * from "./common";
 export * from "./dashboard";
 export * from "./goalsHabits";
 export * from "./hydration";
+export * from "./launch";
 export * from "./mentalWellness";
 export * from "./music";
 export * from "./notifications";
@@ -19,3 +20,7 @@ export * from "./reports";
 export * from "./voiceAI";
 
 export * from "./dashboardIntelligence";
+export * from "./sync";
+
+export * from "./feedback";
+export * from "./adminAccess";
