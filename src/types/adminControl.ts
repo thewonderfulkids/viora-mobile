@@ -14,6 +14,21 @@ export type AdminContentCategory =
 
 export type AdminMediaType = "video" | "audio" | "mixed" | "none";
 
+export type AdminMappingTargetType =
+  | "program"
+  | "session"
+  | "exercise"
+  | "pose"
+  | "track"
+  | "playlist";
+
+export type AdminMediaRole =
+  | "full_session_video"
+  | "exercise_video"
+  | "audio_track"
+  | "background_music"
+  | "preview_clip";
+
 export type AdminManagedContent = {
   id: string;
   kind: AdminContentKind;
@@ -24,8 +39,17 @@ export type AdminManagedContent = {
   durationMinutes: number;
   url: string;
   thumbnailUrl: string;
+  storagePath?: string;
+  thumbnailStoragePath?: string;
+  mediaFileName?: string;
+  mediaContentType?: string;
   provider: "youtube" | "firebase" | "external" | "none";
   mediaType?: AdminMediaType;
+  mappingTargetType?: AdminMappingTargetType;
+  targetId?: string;
+  parentTargetId?: string;
+  mediaRole?: AdminMediaRole;
+  playbackMode?: "full_session" | "step_by_step";
   caloriesEstimate?: number;
   equipment?: string[];
   instructor?: string;

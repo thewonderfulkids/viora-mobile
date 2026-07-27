@@ -26,3 +26,7 @@ export * from "./useBetaFeedback";
 export * from "./useAdminAccess";
 export * from "./useAdminControl";
 export * from "./useProgramContent";
+
+export * from "./useStepCounter";
+
+export * from "./usePremiumNotifications";

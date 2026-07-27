@@ -5,6 +5,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "r
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Screen } from "../../components/common";
+import { StepCounterCard } from "../../components/steps";
 import {
   DashboardAchievementGrid,
   DashboardFamilySnapshotCard,
@@ -60,6 +61,8 @@ export default function DashboardScreen() {
           refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={premiumPalette.emerald} />}
         >
           <PremiumHomeHero briefing={intelligence.briefing} wellnessScore={intelligence.wellnessScore} />
+
+          <StepCounterCard />
 
           <View style={styles.metricWrap}>
             <PremiumMetricRail trends={intelligence.trends} />

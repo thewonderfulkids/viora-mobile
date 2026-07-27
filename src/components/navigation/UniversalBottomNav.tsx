@@ -17,10 +17,13 @@ type NavItem = {
 
 const ITEMS: NavItem[] = [
   { key: "home", label: "Home", icon: "home-outline", activeIcon: "home", route: "/(tabs)", matches: (path) => path === "/" || path === "/dashboard" || path === "/explore" },
-  { key: "wellness", label: "Wellness", icon: "leaf-outline", activeIcon: "leaf", route: "/(tabs)/wellness", matches: (path) => path === "/wellness" || ["/hydration", "/nutrition", "/sleep", "/yoga", "/meditation", "/music", "/home-workout", "/mental-wellness", "/goals-habits", "/programs", "/family-wellness"].some((route) => path.startsWith(route)) },
+  { key: "wellness", label: "Wellness", icon: "leaf-outline", activeIcon: "leaf", route: "/(tabs)/wellness", matches: (path) => path === "/wellness" || ["/hydration",
+        "/steps", "/nutrition", "/sleep", "/yoga", "/meditation", "/music", "/home-workout", "/mental-wellness", "/goals-habits", "/programs", "/family-wellness"].some((route) => path.startsWith(route)) },
   { key: "ai", label: "AI Coach", icon: "sparkles-outline", activeIcon: "sparkles", route: "/(tabs)/ai", matches: (path) => path === "/ai" || ["/ai-coach", "/voice-ai", "/ai-memory", "/wellness-intelligence"].some((route) => path.startsWith(route)) },
   { key: "progress", label: "Progress", icon: "analytics-outline", activeIcon: "analytics", route: "/(tabs)/progress", matches: (path) => path === "/progress" || path.startsWith("/reports") },
-  { key: "profile", label: "Profile", icon: "person-outline", activeIcon: "person", route: "/(tabs)/profile", matches: (path) => path === "/profile" || ["/settings-center", "/account-security", "/language-settings", "/notification-preferences", "/smart-notifications", "/privacy-ai-safety", "/premium"].some((route) => path.startsWith(route)) },
+  { key: "profile", label: "Profile", icon: "person-outline", activeIcon: "person", route: "/(tabs)/profile", matches: (path) => path === "/profile" || ["/settings-center", "/account-security", "/language-settings", "/notification-preferences",
+        "/reminder-editor",
+        "/notification-center", "/smart-notifications", "/privacy-ai-safety", "/premium"].some((route) => path.startsWith(route)) },
 ];
 
 export function UniversalBottomNav() {

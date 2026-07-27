@@ -13,10 +13,16 @@ service cloud.firestore {
 
     function isVioraAdmin() {
       return signedIn()
-        && request.auth.token.email in [
-          "support@winflyindia.in",
-          "drdigiweb@gmail.com"
-        ];
+        && (
+          request.auth.token.admin == true
+          || request.auth.token.superAdmin == true
+          || request.auth.token.role in ["admin", "super_admin"]
+          || request.auth.token.email in [
+            "support@winflyindia.in",
+            "drdigiweb@gmail.com",
+            "viora.admin@winflyindia.in"
+          ]
+        );
     }
 
     function ownsExistingDoc() {

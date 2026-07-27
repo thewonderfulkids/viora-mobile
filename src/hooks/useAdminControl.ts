@@ -22,6 +22,10 @@ const EMPTY_CONTENT: AdminContentInput = {
   durationMinutes: 15,
   url: "",
   thumbnailUrl: "",
+  storagePath: "",
+  thumbnailStoragePath: "",
+  mediaFileName: "",
+  mediaContentType: "",
   provider: "youtube",
   mediaType: "video",
   caloriesEstimate: 0,
@@ -35,9 +39,9 @@ const EMPTY_CONTENT: AdminContentInput = {
 };
 
 export function useAdminControl() {
-  const { user } = useAuth();
+  const { user, isAdmin: authIsAdmin } = useAuth();
   const adminEmail = user?.email || "";
-  const isAdmin = isVioraAccessAdmin(adminEmail);
+  const isAdmin = authIsAdmin || isVioraAccessAdmin(adminEmail);
   const [state, setState] = useState<AdminControlState | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

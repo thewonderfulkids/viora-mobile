@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { VioraBrand } from "../components/branding";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -39,6 +40,8 @@ export default function LoginScreen() {
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
             <Pressable onPress={() => router.back()} style={styles.back}><Ionicons name="arrow-back" size={21} color={colors.text} /></Pressable>
             <PremiumEntryHero compact eyebrow="Welcome back" title="Continue your wellness rhythm." subtitle="Your goals, insights and daily plan are ready when you are." />
+            <VioraBrand compact style={styles.brandHeader} />
+
             <View style={styles.formCard}>
               <View style={styles.fieldGroup}><Text style={styles.label}>Email address</Text><View style={styles.inputWrap}><Ionicons name="mail-outline" size={19} color={colors.mutedText} /><TextInput placeholder="name@example.com" placeholderTextColor={colors.mutedText} style={styles.input} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" value={email} onChangeText={setEmail} editable={!loading} /></View></View>
               <View style={styles.fieldGroup}><Text style={styles.label}>Password</Text><View style={styles.inputWrap}><Ionicons name="lock-closed-outline" size={19} color={colors.mutedText} /><TextInput placeholder="Enter your password" placeholderTextColor={colors.mutedText} secureTextEntry={!showPassword} style={styles.input} value={password} onChangeText={setPassword} editable={!loading} returnKeyType="done" onSubmitEditing={handleLogin} /><Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={12}><Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={21} color={colors.mutedText} /></Pressable></View></View>
@@ -53,6 +56,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  brandHeader: { marginBottom: 18 },
   safe: { flex: 1 }, keyboard: { flex: 1 }, container: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingTop: spacing.md, paddingBottom: 48, gap: spacing.lg },
   back: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border },
   formCard: { backgroundColor: colors.white, borderRadius: 30, padding: spacing.xl, borderWidth: 1, borderColor: colors.border, gap: spacing.lg },

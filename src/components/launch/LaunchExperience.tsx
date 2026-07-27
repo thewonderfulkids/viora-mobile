@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -14,9 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const LAUNCH_SEEN_KEY = "@viora/launch-experience-seen-v1";
-const FULL_FILM_MS = 4500;
-const RETURNING_LAUNCH_MS = 1250;
+const FULL_FILM_MS = 5000;
 const VIDEO_SOURCE = require("../../../assets/videos/launch_intro.mp4");
 
 interface LaunchExperienceProps {
@@ -26,73 +23,30 @@ interface LaunchExperienceProps {
 export function LaunchExperience({
   onComplete,
 }: LaunchExperienceProps) {
-  const [firstLaunch, setFirstLaunch] = useState<boolean | null>(null);
   const [videoFailed, setVideoFailed] = useState(false);
-
   const completedRef = useRef(false);
   const fade = useRef(new Animated.Value(1)).current;
   const logoScale = useRef(new Animated.Value(0.92)).current;
 
   const player = useVideoPlayer(VIDEO_SOURCE, (instance) => {
     instance.loop = false;
-    instance.muted = true;
-    instance.volume = 0;
+    // Browsers generally block autoplay with audio. Native Android/iOS keeps sound on.
+    instance.muted = Platform.OS === "web";
+    instance.volume = Platform.OS === "web" ? 0 : 0.9;
   });
 
   const finish = useCallback(() => {
-    if (completedRef.current) {
-      return;
-    }
-
+    if (completedRef.current) return;
     completedRef.current = true;
 
     Animated.timing(fade, {
       toValue: 0,
       duration: 260,
       useNativeDriver: Platform.OS !== "web",
-    }).start(({ finished }) => {
-      if (finished) {
-        onComplete();
-      }
-    });
+    }).start(() => onComplete());
   }, [fade, onComplete]);
 
   useEffect(() => {
-    let mounted = true;
-
-    async function checkLaunchStatus() {
-      try {
-        const value = await AsyncStorage.getItem(LAUNCH_SEEN_KEY);
-
-        if (!mounted) {
-          return;
-        }
-
-        const isFirstLaunch = value !== "true";
-        setFirstLaunch(isFirstLaunch);
-
-        if (isFirstLaunch) {
-          await AsyncStorage.setItem(LAUNCH_SEEN_KEY, "true");
-        }
-      } catch {
-        if (mounted) {
-          setFirstLaunch(true);
-        }
-      }
-    }
-
-    void checkLaunchStatus();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (firstLaunch === null) {
-      return;
-    }
-
     Animated.spring(logoScale, {
       toValue: 1,
       friction: 7,
@@ -100,41 +54,29 @@ export function LaunchExperience({
       useNativeDriver: Platform.OS !== "web",
     }).start();
 
-    if (firstLaunch) {
-      try {
-        player.muted = true;
-        player.volume = 0;
-        player.currentTime = 0;
-        player.play();
-      } catch {
-        setVideoFailed(true);
-      }
+    try {
+      player.currentTime = 0;
+      player.muted = Platform.OS === "web";
+      player.volume = Platform.OS === "web" ? 0 : 0.9;
+      player.play();
+    } catch {
+      setVideoFailed(true);
     }
 
-    const timer = setTimeout(
-      finish,
-      firstLaunch ? FULL_FILM_MS : RETURNING_LAUNCH_MS,
-    );
+    const timer = setTimeout(finish, FULL_FILM_MS);
 
     return () => {
       clearTimeout(timer);
-
       try {
         player.pause();
       } catch {
-        // Player may already be disposed during navigation.
+        // Player may already be disposed during route transition.
       }
     };
-  }, [finish, firstLaunch, logoScale, player]);
+  }, [finish, logoScale, player]);
 
   useEffect(() => {
-    if (
-      Platform.OS !== "web" ||
-      firstLaunch !== true ||
-      videoFailed
-    ) {
-      return;
-    }
+    if (Platform.OS !== "web" || videoFailed) return;
 
     const retryTimer = setTimeout(() => {
       try {
@@ -147,14 +89,7 @@ export function LaunchExperience({
     }, 300);
 
     return () => clearTimeout(retryTimer);
-  }, [firstLaunch, player, videoFailed]);
-
-  const showVideo = firstLaunch === true && !videoFailed;
-
-  const showBrandFallback =
-    firstLaunch === null ||
-    firstLaunch === false ||
-    videoFailed;
+  }, [player, videoFailed]);
 
   return (
     <Animated.View style={[styles.root, { opacity: fade }]}>
@@ -163,7 +98,7 @@ export function LaunchExperience({
         style={styles.background}
       />
 
-      {showVideo ? (
+      {!videoFailed ? (
         <VideoView
           accessibilityLabel="Viora cinematic launch"
           contentFit="cover"
@@ -171,44 +106,29 @@ export function LaunchExperience({
           player={player}
           style={styles.video}
         />
-      ) : null}
-
-      <View pointerEvents="none" style={styles.ambientOne} />
-      <View pointerEvents="none" style={styles.ambientTwo} />
-
-      {showBrandFallback ? (
+      ) : (
         <SafeAreaView style={styles.fallback}>
-          <Animated.View
-            style={{
-              transform: [{ scale: logoScale }],
-            }}
-          >
+          <Animated.View style={{ transform: [{ scale: logoScale }] }}>
             <Image
               accessibilityIgnoresInvertColors
               resizeMode="contain"
-              source={require("../../../assets/images/icon.png")}
+              source={require("../../../assets/images/viora-brand-mark.png")}
               style={styles.logo}
             />
           </Animated.View>
 
           <Text style={styles.brand}>V I O R A</Text>
-
           <Text style={styles.tagline}>
             Your Mind. Your Body. Your Companion.
           </Text>
-
-          <ActivityIndicator
-            color="#98E85F"
-            size="small"
-            style={styles.loader}
-          />
+          <ActivityIndicator color="#98E85F" size="small" style={styles.loader} />
         </SafeAreaView>
-      ) : null}
+      )}
 
-      <SafeAreaView
-        pointerEvents="box-none"
-        style={styles.skipArea}
-      >
+      <View pointerEvents="none" style={styles.ambientOne} />
+      <View pointerEvents="none" style={styles.ambientTwo} />
+
+      <SafeAreaView pointerEvents="box-none" style={styles.skipArea}>
         <Pressable
           accessibilityLabel="Skip Viora introduction"
           accessibilityRole="button"
@@ -228,7 +148,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#021F18",
     zIndex: 999,
   },
-
   background: {
     position: "absolute",
     top: 0,
@@ -236,7 +155,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
   },
-
   video: {
     position: "absolute",
     top: 0,
@@ -244,28 +162,23 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
   },
-
   fallback: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 28,
   },
-
   logo: {
-    width: 184,
-    height: 184,
-    borderRadius: 42,
+    width: 190,
+    height: 190,
   },
-
   brand: {
-    marginTop: 28,
+    marginTop: 24,
     color: "#F3FFF5",
     fontSize: 29,
     fontWeight: "900",
     letterSpacing: 8,
   },
-
   tagline: {
     marginTop: 12,
     color: "#CDEAD7",
@@ -273,11 +186,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-
   loader: {
     marginTop: 34,
   },
-
   ambientOne: {
     position: "absolute",
     width: 320,
@@ -287,7 +198,6 @@ const styles = StyleSheet.create({
     top: -90,
     right: -120,
   },
-
   ambientTwo: {
     position: "absolute",
     width: 250,
@@ -297,7 +207,6 @@ const styles = StyleSheet.create({
     bottom: -70,
     left: -80,
   },
-
   skipArea: {
     position: "absolute",
     top: 0,
@@ -305,14 +214,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingRight: 16,
   },
-
   skipButton: {
     borderRadius: 999,
-    backgroundColor: "rgba(0, 0, 0, 0.28)",
+    backgroundColor: "rgba(0, 0, 0, 0.34)",
     paddingHorizontal: 16,
     paddingVertical: 9,
   },
-
   skipText: {
     color: "#FFFFFF",
     fontSize: 13,

@@ -1,7 +1,14 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import {
+  getAuth,
+  getReactNativePersistence,
+  initializeAuth,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 import { getStorage } from "firebase/storage";
+import { Platform } from "react-native";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBh46PgwgXiJHNxjo0hYtgRTJL6nIwnRKY",
@@ -14,10 +21,26 @@ const firebaseConfig = {
 };
 
 export const app =
-  getApps().length ? getApp() : initializeApp(firebaseConfig);
+  getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
+function createAuth() {
+  if (Platform.OS === "web") {
+    return getAuth(app);
+  }
+
+  try {
+    return initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
+  } catch {
+    // Handles Fast Refresh or an already initialized Firebase Auth instance.
+    return getAuth(app);
+  }
+}
+
+export const auth = createAuth();
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app, "asia-south1");
 
 export default app;

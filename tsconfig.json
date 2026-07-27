@@ -8,19 +8,21 @@
       ],
       "@/assets/*": [
         "./assets/*"
+      ],
+      "@firebase/auth": [
+        "./node_modules/@firebase/auth/dist/index.rn.d.ts"
       ]
     }
   },
   "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
+    "**/*.ts",
+    "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "patch-backups",
-    "functions/lib"
+    "patch-backups"
   ]
 }

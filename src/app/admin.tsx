@@ -2,6 +2,7 @@ import { RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View, 
 import { Activity, BadgeCheck, Clapperboard, Music2, Settings2, UsersRound } from "lucide-react-native";
 
 import { useAuth } from "../context/AuthContext";
+import { AdminMediaPreviewCard, AdminMediaUploadPanel, ContentStudioWorkflowCard, ExactContentMappingPanel } from "../components/adminMedia";
 import { CommonBackButton, ErrorState, LoadingState, PrimaryButton, Screen } from "../components/common";
 import { useAdminControl } from "../hooks";
 import { colors, radius, spacing } from "../theme";
@@ -73,7 +74,7 @@ export default function AdminScreen() {
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>Viora Beta Control</Text>
           <Text style={styles.title}>Admin Panel</Text>
-          <Text style={styles.subtitle}>Control users, plans, beta bypass, app config, music links, video links and program content without shipping a fresh APK.</Text>
+          <Text style={styles.subtitle}>Manage users, exact content mapping, Firebase videos, audio, programs and publishing from one in-app studio.</Text>
         </View>
 
         {admin.error ? <Text style={styles.errorText}>{admin.error}</Text> : null}
@@ -178,9 +179,11 @@ export default function AdminScreen() {
             <Clapperboard size={20} color={colors.primary} />
             <View>
               <Text style={styles.sectionTitle}>Content Studio</Text>
-              <Text style={styles.sectionSubtitle}>Add/edit links for Yoga, Home Workout, Weight Loss videos, music and app tips.</Text>
+              <Text style={styles.sectionSubtitle}>Upload Firebase videos, audio and thumbnails, then publish them without shipping a fresh APK.</Text>
             </View>
           </View>
+
+          <ContentStudioWorkflowCard />
 
           <Text style={styles.label}>Content type</Text>
           <View style={styles.rowWrap}>
@@ -199,7 +202,22 @@ export default function AdminScreen() {
 
           <TextInput value={admin.contentDraft.title} onChangeText={(title) => admin.setContentDraft({ ...admin.contentDraft, title })} placeholder="Title" placeholderTextColor={colors.mutedText} style={styles.input} />
           <TextInput value={admin.contentDraft.subtitle} onChangeText={(subtitle) => admin.setContentDraft({ ...admin.contentDraft, subtitle })} placeholder="Short description" placeholderTextColor={colors.mutedText} style={styles.input} />
-          <TextInput value={admin.contentDraft.url} onChangeText={(url) => admin.setContentDraft({ ...admin.contentDraft, url })} placeholder="YouTube / Firebase / external URL" placeholderTextColor={colors.mutedText} autoCapitalize="none" style={styles.input} />
+          <AdminMediaUploadPanel
+            draft={admin.contentDraft}
+            disabled={admin.saving}
+            onChange={admin.setContentDraft}
+          />
+
+          <ExactContentMappingPanel
+            draft={admin.contentDraft}
+            onChange={admin.setContentDraft}
+          />
+
+          <AdminMediaPreviewCard
+            draft={admin.contentDraft}
+          />
+
+          <TextInput value={admin.contentDraft.url} onChangeText={(url) => admin.setContentDraft({ ...admin.contentDraft, url })} placeholder="Uploaded Firebase URL or optional external URL" placeholderTextColor={colors.mutedText} autoCapitalize="none" style={styles.input} />
           <TextInput value={admin.contentDraft.thumbnailUrl} onChangeText={(thumbnailUrl) => admin.setContentDraft({ ...admin.contentDraft, thumbnailUrl })} placeholder="Thumbnail URL optional" placeholderTextColor={colors.mutedText} autoCapitalize="none" style={styles.input} />
 
           <Text style={styles.label}>Media type</Text>
@@ -239,7 +257,7 @@ export default function AdminScreen() {
                   <View style={styles.contentIcon}>{item.kind === "music" ? <Music2 size={16} color={colors.primary} /> : <Clapperboard size={16} color={colors.primary} />}</View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.contentTitle}>{item.title}</Text>
-                    <Text style={styles.contentMeta}>{item.kind} • {item.category} • {item.level} • {item.durationMinutes} min</Text>
+                    <Text style={styles.contentMeta}>{item.kind} â€¢ {item.category} â€¢ {item.targetId || "unmapped"} â€¢ {item.mediaRole || "generic"} â€¢ {item.durationMinutes} min</Text>
                   </View>
                 </View>
                 <Text style={styles.contentSubtitle}>{item.subtitle || item.url || "No description"}</Text>

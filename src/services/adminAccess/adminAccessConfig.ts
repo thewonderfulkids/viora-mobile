@@ -1,4 +1,4 @@
-const VIORA_ADMIN_EMAILS = ["support@winflyindia.in", "drdigiweb@gmail.com"];
+const VIORA_ADMIN_EMAILS = ["support@winflyindia.in", "drdigiweb@gmail.com", "viora.admin@winflyindia.in"];
 
 export function normalizeAdminEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase();

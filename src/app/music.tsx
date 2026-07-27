@@ -50,7 +50,7 @@ export default function MusicScreen() {
 
     setActiveSessionId(session.id);
     setSecondsLeft(session.durationMinutes * 60);
-    setRunning(true);
+    setRunning(Boolean(session.audioUrl));
   }
 
   async function handleComplete() {
@@ -95,6 +95,7 @@ export default function MusicScreen() {
           <MusicPlayerCard
             title={activeSession.title}
             therapyType={activeSession.therapyType}
+            audioUrl={activeSession.audioUrl}
             secondsLeft={secondsLeft}
             running={running}
             onToggle={() => setRunning((prev) => !prev)}

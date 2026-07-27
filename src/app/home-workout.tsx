@@ -1,9 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
-import { Image, Linking, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import { Image, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
 import { Clock3, Dumbbell, Flame, PlayCircle, ShieldCheck, Star, Zap } from "lucide-react-native";
 import { useMemo, useState } from "react";
 
 import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
+import { MappedWorkoutPlayer } from "../components/media";
 import { useProgramContent } from "../hooks";
 import { colors, radius, spacing } from "../theme";
 import { AdminManagedContent } from "../types";
@@ -28,9 +29,6 @@ function inferFilter(item: AdminManagedContent): CategoryFilter {
   return "beginner";
 }
 
-function openMedia(item: AdminManagedContent) {
-  if (item.url) Linking.openURL(item.url);
-}
 
 function MediaVisual({ item }: { item: AdminManagedContent }) {
   if (item.thumbnailUrl) {
@@ -45,14 +43,14 @@ function MediaVisual({ item }: { item: AdminManagedContent }) {
   );
 }
 
-function WorkoutCard({ item, featured = false }: { item: AdminManagedContent; featured?: boolean }) {
-  const hasVideo = Boolean(item.url);
+function WorkoutCard({ item, featured = false, onStart }: { item: AdminManagedContent; featured?: boolean; onStart: (item: AdminManagedContent) => void }) {
+  const hasVideo = Boolean(item.url) || Boolean(item.targetId);
   const equipment = item.equipment?.length ? item.equipment.join(" • ") : "No equipment";
   const calories = item.caloriesEstimate ? `${item.caloriesEstimate} kcal` : "Smart routine";
 
   return (
     <Pressable
-      onPress={() => openMedia(item)}
+      onPress={() => onStart(item)}
       disabled={!hasVideo}
       style={({ pressed }) => [styles.card, featured ? styles.featuredCard : null, pressed ? styles.pressed : null]}
     >
@@ -94,7 +92,7 @@ function WorkoutCard({ item, featured = false }: { item: AdminManagedContent; fe
         <View style={[styles.cta, hasVideo ? styles.ctaActive : styles.ctaDisabled]}>
           <PlayCircle size={17} color={hasVideo ? colors.white : colors.primary} />
           <Text style={[styles.ctaText, hasVideo ? styles.ctaTextActive : null]}>
-            {hasVideo ? "Start Video" : "Add video link from Admin"}
+            {hasVideo ? "Start Workout Video" : "Upload video from Admin"}
           </Text>
         </View>
       </View>
@@ -105,8 +103,20 @@ function WorkoutCard({ item, featured = false }: { item: AdminManagedContent; fe
 export default function HomeWorkoutScreen() {
   const { items, loading, refreshing, error, refresh } = useProgramContent("home_workout");
   const [filter, setFilter] = useState<CategoryFilter>("all");
+  const [activeVideo, setActiveVideo] = useState<AdminManagedContent | null>(null);
 
-  const sortedItems = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder), [items]);
+  const workoutPrograms = useMemo(
+    () => items.filter((item) => item.mediaRole !== "exercise_video"),
+    [items],
+  );
+  const exerciseMedia = useMemo(
+    () => items.filter((item) => item.mediaRole === "exercise_video"),
+    [items],
+  );
+  const sortedItems = useMemo(
+    () => [...workoutPrograms].sort((a, b) => a.sortOrder - b.sortOrder),
+    [workoutPrograms],
+  );
   const featured = sortedItems[0];
   const visibleItems = sortedItems.filter((item) => filter === "all" || inferFilter(item) === filter);
 
@@ -122,18 +132,30 @@ export default function HomeWorkoutScreen() {
           <View style={styles.heroIcon}><Dumbbell size={30} color="#0B6E4F" /></View>
           <Text style={styles.eyebrow}>Home Workout</Text>
           <Text style={styles.title}>Video-ready workouts for every fitness level.</Text>
-          <Text style={styles.subtitle}>Beginner, strength, fat-burn and home-items routines. Admin can add YouTube/Firebase links anytime without a new APK.</Text>
+          <Text style={styles.subtitle}>Beginner, strength, fat-burn and home-items routines. Admin can upload Firebase videos anytime without a new APK.</Text>
           <View style={styles.heroPills}>
             <View style={styles.heroPill}><Clock3 size={14} color="#FFFFFF" /><Text style={styles.heroPillText}>15-28 min</Text></View>
             <View style={styles.heroPill}><ShieldCheck size={14} color="#FFFFFF" /><Text style={styles.heroPillText}>No gym</Text></View>
-            <View style={styles.heroPill}><Zap size={14} color="#FFFFFF" /><Text style={styles.heroPillText}>Video links</Text></View>
+            <View style={styles.heroPill}><Zap size={14} color="#FFFFFF" /><Text style={styles.heroPillText}>In-app video</Text></View>
           </View>
         </LinearGradient>
+
+        {activeVideo ? (
+          <MappedWorkoutPlayer
+            workout={activeVideo}
+            exerciseMedia={exerciseMedia.filter(
+              (item) =>
+                item.parentTargetId ===
+                (activeVideo.targetId || activeVideo.id),
+            )}
+            onClose={() => setActiveVideo(null)}
+          />
+        ) : null}
 
         {featured ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Featured Today</Text>
-            <WorkoutCard item={featured} featured />
+            <WorkoutCard item={featured} featured onStart={setActiveVideo} />
           </View>
         ) : null}
 
@@ -147,7 +169,7 @@ export default function HomeWorkoutScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{filter === "all" ? "Workout Library" : `${FILTERS.find((item) => item.id === filter)?.label} Workouts`}</Text>
-          {visibleItems.map((item) => <WorkoutCard key={item.id} item={item} />)}
+          {visibleItems.map((item) => <WorkoutCard key={item.id} item={item} onStart={setActiveVideo} />)}
         </View>
       </ScrollView>
     </Screen>

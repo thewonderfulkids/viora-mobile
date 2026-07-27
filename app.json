@@ -22,7 +22,8 @@
                                  "package":  "com.drdigiweb.vioramobile",
                                  "permissions":  [
                                                      "POST_NOTIFICATIONS",
-                                                     "RECORD_AUDIO"
+                                                     "RECORD_AUDIO",
+                                                     "ACTIVITY_RECOGNITION"
                                                  ],
                                  "versionCode":  1
                              },
@@ -38,17 +39,17 @@
                                          "backgroundColor":  "#044330",
                                          "android":  {
                                                          "image":  "./assets/images/splash-icon.png",
-                                                         "imageWidth":  150
+                                                         "imageWidth":  180
                                                      },
                                          "image":  "./assets/images/splash-icon.png",
-                                         "imageWidth":  150
+                                         "imageWidth":  180
                                      }
                                  ],
                                  [
                                      "expo-notifications",
                                      {
-                                         "color":  "#0B6E4F",
-                                         "defaultChannel":  "viora-reminders"
+                                         "color":  "#0B7A57",
+                                         "defaultChannel":  "viora-premium-reminders"
                                      }
                                  ],
                                  "expo-sharing",

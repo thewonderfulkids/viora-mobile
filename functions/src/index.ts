@@ -1,7 +1,10 @@
+import { initializeApp } from "firebase-admin/app";
 import { setGlobalOptions } from "firebase-functions";
 import { onRequest } from "firebase-functions/https";
 
 import { generateWellnessAdviceHandler } from "./ai";
+
+initializeApp();
 
 setGlobalOptions({
   region: "asia-south1",
@@ -33,3 +36,6 @@ export const generateWellnessAdviceHttp = onRequest(
     }
   }
 );
+
+export { bootstrapFirstAdmin } from "./admin/bootstrapFirstAdmin";
+export { createDefaultAdmin } from "./admin/createDefaultAdmin";

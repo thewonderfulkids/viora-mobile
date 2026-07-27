@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 
 import { Screen } from "../components/common";
+import { WorkoutVideoPlayer } from "../components/media";
 import { WellnessHeader } from "../components/wellness";
 import {
   YogaHistoryCard,
@@ -144,6 +145,26 @@ export default function YogaScreen() {
           minutes={data?.todayStats.yogaMinutes || 0}
           sessions={data?.todayStats.yogaSessions || 0}
         />
+
+        {activeSession?.videoUrl ? (
+          <WorkoutVideoPlayer
+            title={activeSession.title}
+            url={activeSession.videoUrl}
+            onClose={() => {
+              setRunning(false);
+              setActiveSessionId(null);
+            }}
+          />
+        ) : null}
+
+        {activeSession && (currentStep?.videoUrl || activeSession.videoUrl) ? (
+          <WorkoutVideoPlayer
+            key={currentStep?.videoUrl || activeSession.videoUrl}
+            title={currentStep?.title || activeSession.title}
+            url={(currentStep?.videoUrl || activeSession.videoUrl) as string}
+            onClose={() => setRunning(false)}
+          />
+        ) : null}
 
         {activeSession ? (
           <YogaTimerCard

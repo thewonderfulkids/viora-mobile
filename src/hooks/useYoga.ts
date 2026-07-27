@@ -5,7 +5,7 @@ import { auth } from "../firebase/firebaseConfig";
 import {
     completeYogaSession,
     getTodayYogaHistory,
-    getYogaCatalog,
+    getYogaCatalogWithAdminContent,
     YogaCatalogItem,
     YogaHistoryItem,
 } from "../services/yogaService";
@@ -14,7 +14,7 @@ export function useYoga() {
   const [saving, setSaving] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [history, setHistory] = useState<YogaHistoryItem[]>([]);
-  const [catalog] = useState<YogaCatalogItem[]>(getYogaCatalog());
+  const [catalog, setCatalog] = useState<YogaCatalogItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHistory(currentUser?: User | null) {
@@ -75,6 +75,7 @@ export function useYoga() {
   }
 
   useEffect(() => {
+    void getYogaCatalogWithAdminContent().then(setCatalog).catch(() => setCatalog([]));
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       loadHistory(currentUser);
     });

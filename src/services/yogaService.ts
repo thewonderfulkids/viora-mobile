@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../firebase/firebaseConfig";
+import { listActiveProgramContent } from "../repositories/adminControlRepository";
 import { COLLECTIONS } from "../firebase/firestoreCollections";
 import { getTodayKey } from "../firebase/firestoreHelpers";
 import {
@@ -36,8 +37,10 @@ export type YogaHistoryItem = {
 };
 
 export type YogaCatalogStep = {
+  id?: string;
   title: string;
   durationSeconds: number;
+  videoUrl?: string;
 };
 
 export type YogaCatalogItem = {
@@ -50,6 +53,9 @@ export type YogaCatalogItem = {
   description: string;
   focus: string;
   steps: YogaCatalogStep[];
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  provider?: string;
 };
 
 export const YOGA_CATALOG: YogaCatalogItem[] = [
@@ -258,4 +264,65 @@ export async function getTodayYogaHistory(
       difficulty,
       time,
     }));
+}
+
+function yogaTypeFromAdmin(value: string): YogaType {
+  const text = value.toLowerCase();
+  if (text.includes("breath")) return "Breathing";
+  if (text.includes("stretch")) return "Stretching";
+  if (text.includes("workout")) return "Workout";
+  return "Yoga";
+}
+
+function yogaDifficultyFromAdmin(
+  value: string,
+): YogaDifficulty {
+  if (value === "advanced") return "Advanced";
+  if (value === "intermediate") return "Intermediate";
+  return "Beginner";
+}
+
+export async function getYogaCatalogWithAdminContent(): Promise<YogaCatalogItem[]> {
+  const remoteContent = await listActiveProgramContent();
+  const yogaMedia = remoteContent.filter((item) => item.category === "yoga");
+
+  return YOGA_CATALOG.map((session) => {
+    const fullVideo = yogaMedia.find(
+      (item) =>
+        item.targetId === session.id &&
+        item.mediaRole === "full_session_video" &&
+        Boolean(item.url),
+    );
+
+    const steps = session.steps.map((step) => {
+      const stepId = step.title
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+
+      const mapped = yogaMedia.find(
+        (item) =>
+          item.parentTargetId === session.id &&
+          item.targetId === stepId &&
+          item.mediaRole === "exercise_video" &&
+          Boolean(item.url),
+      );
+
+      return {
+        ...step,
+        id: stepId,
+        videoUrl: mapped?.url,
+      };
+    });
+
+    return {
+      ...session,
+      steps,
+      videoUrl: fullVideo?.url,
+      playbackMode: steps.some((step) => Boolean(step.videoUrl))
+        ? "step_by_step"
+        : "full_session",
+    };
+  });
 }

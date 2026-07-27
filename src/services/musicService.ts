@@ -102,19 +102,44 @@ export function getMusicCatalog() {
 
 export async function getMusicCatalogWithAdminContent(): Promise<MusicCatalogItem[]> {
   const remoteContent = await listActiveProgramContent();
-  const remoteMusic = remoteContent
-    .filter((item) => item.kind === "music")
+  const mappedTracks = remoteContent.filter(
+    (item) =>
+      item.category === "music" &&
+      (item.mediaRole === "audio_track" ||
+        item.mediaRole === "background_music") &&
+      Boolean(item.targetId) &&
+      Boolean(item.url),
+  );
+
+  const builtIn = MUSIC_CATALOG.map((track) => {
+    const mapped = mappedTracks.find((item) => item.targetId === track.id);
+
+    return mapped
+      ? {
+          ...track,
+          title: mapped.title || track.title,
+          description: mapped.subtitle || track.description,
+          durationMinutes: mapped.durationMinutes || track.durationMinutes,
+          audioUrl: mapped.url,
+          provider: mapped.provider,
+        }
+      : track;
+  });
+
+  const knownIds = new Set(builtIn.map((item) => item.id));
+  const additional = mappedTracks
+    .filter((item) => !knownIds.has(item.targetId || ""))
     .map((item) => ({
-      id: item.id,
+      id: item.targetId || item.id,
       title: item.title,
       therapyType: therapyTypeFromCategory(item.category),
       durationMinutes: item.durationMinutes || 10,
-      description: item.subtitle || "Admin-managed Viora sound therapy track.",
+      description: item.subtitle || "Viora sound therapy track.",
       audioUrl: item.url,
       provider: item.provider,
     }));
 
-  return remoteMusic.length ? remoteMusic : MUSIC_CATALOG;
+  return [...builtIn, ...additional];
 }
 
 export async function completeMusicSession({
