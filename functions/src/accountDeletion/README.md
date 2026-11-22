@@ -73,3 +73,10 @@ This audit reviewed the listed repository source files only. Delegated services,
 - `useSyncStatus` now resets displayed queue on account change, uses the signed-in UID for diagnostic actions, and does not auto-sync when signed out.
 - **Not validated:** TypeScript compilation, concurrent account-switch races, real-device logout/login, legacy data recovery, deletion lifecycle clearing, and server replay handlers.
 - **Deletion gate remains closed:** UID partitioning reduces cross-account mixing but does not make a destructive deletion worker safe. The old local v1 queue may contain personal data and needs an explicit retention/cleanup plan.
+
+## Legacy queue recovery preparation
+
+- Added `inspectLegacySyncQueue()`: authenticated, read-only counts of v1 device-wide actions grouped by matching UID, other UID and missing owner. It does not expose action payloads or migrate/delete anything.
+- No UI calls this function yet; it is not a user-facing recovery flow.
+- Added stale-user guards after clear-synced and clear-all dashboard operations.
+- **Still blocked:** explicit user-reviewed migration, malformed item handling, per-account cleanup policy, concurrent storage updates, TypeScript compilation, and device testing.
