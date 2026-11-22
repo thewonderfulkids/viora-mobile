@@ -50,7 +50,7 @@ export function AdminAccessPanel({
         </View>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>Admin Access Grant</Text>
-          <Text style={styles.subtitle}>Search a registered user and assign Viora premium access for beta/support cases.</Text>
+          <Text style={styles.subtitle}>Enter any email. Existing accounts receive access immediately; new users receive it after signup and email verification.</Text>
         </View>
       </View>
 
