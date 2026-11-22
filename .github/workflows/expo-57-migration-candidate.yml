@@ -1,0 +1,45 @@
+name: Expo 57 migration candidate
+
+on:
+  push:
+    branches:
+      - chore/expo-sdk-57-migration
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install current locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Generate Expo SDK 57 dependency candidate
+        env:
+          CI: "1"
+        run: |
+          npx expo install expo@^57.0.9 --fix
+          npx expo install --fix
+      - name: Preserve generated manifests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expo-57-generated-manifests
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 14
+      - name: Typecheck candidate
+        run: npx tsc --noEmit
+      - name: Expo Doctor candidate
+        run: npx expo-doctor
+      - name: Candidate diff summary
+        if: always()
+        run: git diff --stat && git diff -- package.json | head -200
