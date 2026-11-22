@@ -7,23 +7,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
  * Read-only pre-deletion inventory. Never deletes or modifies user data.
  * An administrator must review the inventory before enabling a deletion worker.
  */
-const OWNED_COLLECTIONS = [
-  "hydrationLogs", "sleepLogs", "yogaSessions", "musicSessions", "activities",
-  "journalEntries", "aiConversations", "aiMemory", "conversationSummaries",
-  "wellnessIntelligence", "wellnessIntelligenceSnapshots", "wellnessGoals",
-  "wellnessHabits", "habitCompletions", "notifications", "nutritionEntries",
-  "nutritionSummaries", "nutritionGoals", "moodEntries", "moodCheckIns",
-  "mentalWellnessSummaries", "mentalWellnessGoals", "wellnessReports",
-  "nutritionReports", "mentalWellnessReports", "goalReports", "reportExports",
-  "voiceCommands", "voiceSessions", "familyGroups", "familyMembers",
-  "familyInvites", "betaFeedback", "clientErrorLogs", "subscriptions",
-  "payments",
-] as const;
-
-const DIRECT_DOCUMENTS = [
-  "users", "userSettings", "userWellnessProfiles", "reminderSettings",
-  "voicePreferences", "privacySettings", "securitySettings",
-] as const;
+import { PROFILE_PHOTO_PREFIX, REVIEW_REQUIRED_COLLECTIONS, USER_OWNERSHIP_FIELDS, USER_QUERY_COLLECTIONS, USER_UID_DOCUMENT_COLLECTIONS } from "./inventoryManifest";
 
 export const previewAccountDeletion = onCall(
   { region: "asia-south1", enforceAppCheck: false },
@@ -45,13 +29,13 @@ export const previewAccountDeletion = onCall(
     if (!deletionRequest.exists || !["requested", "preflight", "processing"].includes(String(deletionRequest.data()?.status))) {
       throw new HttpsError("failed-precondition", "No active deletion request exists.");
     }
-    const directDocs = await Promise.all(DIRECT_DOCUMENTS.map(async collection => ({
+    const directDocs = await Promise.all(USER_UID_DOCUMENT_COLLECTIONS.map(async collection => ({
       collection, exists: (await db.doc(`${collection}/${uid}`).get()).exists,
     })));
     const collectionCounts: { collection: string; field: string; count: number }[] = [];
     const queryErrors: { collection: string; field: string; message: string }[] = [];
-    for (const collection of OWNED_COLLECTIONS) {
-      for (const field of ["userId", "uid", "ownerUserId", "familyOwnerUserId"] as const) {
+    for (const collection of USER_QUERY_COLLECTIONS) {
+      for (const field of USER_OWNERSHIP_FIELDS) {
         try {
           const result = await db.collection(collection).where(field, "==", uid).count().get();
           collectionCounts.push({ collection, field, count: result.data().count });
@@ -65,7 +49,7 @@ export const previewAccountDeletion = onCall(
     try {
       let pageToken: string | undefined;
       do {
-        const [files, , response] = await getStorage().bucket().getFiles({ prefix: `profile-photos/${uid}/`, autoPaginate: false, maxResults: 1000, pageToken });
+        const [files, , response] = await getStorage().bucket().getFiles({ prefix: PROFILE_PHOTO_PREFIX(uid), autoPaginate: false, maxResults: 1000, pageToken });
         avatarCount += files.length;
         pageToken = (response as { nextPageToken?: string } | undefined)?.nextPageToken;
         if (avatarCount >= 10000 && pageToken) { storageTruncated = true; break; }
@@ -76,7 +60,7 @@ export const previewAccountDeletion = onCall(
     return {
       userId: uid, requestStatus: deletionRequest.data()?.status,
       directDocs, collectionCounts, avatarFileCount: avatarCount, storageTruncated, queryErrors,
-      incomplete: true,
+      reviewRequiredCollections: REVIEW_REQUIRED_COLLECTIONS, incomplete: true,
       warning: "Read-only inventory. Counts across fields overlap and must not be added. Document-ID-prefix records, unknown collections, nested subcollections, retention obligations, and other Storage paths may exist. Do not use this inventory as authorization to delete.",
     };
   }
