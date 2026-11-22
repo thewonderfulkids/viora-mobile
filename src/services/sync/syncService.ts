@@ -8,8 +8,6 @@ import {
   getLastSyncedAt,
   getPendingSyncActions,
   savePendingSyncAction,
-  setLastSyncedAt,
-  updatePendingSyncAction,
 } from "../../repositories";
 import { AppDiagnostics, PendingSyncAction, SyncActionType, SyncQueueSummary } from "../../types";
 
@@ -54,22 +52,24 @@ export async function clearSyncQueue() {
   return [];
 }
 
+/**
+ * Phase A safety guard: never acknowledge a queued mutation without a
+ * successful, authenticated server write.
+ *
+ * Queue payloads currently have no defined replay schema or idempotency key.
+ * Blindly replaying them could corrupt user data or duplicate logs.
+ * Keep them pending until per-action replay handlers are implemented.
+ */
 export async function flushSyncQueue() {
   const queue = await getPendingSyncActions();
-  const now = new Date().toISOString();
-
-  for (const item of queue) {
-    if (item.status === "synced") continue;
-
-    await updatePendingSyncAction(item.id, {
-      status: "synced",
-      attempts: item.attempts + 1,
-      lastError: undefined,
-    });
+  const unsynced = queue.filter((item) => item.status !== "synced");
+  if (unsynced.length > 0) {
+    throw new Error(
+      "Offline changes are safely retained on this device. Server sync is not yet available; no changes have been marked as synced."
+    );
   }
-
-  await setLastSyncedAt(now);
-  return getPendingSyncActions();
+  // No pending actions: do not claim a new server sync occurred.
+  return queue;
 }
 
 export async function buildSyncSummary(queue?: PendingSyncAction[]): Promise<SyncQueueSummary> {
