@@ -1,3 +1,5 @@
+import { httpsCallable } from "firebase/functions";
+import { auth, functions } from "../../firebase/firebaseConfig";
 import { getPaymentsByUser } from "../../repositories/paymentRepository";
 import { buildFreeSubscription, cancelSubscription, getActiveSubscriptionByUser } from "../../repositories/subscriptionRepository";
 import { PremiumDashboard, PremiumFeatureKey, PremiumPlan, UserSubscription } from "../../types/premium";
@@ -27,6 +29,11 @@ function getNextRecommendedPlan(currentPlan: PremiumPlan): PremiumPlan {
 
 export async function getPremiumDashboard(userId: string): Promise<PremiumDashboard> {
   if (!userId) throw new Error("Login is required to load premium dashboard.");
+
+  // Claim an administrator-preapproved grant only after verified-email sign-in.
+  if (auth.currentUser?.uid === userId && auth.currentUser.emailVerified) {
+    await httpsCallable(functions, "claimPendingPremiumGrant")({});
+  }
 
   const [subscriptionResult, payments] = await Promise.all([
     getActiveSubscriptionByUser(userId),
