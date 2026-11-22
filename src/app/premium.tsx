@@ -34,17 +34,8 @@ export default function PremiumScreen() {
     if (!plan) return;
 
     Alert.alert(
-      "Activate beta access",
-      `${plan.displayName} will be activated for beta testing. Razorpay checkout will be connected in the payment release.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Activate",
-          onPress: () => {
-            startPlanCheckout(planCode, "manual");
-          },
-        },
-      ]
+      "Checkout not available",
+      "Premium payments are temporarily disabled while secure server-side payment verification is being completed. No payment will be charged."
     );
   }
 
@@ -90,7 +81,7 @@ export default function PremiumScreen() {
 
         <PremiumSection
           title="Choose your Viora plan"
-          subtitle="Choose a plan for beta testing. During beta, paid plan cards activate access directly without opening payment checkout."
+          subtitle="Compare plans. Paid activation is temporarily unavailable until secure checkout and payment verification are ready."
         >
           {dashboard.plans.map((plan) => (
             <PremiumPlanCard
