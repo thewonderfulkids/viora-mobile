@@ -42,25 +42,42 @@ export const previewAccountDeletion = onCall(
     }
     const db = getFirestore();
     const deletionRequest = await db.doc(`accountDeletionRequests/${uid}`).get();
-    if (!deletionRequest.exists || !["requested", "processing"].includes(String(deletionRequest.data()?.status))) {
+    if (!deletionRequest.exists || !["requested", "preflight", "processing"].includes(String(deletionRequest.data()?.status))) {
       throw new HttpsError("failed-precondition", "No active deletion request exists.");
     }
     const directDocs = await Promise.all(DIRECT_DOCUMENTS.map(async collection => ({
       collection, exists: (await db.doc(`${collection}/${uid}`).get()).exists,
     })));
     const collectionCounts: { collection: string; field: string; count: number }[] = [];
+    const queryErrors: { collection: string; field: string; message: string }[] = [];
     for (const collection of OWNED_COLLECTIONS) {
-      for (const field of ["userId", "uid"] as const) {
-        const result = await db.collection(collection).where(field, "==", uid).count().get();
-        collectionCounts.push({ collection, field, count: result.data().count });
+      for (const field of ["userId", "uid", "ownerUserId", "familyOwnerUserId"] as const) {
+        try {
+          const result = await db.collection(collection).where(field, "==", uid).count().get();
+          collectionCounts.push({ collection, field, count: result.data().count });
+        } catch (error) {
+          queryErrors.push({ collection, field, message: error instanceof Error ? error.message : "Query failed" });
+        }
       }
     }
-    const [files] = await getStorage().bucket().getFiles({ prefix: `profile-photos/${uid}/`, autoPaginate: false, maxResults: 1000 });
+    let avatarCount = 0;
+    let storageTruncated = false;
+    try {
+      let pageToken: string | undefined;
+      do {
+        const [files, , response] = await getStorage().bucket().getFiles({ prefix: `profile-photos/${uid}/`, autoPaginate: false, maxResults: 1000, pageToken });
+        avatarCount += files.length;
+        pageToken = (response as { nextPageToken?: string } | undefined)?.nextPageToken;
+        if (avatarCount >= 10000 && pageToken) { storageTruncated = true; break; }
+      } while (pageToken);
+    } catch (error) {
+      queryErrors.push({ collection: "storage:profile-photos", field: "prefix", message: error instanceof Error ? error.message : "Storage query failed" });
+    }
     return {
       userId: uid, requestStatus: deletionRequest.data()?.status,
-      directDocs, collectionCounts, avatarFileCountFirstPage: files.length,
+      directDocs, collectionCounts, avatarFileCount: avatarCount, storageTruncated, queryErrors,
       incomplete: true,
-      warning: "Read-only preview. Other user-linked records, subcollections, and additional Storage pages may exist. Do not use this inventory as authorization to delete.",
+      warning: "Read-only inventory. Counts across fields overlap and must not be added. Document-ID-prefix records, unknown collections, nested subcollections, retention obligations, and other Storage paths may exist. Do not use this inventory as authorization to delete.",
     };
   }
 );
