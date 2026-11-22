@@ -32,5 +32,7 @@ jobs:
         run: npx tsc --noEmit
       - name: Expo Doctor
         run: npx expo-doctor
+      - name: Install Firebase Functions dependencies
+        run: npm ci --prefix functions --no-audit --no-fund
       - name: Firebase Functions TypeScript
         run: npm run build --prefix functions
