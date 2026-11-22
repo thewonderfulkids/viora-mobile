@@ -28,6 +28,21 @@ jobs:
         run: |
           node -e "const p=require('./package.json'); if (!p.dependencies.expo.startsWith('^57.')) process.exit(1); if (p.dependencies['react-native'] !== '0.86.3') process.exit(1)"
           CI=1 npx expo install --check
+      - name: Android preview APK configuration preflight
+        run: |
+          npx expo config --type public --json > /tmp/viora-expo-public-config.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const app = JSON.parse(fs.readFileSync('/tmp/viora-expo-public-config.json', 'utf8'));
+          const eas = JSON.parse(fs.readFileSync('eas.json', 'utf8'));
+          const assert = (ok, message) => { if (!ok) throw new Error(message); };
+          assert(app.android?.package === 'com.drdigiweb.vioramobile', 'Android package missing or changed');
+          assert(app.extra?.eas?.projectId === 'd459f525-122a-4265-b496-6b2bf0f2211c', 'EAS project ID missing or changed');
+          assert(eas.build?.preview?.distribution === 'internal', 'Preview build must be internal');
+          assert(eas.build?.preview?.android?.buildType === 'apk', 'Preview build must produce an APK');
+          assert(eas.build?.production?.android?.buildType === 'app-bundle', 'Production build configuration unexpectedly changed');
+          console.log('Android preview APK config preflight passed; this does not build an APK.');
+          NODE
       - name: Mobile TypeScript
         run: npx tsc --noEmit
       - name: Expo Doctor
