@@ -21,7 +21,7 @@ export const USER_UID_DOCUMENT_COLLECTIONS = [
 ] as const;
 
 export const USER_OWNERSHIP_FIELDS = [
-  "userId", "uid", "ownerUserId", "familyOwnerUserId",
+  "userId", "uid", "ownerUserId", "familyOwnerUserId", "invoiceOwnerUserId",
 ] as const;
 
 /** Never auto-delete these without an explicit data-retention and shared-data policy. */
