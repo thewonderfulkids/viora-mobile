@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   typecheck:
-    name: TypeScript and Expo dependency checks
+    name: Mobile TypeScript
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -38,8 +38,6 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: TypeScript typecheck
         run: npx tsc --noEmit
-      - name: Expo dependency diagnostics
-        run: npx expo-doctor
 
   functions-typecheck:
     name: Firebase Functions TypeScript
@@ -56,3 +54,18 @@ jobs:
         run: npm ci --prefix functions --no-audit --no-fund
       - name: Compile Functions
         run: npm run build --prefix functions
+
+  expo-doctor:
+    name: Expo SDK compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Expo Doctor (strict)
+        run: npx expo-doctor
