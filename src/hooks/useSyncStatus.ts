@@ -11,9 +11,13 @@ import {
 } from "../services/sync";
 import { PendingSyncAction, SyncActionType, SyncDashboard, SyncQueueSummary } from "../types";
 import { useNetwork } from "./useNetwork";
+import { useAuth } from "../context/AuthContext";
+import { auth } from "../firebase/firebaseConfig";
 
 export function useSyncStatus() {
   const { isOnline, isChecking, lastCheckedAt, refreshNetworkStatus } = useNetwork();
+  const { user } = useAuth();
+  const uid = user?.uid;
   const [queue, setQueue] = useState<PendingSyncAction[]>([]);
   const [summary, setSummary] = useState<SyncQueueSummary>({
     pendingCount: 0,
@@ -27,13 +31,21 @@ export function useSyncStatus() {
   const hasAutoSyncedRef = useRef(false);
 
   const refresh = useCallback(async () => {
+    if (!uid) {
+      setQueue([]);
+      setSummary({ pendingCount: 0, failedCount: 0, syncedCount: 0, lastSyncedAt: null, lastQueuedAt: null });
+      return;
+    }
     const latestQueue = await loadSyncQueue();
+    if (uid !== auth.currentUser?.uid) return;
     setQueue(latestQueue);
     setSummary(await buildSyncSummary(latestQueue));
-  }, []);
+  }, [uid]);
 
   useEffect(() => {
-    void refresh();
+    hasAutoSyncedRef.current = false;
+    setQueue([]);
+    void refresh().catch(err => setError(err?.message || "Unable to load sync queue."));
   }, [refresh]);
 
   const runSync = useCallback(async () => {
@@ -41,7 +53,7 @@ export function useSyncStatus() {
       setError(null);
       setIsSyncing(true);
 
-      if (!isOnline) {
+      if (!uid || !isOnline) {
         await refresh();
         return;
       }
@@ -54,10 +66,10 @@ export function useSyncStatus() {
     } finally {
       setIsSyncing(false);
     }
-  }, [isOnline, refresh]);
+  }, [isOnline, refresh, uid]);
 
   useEffect(() => {
-    if (!isOnline) {
+    if (!uid || !isOnline) {
       hasAutoSyncedRef.current = false;
       return;
     }
@@ -66,11 +78,12 @@ export function useSyncStatus() {
     hasAutoSyncedRef.current = true;
 
     void runSync();
-  }, [isOnline, runSync]);
+  }, [isOnline, runSync, uid]);
 
   const addTestAction = useCallback(async () => {
+    if (!uid) throw new Error("Sign in to create a diagnostic action.");
     const nextQueue = await queueOfflineAction({
-      userId: "local-beta-user",
+      userId: uid ?? "",
       type: "generic" as SyncActionType,
       title: "Beta diagnostic action",
       description: "Local-only sync test queued from diagnostics.",
@@ -78,7 +91,7 @@ export function useSyncStatus() {
     });
     setQueue(nextQueue);
     setSummary(await buildSyncSummary(nextQueue));
-  }, []);
+  }, [uid]);
 
   const clearSynced = useCallback(async () => {
     const nextQueue = await clearSyncedActions();
