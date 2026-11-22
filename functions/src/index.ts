@@ -61,3 +61,5 @@ export { bootstrapFirstAdmin } from "./admin/bootstrapFirstAdmin";
 export { createDefaultAdmin } from "./admin/createDefaultAdmin";
 
 export { adminGrantPremiumByEmail, claimPendingPremiumGrant } from "./admin/premiumAccessGrants";
+
+export { requestAccountDeletion } from "./accountDeletion/requestAccountDeletion";
