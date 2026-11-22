@@ -19,3 +19,14 @@ Status: **read-only inventory only**. No cleanup worker is authorized for produc
 6. Obtain explicit production approval and deploy security rules/functions together. Run a dry-run and compare post-cleanup inventory before authorizing the final Auth delete.
 
 **Hard gate:** No destructive worker is exported or deployed in this phase. Preflight status is not permission to delete.
+
+## Ownership audit checkpoint (2026-11)
+
+- The inventory manifest now covers the app's declared per-user collections, including `dailyStats` and `aiRequestLogs` previously missing from the preview.
+- `users/{uid}`, `userSettings/{uid}`, `userWellnessProfiles/{uid}`, `reminderSettings/{uid}`, and `voicePreferences/{uid}` are probed as UID documents.
+- `payments`, `subscriptions`, and `family*` collections are marked review-required; the owner of a family group is not necessarily the owner of every member's data.
+- Shared global collections (`appSettings`, `adminContent`, `premiumFeatures`, `premiumProgramEntitlements`) are not assumed to belong to a deleting user.
+- Queries on four ownership fields can overlap. The inventory is diagnostic, not an exact document count or safe deletion plan.
+- Additional collections may exist outside the mobile constants; the discovery function lists live top-level collection names, but no production scan has been run.
+
+**Next gate:** audit every repository write path and verify all UID-linked document ID formats, nested descendants, external integrations, and retention rules. No destructive worker should be enabled yet.
