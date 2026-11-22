@@ -45,3 +45,23 @@ Status: **read-only inventory only**. No cleanup worker is authorized for produc
 | `profile-photos/{uid}/` | Versioned avatar objects | Storage prefix scan; pagination and failure handling mandatory |
 
 These findings were checked against the named repository files; they do **not** prove complete coverage of all writes, nested paths or third-party systems. No deletion should occur based on this audit alone.
+
+## Additional write-path audit: voice, diagnostics, sync and AI (2026-11)
+
+| Source inspected | Observed ownership / storage | Required treatment |
+|---|---|---|
+| `voiceRepository.ts` | `voiceCommands` documents queried by `userId` | Included in owner-field inventory |
+| `wellnessIntelligenceRepository.ts` | `dailyStats` queried by `uid`; `wellnessIntelligenceSnapshots` composite `{uid}_{dateKey}` ID plus `userId` | Both fields must be scanned; do not assume UID document ID |
+| `aiCoachRepository.ts` | Delegates conversation persistence to AI services | **Open**: inspect delegated service writes and thread/message subcollections |
+| `errorLogRepository.ts` | Random-ID `clientErrorLogs` with spread `ClientErrorLogRecord` | **Open**: verify actual identity field and retention policy |
+| `betaFeedbackRepository.ts` | Random-ID `betaFeedback` with spread `BetaFeedbackRecord` | **Open**: verify actual identity field and retention policy |
+| `userRepository.ts` | `users/{uid}` | UID document scan; verify nested collections |
+| `syncQueueRepository.ts` | Device-local AsyncStorage keys `@viora/sync-queue/v1` and `@viora/sync-queue/last-synced-at` | **Critical**: shared local queue is not UID-namespaced; do not clear it indiscriminately or replay stale actions after account deletion |
+
+### Deletion worker blocker: local queue
+
+The current sync queue uses global device keys rather than per-user keys. Account deletion must not erase another account's pending actions on a shared device, and subsequent sign-in must not replay a deleted account's actions. Resolve per-user queue partitioning and logout/deletion lifecycle before enabling destructive deletion.
+
+### Audit limitations
+
+This audit reviewed the listed repository source files only. Delegated services, type definitions, Cloud Functions, all nested paths, and external retention obligations remain unverified. The existing preview and discovery functions must continue returning `incomplete: true` / `complete: false`.
