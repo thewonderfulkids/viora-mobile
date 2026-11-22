@@ -65,3 +65,11 @@ The current sync queue uses global device keys rather than per-user keys. Accoun
 ### Audit limitations
 
 This audit reviewed the listed repository source files only. Delegated services, type definitions, Cloud Functions, all nested paths, and external retention obligations remain unverified. The existing preview and discovery functions must continue returning `incomplete: true` / `complete: false`.
+
+## Offline sync isolation implementation checkpoint
+
+- `syncQueueRepository` now reads/writes queue and last-sync metadata under authenticated UID-specific v2 keys; writes reject actions owned by another UID.
+- The previous global v1 keys are deliberately left untouched and are not migrated or replayed. A later user-reviewed recovery/export flow is needed for legacy pending actions.
+- `useSyncStatus` now resets displayed queue on account change, uses the signed-in UID for diagnostic actions, and does not auto-sync when signed out.
+- **Not validated:** TypeScript compilation, concurrent account-switch races, real-device logout/login, legacy data recovery, deletion lifecycle clearing, and server replay handlers.
+- **Deletion gate remains closed:** UID partitioning reduces cross-account mixing but does not make a destructive deletion worker safe. The old local v1 queue may contain personal data and needs an explicit retention/cleanup plan.
