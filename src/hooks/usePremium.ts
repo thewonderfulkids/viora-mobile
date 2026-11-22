@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../context/AuthContext";
-import { activateManualPaymentForTesting, createPaymentIntent, getPremiumDashboard } from "../services/premium";
+import { getPremiumDashboard } from "../services/premium";
 import { PaymentProvider, PremiumDashboard, PremiumPlanCode } from "../types/premium";
 
 export function usePremium() {
@@ -54,13 +54,7 @@ export function usePremium() {
     try {
       setProcessingPlanCode(planCode);
       setError(null);
-      const payment = await createPaymentIntent({ userId, planCode, provider });
-
-      if (provider === "manual") {
-        await activateManualPaymentForTesting({ userId, paymentId: payment.id, planCode });
-      }
-
-      await load("refresh");
+      throw new Error("Premium checkout is not yet available. No payment has been charged and no subscription has been activated.");
     } catch (err: any) {
       setError(err?.message || "Unable to start payment.");
     } finally {
