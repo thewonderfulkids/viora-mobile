@@ -4,7 +4,7 @@ import { AdminAccessGrantInput, AdminAccessGrantResult, AdminAccessUser } from "
 
 export async function searchAccessUserByEmail(_adminEmail: string, targetEmail: string): Promise<AdminAccessUser | null> {
   const email = targetEmail.trim().toLowerCase();
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) throw new Error("Enter a valid user email.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid user email.");
   // Do not expose the full user directory through client-side Firestore queries.
   // The server securely resolves registered and future users during grant.
   return { uid: "", fullName: "Email recipient", email };
