@@ -104,14 +104,18 @@ export function useSyncStatus() {
 
   const clearSynced = useCallback(async () => {
     const nextQueue = await clearSyncedActions();
+    const nextSummary = await buildSyncSummary(nextQueue);
+    if (uid !== activeUidRef.current || uid !== auth.currentUser?.uid) return;
     setQueue(nextQueue);
-    setSummary(await buildSyncSummary(nextQueue));
+    setSummary(nextSummary);
   }, [uid]);
 
   const clearAll = useCallback(async () => {
     const nextQueue = await clearSyncQueue();
+    const nextSummary = await buildSyncSummary(nextQueue);
+    if (uid !== activeUidRef.current || uid !== auth.currentUser?.uid) return;
     setQueue(nextQueue);
-    setSummary(await buildSyncSummary(nextQueue));
+    setSummary(nextSummary);
   }, [uid]);
 
   const checkNetwork = useCallback(async () => {
