@@ -30,3 +30,18 @@ Status: **read-only inventory only**. No cleanup worker is authorized for produc
 - Additional collections may exist outside the mobile constants; the discovery function lists live top-level collection names, but no production scan has been run.
 
 **Next gate:** audit every repository write path and verify all UID-linked document ID formats, nested descendants, external integrations, and retention rules. No destructive worker should be enabled yet.
+
+## Repository-level ownership findings
+
+| Data source | Write pattern observed | Deletion implication |
+|---|---|---|
+| `reminderSettings` | UID document ID | Direct UID probe; check nested descendants |
+| `wellnessGoals`, `wellnessHabits`, `nutritionEntries`, `moodEntries` | User ID field on random-ID documents | Query by `userId` |
+| `habitCompletions`, `mentalWellnessSummaries` | Composite ID beginning with UID, plus `userId` field | Query by owner field; ID-prefix-only scan insufficient |
+| `aiMemory`, `conversationSummaries` | Random IDs and `userId` field | Query by owner field |
+| `userWellnessProfiles` | UID document ID | Direct UID probe |
+| `familyGroups`, `familyMembers` | Owner ID plus family ID and member ID | Shared-member review mandatory; do not blindly cascade |
+| `subscriptions`, `payments` | `userId` and `invoiceOwnerUserId` | Financial retention review mandatory |
+| `profile-photos/{uid}/` | Versioned avatar objects | Storage prefix scan; pagination and failure handling mandatory |
+
+These findings were checked against the named repository files; they do **not** prove complete coverage of all writes, nested paths or third-party systems. No deletion should occur based on this audit alone.
