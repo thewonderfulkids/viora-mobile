@@ -229,21 +229,16 @@ service cloud.firestore {
 
     match /subscriptions/{docId} {
       allow read: if ownsExistingAnyUserDoc() || isVioraAdmin();
-      allow create, update: if (isVioraAdmin()
-          && request.resource.data.source == "admin_access_grant"
-          && request.resource.data.provider == "manual")
-        || (signedIn()
-          && request.resource.data.userId == request.auth.uid
-          && request.resource.data.provider == "manual"
-          && request.resource.data.status == "active");
+      // Premium entitlements must be written by trusted server code only.
+      // Firebase Admin SDK bypasses Firestore Security Rules.
+      allow create, update: if false;
       allow delete: if false;
     }
 
     match /payments/{docId} {
       allow read: if ownsExistingAnyUserDoc() || isVioraAdmin();
-      allow create, update: if signedIn()
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.provider == "manual";
+      // Client-side writes cannot be trusted to confirm a payment.
+      allow create, update: if false;
       allow delete: if false;
     }
 
