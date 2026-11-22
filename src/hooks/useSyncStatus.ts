@@ -29,6 +29,8 @@ export function useSyncStatus() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasAutoSyncedRef = useRef(false);
+  const activeUidRef = useRef(uid);
+  activeUidRef.current = uid;
 
   const refresh = useCallback(async () => {
     if (!uid) {
@@ -38,14 +40,17 @@ export function useSyncStatus() {
     }
     const latestQueue = await loadSyncQueue();
     if (uid !== auth.currentUser?.uid) return;
+    const nextSummary = await buildSyncSummary(latestQueue);
+    if (uid !== activeUidRef.current || uid !== auth.currentUser?.uid) return;
     setQueue(latestQueue);
-    setSummary(await buildSyncSummary(latestQueue));
+    setSummary(nextSummary);
   }, [uid]);
 
   useEffect(() => {
     hasAutoSyncedRef.current = false;
     setQueue([]);
-    void refresh().catch(err => setError(err?.message || "Unable to load sync queue."));
+    setError(null);
+    void refresh().catch(err => { if (uid === activeUidRef.current) setError(err?.message || "Unable to load sync queue."); });
   }, [refresh]);
 
   const runSync = useCallback(async () => {
@@ -59,10 +64,12 @@ export function useSyncStatus() {
       }
 
       const nextQueue = await flushSyncQueue();
+      const nextSummary = await buildSyncSummary(nextQueue);
+      if (uid !== activeUidRef.current || uid !== auth.currentUser?.uid) return;
       setQueue(nextQueue);
-      setSummary(await buildSyncSummary(nextQueue));
+      setSummary(nextSummary);
     } catch (err: any) {
-      setError(err?.message || "Unable to sync right now.");
+      if (uid === activeUidRef.current) setError(err?.message || "Unable to sync right now.");
     } finally {
       setIsSyncing(false);
     }
@@ -89,21 +96,23 @@ export function useSyncStatus() {
       description: "Local-only sync test queued from diagnostics.",
       payload: { source: "sync-diagnostics" },
     });
+    const nextSummary = await buildSyncSummary(nextQueue);
+    if (uid !== activeUidRef.current || uid !== auth.currentUser?.uid) return;
     setQueue(nextQueue);
-    setSummary(await buildSyncSummary(nextQueue));
+    setSummary(nextSummary);
   }, [uid]);
 
   const clearSynced = useCallback(async () => {
     const nextQueue = await clearSyncedActions();
     setQueue(nextQueue);
     setSummary(await buildSyncSummary(nextQueue));
-  }, []);
+  }, [uid]);
 
   const clearAll = useCallback(async () => {
     const nextQueue = await clearSyncQueue();
     setQueue(nextQueue);
     setSummary(await buildSyncSummary(nextQueue));
-  }, []);
+  }, [uid]);
 
   const checkNetwork = useCallback(async () => {
     await refreshNetworkStatus();
