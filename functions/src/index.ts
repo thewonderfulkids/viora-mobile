@@ -63,3 +63,5 @@ export { createDefaultAdmin } from "./admin/createDefaultAdmin";
 export { adminGrantPremiumByEmail, claimPendingPremiumGrant } from "./admin/premiumAccessGrants";
 
 export { requestAccountDeletion } from "./accountDeletion/requestAccountDeletion";
+
+export { previewAccountDeletion } from "./accountDeletion/previewAccountDeletion";
