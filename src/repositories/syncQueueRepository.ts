@@ -4,6 +4,7 @@ import { PendingSyncAction } from "../types";
 import { auth } from "../firebase/firebaseConfig";
 
 // Legacy device-wide queue is intentionally quarantined: never replay or auto-migrate it.
+const LEGACY_SYNC_QUEUE_KEY = "@viora/sync-queue/v1";
 const SYNC_QUEUE_KEY_PREFIX = "@viora/sync-queue/v2";
 const LAST_SYNCED_AT_KEY_PREFIX = "@viora/sync-queue/v2/last-synced-at";
 
@@ -86,4 +87,36 @@ export async function setLastSyncedAt(value: string): Promise<void> {
 
 export async function getLastSyncedAt(): Promise<string | null> {
   return AsyncStorage.getItem(syncedKey(currentUid()));
+}
+
+/** Read-only legacy inventory; never migrates, replays or deletes device-wide data. */
+export async function inspectLegacySyncQueue(): Promise<{
+  total: number;
+  currentUserCount: number;
+  otherUserCount: number;
+  missingOwnerCount: number;
+  unreadable: boolean;
+}> {
+  const uid = currentUid();
+  const raw = await AsyncStorage.getItem(LEGACY_SYNC_QUEUE_KEY);
+  if (!raw) return { total: 0, currentUserCount: 0, otherUserCount: 0, missingOwnerCount: 0, unreadable: false };
+  try {
+    const items: unknown = JSON.parse(raw);
+    if (!Array.isArray(items)) throw new Error("Invalid legacy queue");
+    let currentUserCount = 0;
+    let otherUserCount = 0;
+    let missingOwnerCount = 0;
+    for (const item of items) {
+      const owner = item && typeof item === "object" && "userId" in item
+        ? (item as { userId?: unknown }).userId : undefined;
+      if (owner === uid) currentUserCount++;
+      else if (typeof owner === "string" && owner.length > 0) otherUserCount++;
+      else missingOwnerCount++;
+    }
+    if (uid !== currentUid()) throw new Error("Account changed during legacy inventory.");
+    return { total: items.length, currentUserCount, otherUserCount, missingOwnerCount, unreadable: false };
+  } catch (error) {
+    if (uid !== auth.currentUser?.uid) throw error;
+    return { total: 0, currentUserCount: 0, otherUserCount: 0, missingOwnerCount: 0, unreadable: true };
+  }
 }
