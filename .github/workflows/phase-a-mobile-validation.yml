@@ -7,6 +7,8 @@ on:
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
+      - "functions/**"
+      - "functions/**"
       - ".github/workflows/phase-a-mobile-validation.yml"
   push:
     branches:
@@ -38,3 +40,19 @@ jobs:
         run: npx tsc --noEmit
       - name: Expo dependency diagnostics
         run: npx expo-doctor
+
+  functions-typecheck:
+    name: Firebase Functions TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - name: Install Functions dependencies
+        run: npm ci --prefix functions --no-audit --no-fund
+      - name: Compile Functions
+        run: npm run build --prefix functions
