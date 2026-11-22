@@ -67,3 +67,5 @@ export { requestAccountDeletion } from "./accountDeletion/requestAccountDeletion
 export { previewAccountDeletion } from "./accountDeletion/previewAccountDeletion";
 
 export { prepareAccountDeletion, resetAccountDeletionPreflight } from "./accountDeletion/deletionPreflight";
+
+export { discoverDeletionDataPaths } from "./accountDeletion/discoverDeletionDataPaths";
