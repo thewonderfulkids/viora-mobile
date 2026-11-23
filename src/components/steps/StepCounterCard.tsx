@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useStepCounter } from "../../hooks/useStepCounter";
 import { premiumPalette, premiumShadow } from "../../theme/premium";
 
-export function StepCounterCard() {
+export function StepCounterCard({ onRefresh }: { onRefresh?: () => Promise<unknown> }) {
   const data = useStepCounter();
 
   const needsPermission =
@@ -21,6 +21,11 @@ export function StepCounterCard() {
       return;
     }
 
+    if (onRefresh) {
+      await onRefresh();
+      return;
+    }
+
     router.push("/steps" as never);
   }
 
@@ -28,7 +33,7 @@ export function StepCounterCard() {
     <Pressable
       onPress={open}
       accessibilityRole="button"
-      accessibilityLabel={`${data.steps} steps out of ${data.goal}`}
+      accessibilityLabel={`${data.steps} steps out of ${data.goal}. ${onRefresh ? "Tap to refresh" : "Tap to open steps"}`}
       style={({ pressed }) => [
         styles.pressable,
         pressed && styles.pressed,
