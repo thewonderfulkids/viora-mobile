@@ -59,3 +59,19 @@ test('corrupted queue is never silently overwritten', async () => {
   await assert.rejects(repo.savePendingSyncAction(action('new')), /unreadable/);
   assert.equal(storage.get('@viora/sync-queue/v2/alice'), '{bad json');
 });
+
+test('a rejected cross-owner mutation does not block later valid saves', async () => {
+  const { repo } = setup();
+  await assert.rejects(repo.savePendingSyncAction(action('foreign', 'bob')), /owner/);
+  await repo.savePendingSyncAction(action('valid'));
+  assert.deepEqual(Array.from((await repo.getPendingSyncActions()).map(x => x.id)), ['valid']);
+});
+
+test('queue owner cannot be changed through a patch', async () => {
+  const { repo } = setup();
+  await repo.savePendingSyncAction(action('original'));
+  await assert.rejects(repo.updatePendingSyncAction('original', { userId: 'bob' }), /owner/);
+  const queue = await repo.getPendingSyncActions();
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].userId, 'alice');
+});
