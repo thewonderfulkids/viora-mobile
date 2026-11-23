@@ -51,6 +51,9 @@ async function writeQueue(queue: PendingSyncAction[], uid = currentUid()) {
   if (currentUid() !== uid) throw new Error("Account changed during sync queue update.");
   if (queue.some(item => item.userId !== uid)) throw new Error("Cannot save another user\'s sync actions.");
   await AsyncStorage.setItem(queueKey(uid), JSON.stringify(sortByNewest(queue)));
+  // Storage may resolve after sign-out/account switch. Never report success
+  // to a different active account; the write remains scoped to the original UID.
+  if (currentUid() !== uid) throw new Error("Account changed while saving offline sync queue.");
 }
 
 // Serialize read-modify-write operations within this app process so concurrent
