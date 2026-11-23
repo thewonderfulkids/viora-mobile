@@ -53,46 +53,71 @@ async function writeQueue(queue: PendingSyncAction[], uid = currentUid()) {
   await AsyncStorage.setItem(queueKey(uid), JSON.stringify(sortByNewest(queue)));
 }
 
+// Serialize read-modify-write operations within this app process so concurrent
+// offline actions cannot overwrite each other. Failures must not poison the chain.
+let mutationTail: Promise<void> = Promise.resolve();
+function serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = mutationTail.then(operation);
+  mutationTail = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 export async function getPendingSyncActions(): Promise<PendingSyncAction[]> {
   return readQueue();
 }
 
 export async function savePendingSyncAction(action: PendingSyncAction): Promise<PendingSyncAction[]> {
+  return serializeMutation(async () => {
   if (action.userId !== currentUid()) throw new Error("Sync action owner does not match signed-in user.");
   const uid = currentUid();
   const queue = await readQueue(uid);
   const nextQueue = [action, ...queue.filter((item) => item.id !== action.id)];
   await writeQueue(nextQueue, uid);
   return nextQueue;
+
+  });
 }
 
 export async function updatePendingSyncAction(actionId: string, patch: Partial<PendingSyncAction>): Promise<PendingSyncAction[]> {
+  return serializeMutation(async () => {
   if (patch.userId !== undefined) throw new Error("Sync action owner cannot be changed.");
   const uid = currentUid();
   const queue = await readQueue(uid);
   const nextQueue = queue.map((item) => (item.id === actionId ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item));
   await writeQueue(nextQueue, uid);
   return nextQueue;
+
+  });
 }
 
 export async function removePendingSyncAction(actionId: string): Promise<PendingSyncAction[]> {
+  return serializeMutation(async () => {
   const uid = currentUid();
   const queue = await readQueue(uid);
   const nextQueue = queue.filter((item) => item.id !== actionId);
   await writeQueue(nextQueue, uid);
   return nextQueue;
+
+  });
 }
 
 export async function clearSyncedSyncActions(): Promise<PendingSyncAction[]> {
+  return serializeMutation(async () => {
   const uid = currentUid();
   const queue = await readQueue(uid);
   const nextQueue = queue.filter((item) => item.status !== "synced");
   await writeQueue(nextQueue, uid);
   return nextQueue;
+
+  });
 }
 
 export async function clearAllSyncActions(): Promise<void> {
-  await AsyncStorage.removeItem(queueKey(currentUid()));
+  return serializeMutation(async () => {
+    const uid = currentUid();
+    if (currentUid() !== uid) throw new Error("Account changed during sync queue clear.");
+    await AsyncStorage.removeItem(queueKey(uid));
+  });
 }
 
 export async function setLastSyncedAt(value: string): Promise<void> {
