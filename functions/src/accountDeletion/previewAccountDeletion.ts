@@ -33,6 +33,7 @@ export const previewAccountDeletion = onCall(
       collection, exists: (await db.doc(`${collection}/${uid}`).get()).exists,
     })));
     const collectionCounts: { collection: string; field: string; count: number }[] = [];
+    const idPrefixMatches: { collection: string; count: number; truncated: boolean }[] = [];
     const queryErrors: { collection: string; field: string; message: string }[] = [];
     for (const collection of USER_QUERY_COLLECTIONS) {
       for (const field of USER_OWNERSHIP_FIELDS) {
@@ -42,6 +43,29 @@ export const previewAccountDeletion = onCall(
         } catch (error) {
           queryErrors.push({ collection, field, message: error instanceof Error ? error.message : "Query failed" });
         }
+      }
+    }
+    // Composite document IDs can carry ownership without an indexed owner
+    // field. Bounded prefix scans are discovery-only, not deletion authority.
+    for (const collection of USER_QUERY_COLLECTIONS) {
+      try {
+        const docs = await db.collection(collection)
+          .orderBy("__name__")
+          .startAt(uid + "_")
+          .endAt(uid + "_\\uf8ff")
+          .limit(1001)
+          .get();
+        idPrefixMatches.push({
+          collection,
+          count: Math.min(docs.size, 1000),
+          truncated: docs.size > 1000,
+        });
+      } catch (error) {
+        queryErrors.push({
+          collection,
+          field: "documentIdPrefix",
+          message: error instanceof Error ? error.message : "Prefix scan failed",
+        });
       }
     }
     let avatarCount = 0;
@@ -59,7 +83,7 @@ export const previewAccountDeletion = onCall(
     }
     return {
       userId: uid, requestStatus: deletionRequest.data()?.status,
-      directDocs, collectionCounts, avatarFileCount: avatarCount, storageTruncated, queryErrors,
+      directDocs, collectionCounts, idPrefixMatches, avatarFileCount: avatarCount, storageTruncated, queryErrors,
       reviewRequiredCollections: REVIEW_REQUIRED_COLLECTIONS, incomplete: true,
       warning: "Read-only inventory. Counts across fields overlap and must not be added. Document-ID-prefix records, unknown collections, nested subcollections, retention obligations, and other Storage paths may exist. Do not use this inventory as authorization to delete.",
     };
