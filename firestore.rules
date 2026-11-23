@@ -83,12 +83,18 @@ service cloud.firestore {
         && (request.resource.data.get("userId", null) == null || request.resource.data.get("userId", null) == request.auth.uid);
     }
 
+    function ownerUserNotForeign(data) {
+      return data.get("ownerUserId", null) == null || data.get("ownerUserId", null) == request.auth.uid;
+    }
+
     function canCreateOwnedDoc(docId) {
-      return incomingOwnerNotForeign() && (ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
+      return incomingOwnerNotForeign() && ownerUserNotForeign(request.resource.data)
+        && (ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
     }
 
     function canUpdateOwnedDoc(docId) {
       return ownerFieldsUnchanged() && existingOwnerNotForeign() && incomingOwnerNotForeign()
+        && ownerUserNotForeign(resource.data) && ownerUserNotForeign(request.resource.data)
         && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId))
         && (ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
     }
@@ -99,9 +105,21 @@ service cloud.firestore {
         && ownsIncomingAnyUserDoc();
     }
 
+    // Only a fixed set of non-privileged profile fields is client-writable.
+    // New server-managed fields are denied by default.
+    function userEditableFields() {
+      return ["displayName", "fullName", "firstName", "lastName",
+        "photoURL", "photoUrl", "avatarUrl", "phoneNumber", "gender",
+        "dateOfBirth", "height", "weight", "heightCm", "weightKg",
+        "fitnessGoal", "activityLevel", "onboardingCompleted",
+        "updatedAt", "serverUpdatedAt", "language", "preferredLanguage",
+        "timezone", "city", "country"];
+    }
+
     // Admin and entitlement fields must only be modified by trusted server code.
     function userProtectedFieldsUnchanged() {
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(userEditableFields())
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         "uid", "role", "accessRole", "isAdmin", "admin", "superAdmin",
         "premium", "isPremium", "premiumTier", "subscriptionStatus",
         "entitlements", "accountStatus", "adminCreatedBy", "adminCreatedAt"
@@ -111,7 +129,7 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isOwner(uid) || isVioraAdmin();
       allow create: if isOwner(uid) && request.resource.data.uid == uid
-        && !request.resource.data.keys().hasAny(["role", "accessRole", "isAdmin", "admin", "superAdmin", "premium", "isPremium", "premiumTier", "subscriptionStatus", "entitlements"]);
+        && request.resource.data.keys().hasOnly(["uid", "email", "displayName", "fullName", "firstName", "lastName", "photoURL", "photoUrl", "avatarUrl", "phoneNumber", "gender", "dateOfBirth", "height", "weight", "heightCm", "weightKg", "fitnessGoal", "activityLevel", "onboardingCompleted", "createdAt", "updatedAt", "serverUpdatedAt", "language", "preferredLanguage", "timezone", "city", "country"]);
       allow update: if isVioraAdmin() || (isOwner(uid) && userProtectedFieldsUnchanged());
       allow delete: if false;
     }
@@ -122,7 +140,7 @@ service cloud.firestore {
     }
 
     match /dailyStats/{docId} {
-      allow read: if ownsDocIdPrefix(docId) || ownsExistingAnyUserDoc();
+      allow read: if (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data)) || ownsExistingAnyUserDoc();
       allow create: if canCreateOwnedDoc(docId);
       allow update: if canUpdateOwnedDoc(docId);
       allow delete: if false;
@@ -201,7 +219,7 @@ service cloud.firestore {
     }
 
     match /wellnessIntelligence/{docId} {
-      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow read: if ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
       allow update: if canUpdateOwnedDoc(docId);
       allow create: if canCreateOwnedDoc(docId);
       allow delete: if false;
@@ -215,7 +233,7 @@ service cloud.firestore {
     }
 
     match /wellnessGoals/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow read, delete: if ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
       allow update: if canUpdateOwnedDoc(docId);
       allow create: if canCreateOwnedDoc(docId);
     }
@@ -391,7 +409,7 @@ service cloud.firestore {
     match /familyGroups/{docId} {
       allow read: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
       allow update: if ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
-      allow create: if ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow create: if ownerUserNotForeign(request.resource.data) && incomingOwnerNotForeign() && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
       allow delete: if false;
     }
 
@@ -409,7 +427,8 @@ service cloud.firestore {
     }
 
     match /betaFeedback/{docId} {
-      allow read, update: if ownsExistingAnyUserDoc() || isVioraAdmin();
+      allow read: if ownsExistingAnyUserDoc() || isVioraAdmin();
+      allow update: if isVioraAdmin() || canUpdateOwnedDocWithoutPrefix();
       allow create: if ownsIncomingAnyUserDoc();
       allow delete: if false;
     }
