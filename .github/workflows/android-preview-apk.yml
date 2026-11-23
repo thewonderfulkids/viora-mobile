@@ -1,0 +1,41 @@
+name: Android preview APK (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-preview-apk:
+    if: github.ref == 'refs/heads/chore/expo-sdk-57-migration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Check EAS credentials
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN repository secret is required to initiate a preview APK build."
+            exit 1
+          fi
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate Expo SDK compatibility
+        run: |
+          CI=1 npx expo install --check
+          npx expo-doctor
+          npx tsc --noEmit
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+      - name: Queue internal Android APK build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_NO_VCS: '1'
+        run: eas build --platform android --profile preview --non-interactive --no-wait
