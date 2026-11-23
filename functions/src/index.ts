@@ -50,8 +50,11 @@ export const generateWellnessAdviceHttp = onRequest(
       const result = await generateWellnessAdviceHandler(req.body);
       res.status(200).json(result);
     } catch (error: any) {
-      res.status(500).json({
-        error: error.message || "Unable to generate AI response",
+      // Do not expose OpenAI project identifiers, model entitlements,
+      // provider diagnostics or other internal details to mobile clients.
+      console.error("Wellness AI provider request failed", error);
+      res.status(503).json({
+        error: "AI Coach is temporarily unavailable. Please try again later.",
       });
     }
   }
