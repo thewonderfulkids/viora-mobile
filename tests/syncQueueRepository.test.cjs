@@ -6,11 +6,11 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function setup() {
+function setup({ onGetItem } = {}) {
   const storage = new Map();
   const auth = { currentUser: { uid: 'alice' } };
   const asyncStorage = {
-    async getItem(key) { await Promise.resolve(); return storage.get(key) ?? null; },
+    async getItem(key) { await Promise.resolve(); if (onGetItem) await onGetItem(key); return storage.get(key) ?? null; },
     async setItem(key, value) { await Promise.resolve(); storage.set(key, value); },
     async removeItem(key) { await Promise.resolve(); storage.delete(key); },
   };
@@ -74,4 +74,17 @@ test('queue owner cannot be changed through a patch', async () => {
   const queue = await repo.getPendingSyncActions();
   assert.equal(queue.length, 1);
   assert.equal(queue[0].userId, 'alice');
+});
+
+
+test('account switch during asynchronous queue read rejects stale results', async () => {
+  let authRef;
+  const { repo, storage, auth } = setup({ onGetItem: async () => {
+    if (authRef) authRef.currentUser = { uid: 'bob' };
+  } });
+  const original = JSON.stringify([action('private-alice')]);
+  storage.set('@viora/sync-queue/v2/alice', original);
+  authRef = auth;
+  await assert.rejects(repo.getPendingSyncActions(), /Account changed/);
+  assert.equal(storage.get('@viora/sync-queue/v2/alice'), original);
 });
