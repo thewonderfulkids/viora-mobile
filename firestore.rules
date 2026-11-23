@@ -69,10 +69,40 @@ service cloud.firestore {
       return signedIn() && request.resource.data.ownerUserId == request.auth.uid;
     }
 
+    // Owner identity must not change on updates, including when a document
+    // contains both uid and userId fields.
+    function ownerFieldsUnchanged() {
+      return request.resource.data.get("uid", null) == resource.data.get("uid", null)
+        && request.resource.data.get("userId", null) == resource.data.get("userId", null)
+        && request.resource.data.get("ownerUserId", null) == resource.data.get("ownerUserId", null);
+    }
+
+    function canUpdateOwnedDoc(docId) {
+      return ownerFieldsUnchanged()
+        && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId))
+        && (ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
+    }
+
+    function canUpdateOwnedDocWithoutPrefix() {
+      return ownerFieldsUnchanged()
+        && ownsExistingAnyUserDoc()
+        && ownsIncomingAnyUserDoc();
+    }
+
+    // Admin and entitlement fields must only be modified by trusted server code.
+    function userProtectedFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "uid", "role", "accessRole", "isAdmin", "admin", "superAdmin",
+        "premium", "isPremium", "premiumTier", "subscriptionStatus",
+        "entitlements", "accountStatus", "adminCreatedBy", "adminCreatedAt"
+      ]);
+    }
+
     match /users/{uid} {
       allow read: if isOwner(uid) || isVioraAdmin();
-      allow create: if isOwner(uid);
-      allow update: if isOwner(uid) || isVioraAdmin();
+      allow create: if isOwner(uid) && request.resource.data.uid == uid
+        && !request.resource.data.keys().hasAny(["role", "accessRole", "isAdmin", "admin", "superAdmin", "premium", "isPremium", "premiumTier", "subscriptionStatus", "entitlements"]);
+      allow update: if isVioraAdmin() || (isOwner(uid) && userProtectedFieldsUnchanged());
       allow delete: if false;
     }
 
@@ -83,13 +113,15 @@ service cloud.firestore {
 
     match /dailyStats/{docId} {
       allow read: if ownsDocIdPrefix(docId) || ownsExistingAnyUserDoc();
-      allow create, update: if ownsDocIdPrefix(docId) || ownsIncomingAnyUserDoc();
+      allow create: if ownsDocIdPrefix(docId) || ownsIncomingAnyUserDoc();
+      allow update: if canUpdateOwnedDoc(docId);
       allow delete: if false;
     }
 
     match /hydrationLogs/{docId} {
       allow read: if ownsExistingDoc();
-      allow create, update: if ownsIncomingDoc();
+      allow create: if ownsIncomingDoc();
+      allow update: if ownsExistingDoc() && ownsIncomingDoc() && ownerFieldsUnchanged();
       allow delete: if false;
     }
 
@@ -112,14 +144,16 @@ service cloud.firestore {
     }
 
     match /activities/{docId} {
-      allow read, update: if ownsExistingAnyUserDoc();
+      allow read: if ownsExistingAnyUserDoc();
+      allow update: if canUpdateOwnedDocWithoutPrefix();
       allow create: if ownsIncomingAnyUserDoc();
       allow delete: if false;
     }
 
     match /journalEntries/{docId} {
       allow read: if ownsExistingAnyUserDoc();
-      allow create, update: if ownsIncomingAnyUserDoc();
+      allow create: if ownsIncomingAnyUserDoc();
+      allow update: if canUpdateOwnedDocWithoutPrefix();
       allow delete: if false;
     }
 
@@ -142,8 +176,7 @@ service cloud.firestore {
     }
 
     match /aiRequestLogs/{docId} {
-      allow create: if signedIn();
-      allow read, update, delete: if false;
+      allow create, read, update, delete: if false;
     }
 
     match /userWellnessProfiles/{uid} {
@@ -152,7 +185,8 @@ service cloud.firestore {
     }
 
     match /wellnessIntelligence/{docId} {
-      allow read, update: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow update: if canUpdateOwnedDoc(docId);
       allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
       allow delete: if false;
     }
@@ -164,7 +198,8 @@ service cloud.firestore {
     }
 
     match /wellnessGoals/{docId} {
-      allow read, update, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow update: if canUpdateOwnedDoc(docId);
       allow create: if ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
     }
 
@@ -253,7 +288,8 @@ service cloud.firestore {
     }
 
     match /privacySettings/{docId} {
-      allow read, update: if ownsExistingAnyUserDoc() || isOwner(docId);
+      allow read: if ownsExistingAnyUserDoc() || isOwner(docId);
+      allow update: if isOwner(docId) || canUpdateOwnedDocWithoutPrefix();
       allow create: if ownsIncomingAnyUserDoc() || isOwner(docId);
       allow delete: if false;
     }
@@ -265,8 +301,9 @@ service cloud.firestore {
     }
 
     match /accountDeletionRequests/{docId} {
-      allow read, update: if ownsExistingAnyUserDoc() || isOwner(docId);
-      allow create: if ownsIncomingAnyUserDoc() || isOwner(docId);
+      allow read: if ownsExistingAnyUserDoc() || isOwner(docId);
+      // Request status is controlled by the authenticated callable backend.
+      allow create, update: if false;
       allow delete: if false;
     }
 
@@ -317,13 +354,15 @@ service cloud.firestore {
 
 
     match /familyGroups/{docId} {
-      allow read, update: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow read: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow update: if ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
       allow create: if ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
       allow delete: if false;
     }
 
     match /familyMembers/{docId} {
-      allow read, update, delete: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow read, delete: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow update: if ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
       allow create: if ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
     }
 
