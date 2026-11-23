@@ -25,12 +25,23 @@ async function readQueue(uid = currentUid()): Promise<PendingSyncAction[]> {
   const raw = await AsyncStorage.getItem(queueKey(uid));
   if (!raw) return [];
 
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as PendingSyncAction[];
-    return Array.isArray(parsed) ? parsed.filter(item => item?.userId === uid) : [];
+    parsed = JSON.parse(raw);
   } catch {
-    return [];
+    // Never replace an unreadable queue with an empty one: that would erase
+    // offline changes on the next save.
+    throw new Error("Offline sync queue is unreadable. Existing data has been preserved.");
   }
+  if (!Array.isArray(parsed)) {
+    throw new Error("Offline sync queue has an invalid format. Existing data has been preserved.");
+  }
+  if (parsed.some(item => !item || typeof item !== "object" || item.userId !== uid)) {
+    // Fail closed rather than silently dropping entries and then overwriting
+    // the original queue on the next mutation.
+    throw new Error("Offline sync queue contains invalid or mismatched ownership. Existing data has been preserved.");
+  }
+  return parsed as PendingSyncAction[];
 }
 
 async function writeQueue(queue: PendingSyncAction[], uid = currentUid()) {
