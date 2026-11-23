@@ -1,14 +1,48 @@
 name: Android preview APK (manual)
 
 on:
+  push:
+    branches:
+      - chore/expo-sdk-57-migration
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-preview-apk:
+  preview-preflight:
     if: github.ref == 'refs/heads/chore/expo-sdk-57-migration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify Expo dependencies and TypeScript
+        run: |
+          CI=1 npx expo install --check
+          npx expo-doctor
+          npx tsc --noEmit
+      - name: Verify internal Android APK configuration
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const app = require('./app.json').expo;
+          const eas = require('./eas.json');
+          assert.equal(app.slug, 'viora-mobile');
+          assert.equal(app.android?.package, 'com.drdigiweb.vioramobile');
+          assert.equal(app.extra?.eas?.projectId, 'd459f525-122a-4265-b496-6b2bf0f2211c');
+          assert.equal(eas.build?.preview?.distribution, 'internal');
+          assert.equal(eas.build?.preview?.android?.buildType, 'apk');
+          assert.notEqual(eas.build?.preview?.autoIncrement, true);
+          console.log('Android preview APK configuration verified; no build queued.');
+          NODE
+  build-preview-apk:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/chore/expo-sdk-57-migration'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
