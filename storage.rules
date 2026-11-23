@@ -2,7 +2,7 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function signedIn() { return request.auth != null; }
-    function isVioraAdmin() { return signedIn() && (request.auth.token.admin == true || request.auth.token.superAdmin == true || request.auth.token.role in ["admin", "super_admin"] || request.auth.token.email in ["support@winflyindia.in", "drdigiweb@gmail.com", "viora.admin@winflyindia.in"]); }
+    function isVioraAdmin() { return signedIn() && (request.auth.token.admin == true || request.auth.token.superAdmin == true || request.auth.token.role in ["admin", "super_admin"]); }
     match /profile-photos/{uid}/{fileName} { allow read: if true; allow write: if signedIn() && request.auth.uid == uid && request.resource.size < 5*1024*1024 && request.resource.contentType.matches('image/.*'); }
     match /viora-media/{category}/videos/{fileName} { allow read: if true; allow write: if isVioraAdmin() && request.resource.size < 500*1024*1024 && request.resource.contentType.matches('video/.*'); }
     match /viora-media/{category}/audio/{fileName} { allow read: if true; allow write: if isVioraAdmin() && request.resource.size < 100*1024*1024 && request.resource.contentType.matches('audio/.*'); }
