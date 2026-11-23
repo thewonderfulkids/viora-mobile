@@ -24,7 +24,7 @@ function setup() {
   vm.runInNewContext(compiled.outputText, {
     module, exports: module.exports, Date, Promise, Error, JSON,
     require(id) {
-      if (id === '@react-native-async-storage/async-storage') return { default: asyncStorage };
+      if (id === '@react-native-async-storage/async-storage') return asyncStorage;
       if (id === '../firebase/firebaseConfig') return { auth };
       throw new Error('Unexpected import: ' + id);
     },
