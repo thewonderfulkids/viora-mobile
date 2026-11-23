@@ -46,6 +46,7 @@ jobs:
           console.log('Android preview APK configuration verified; no build queued.');
           NODE
   build-preview-apk:
+    needs: preview-preflight
     if: github.event_name == 'push' && contains(github.event.head_commit.message, '[queue-apk]')
     runs-on: ubuntu-latest
     timeout-minutes: 90
