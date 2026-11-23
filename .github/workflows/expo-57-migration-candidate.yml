@@ -45,6 +45,8 @@ jobs:
           NODE
       - name: Mobile TypeScript
         run: npx tsc --noEmit
+      - name: Offline queue regression tests
+        run: node --test tests/syncQueueRepository.test.cjs
       - name: Expo Doctor
         run: npx expo-doctor
       - name: Install Firebase Functions dependencies
