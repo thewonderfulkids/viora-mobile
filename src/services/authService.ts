@@ -98,9 +98,6 @@ export async function register({
         aiCoachEnabled: true,
         notificationsEnabled: true,
 
-        plan: "Free",
-        subscriptionStatus: "Trial",
-
         isDeleted: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
