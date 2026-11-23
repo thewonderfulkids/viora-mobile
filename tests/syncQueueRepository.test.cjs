@@ -1,0 +1,61 @@
+// Regression coverage for account-scoped offline queue and concurrent mutations.
+// Run with: node --test tests/syncQueueRepository.test.cjs (after npm ci)
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const ts = require('typescript');
+
+function setup() {
+  const storage = new Map();
+  const auth = { currentUser: { uid: 'alice' } };
+  const asyncStorage = {
+    async getItem(key) { await Promise.resolve(); return storage.get(key) ?? null; },
+    async setItem(key, value) { await Promise.resolve(); storage.set(key, value); },
+    async removeItem(key) { await Promise.resolve(); storage.delete(key); },
+  };
+  const source = fs.readFileSync(require('node:path').join(__dirname, '../src/repositories/syncQueueRepository.ts'), 'utf8');
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+    reportDiagnostics: true,
+  });
+  assert.equal(compiled.diagnostics.length, 0);
+  const module = { exports: {} };
+  vm.runInNewContext(compiled.outputText, {
+    module, exports: module.exports, Date, Promise, Error, JSON,
+    require(id) {
+      if (id === '@react-native-async-storage/async-storage') return { default: asyncStorage };
+      if (id === '../firebase/firebaseConfig') return { auth };
+      throw new Error('Unexpected import: ' + id);
+    },
+  }, { filename: 'syncQueueRepository.js' });
+  return { repo: module.exports, storage, auth };
+}
+function action(id, userId = 'alice') {
+  return { id, userId, updatedAt: new Date().toISOString(), status: 'pending' };
+}
+test('simultaneous saves preserve both actions', async () => {
+  const { repo } = setup();
+  await Promise.all([
+    repo.savePendingSyncAction(action('first')),
+    repo.savePendingSyncAction(action('second')),
+  ]);
+  assert.deepEqual(Array.from((await repo.getPendingSyncActions()).map(x => x.id)).sort(), ['first', 'second']);
+});
+test('switching accounts isolates queues and rejects cross-owner saves', async () => {
+  const { repo, auth } = setup();
+  await repo.savePendingSyncAction(action('alice-action'));
+  auth.currentUser = { uid: 'bob' };
+  assert.equal((await repo.getPendingSyncActions()).length, 0);
+  await assert.rejects(repo.savePendingSyncAction(action('wrong-owner')), /owner/);
+  await repo.savePendingSyncAction(action('bob-action', 'bob'));
+  assert.deepEqual(Array.from((await repo.getPendingSyncActions()).map(x => x.id)), ['bob-action']);
+  auth.currentUser = { uid: 'alice' };
+  assert.deepEqual(Array.from((await repo.getPendingSyncActions()).map(x => x.id)), ['alice-action']);
+});
+test('corrupted queue is never silently overwritten', async () => {
+  const { repo, storage } = setup();
+  storage.set('@viora/sync-queue/v2/alice', '{bad json');
+  await assert.rejects(repo.savePendingSyncAction(action('new')), /unreadable/);
+  assert.equal(storage.get('@viora/sync-queue/v2/alice'), '{bad json');
+});
