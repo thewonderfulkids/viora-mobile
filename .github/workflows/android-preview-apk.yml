@@ -46,7 +46,7 @@ jobs:
           console.log('Android preview APK configuration verified; no build queued.');
           NODE
   build-preview-apk:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/chore/expo-sdk-57-migration'
+    if: github.ref == 'refs/heads/chore/expo-sdk-57-migration' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.head_commit.message == 'ci: queue one-time Viora internal Android APK'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
