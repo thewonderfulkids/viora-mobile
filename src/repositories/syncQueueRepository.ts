@@ -120,6 +120,10 @@ export async function clearAllSyncActions(): Promise<void> {
     const uid = currentUid();
     if (currentUid() !== uid) throw new Error("Account changed during sync queue clear.");
     await AsyncStorage.removeItem(queueKey(uid));
+    // A sign-out or account switch can occur while storage is resolving.
+    // The deletion remains scoped to the captured UID, but must not be
+    // reported as a successful clear for the newly active account.
+    if (currentUid() !== uid) throw new Error("Account changed while clearing offline sync queue.");
   });
 }
 
