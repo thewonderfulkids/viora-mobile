@@ -27,6 +27,10 @@ jobs:
           CI=1 npx expo install --check
           npx expo-doctor
           npx tsc --noEmit
+      - name: Verify Firebase Functions TypeScript build
+        run: |
+          npm ci --prefix functions --no-audit --no-fund
+          npm run build --prefix functions
       - name: Verify internal Android APK configuration
         run: |
           node <<'NODE'
