@@ -21,7 +21,15 @@ export const createDefaultAdmin = onCall(
     enforceAppCheck: false,
     timeoutSeconds: 60,
   },
-  async () => {
+  async (request) => {
+    // Legacy bootstrap must never be callable anonymously: it can reset
+    // an existing administrator password and previously returned the secret.
+    const callerUid = request.auth?.uid;
+    if (!callerUid) throw new HttpsError("unauthenticated", "Super Admin sign-in required.");
+    const caller = await getAuth().getUser(callerUid);
+    if (caller.customClaims?.superAdmin !== true && caller.customClaims?.role !== "super_admin") {
+      throw new HttpsError("permission-denied", "Super Admin privileges required.");
+    }
     const password = DEFAULT_ADMIN_PASSWORD.value();
 
     if (!password || password.length < 10) {
@@ -151,7 +159,6 @@ export const createDefaultAdmin = onCall(
       return {
         success: true,
         email: DEFAULT_ADMIN_EMAIL,
-        temporaryPassword: password,
         message:
           "Default Viora Super Admin created and secured successfully.",
       };
