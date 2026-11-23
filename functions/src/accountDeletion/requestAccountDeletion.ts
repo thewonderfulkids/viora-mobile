@@ -24,7 +24,7 @@ export const requestAccountDeletion = onCall(
     const ref = db.doc(`accountDeletionRequests/${uid}`);
     const result = await db.runTransaction(async (tx) => {
       const previous = await tx.get(ref);
-      if (previous.exists && ["requested", "processing"].includes(String(previous.data()?.status))) {
+      if (previous.exists && ["requested", "preflight", "processing"].includes(String(previous.data()?.status))) {
         return { status: String(previous.data()?.status), alreadyRequested: true };
       }
       tx.set(ref, {
