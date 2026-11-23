@@ -70,7 +70,9 @@ export async function getPendingSyncActions(): Promise<PendingSyncAction[]> {
 }
 
 export async function savePendingSyncAction(action: PendingSyncAction): Promise<PendingSyncAction[]> {
+  const requestedUid = currentUid();
   return serializeMutation(async () => {
+    if (currentUid() !== requestedUid) throw new Error("Account changed while waiting to update offline sync queue.");
   if (action.userId !== currentUid()) throw new Error("Sync action owner does not match signed-in user.");
   const uid = currentUid();
   const queue = await readQueue(uid);
@@ -82,7 +84,9 @@ export async function savePendingSyncAction(action: PendingSyncAction): Promise<
 }
 
 export async function updatePendingSyncAction(actionId: string, patch: Partial<PendingSyncAction>): Promise<PendingSyncAction[]> {
+  const requestedUid = currentUid();
   return serializeMutation(async () => {
+    if (currentUid() !== requestedUid) throw new Error("Account changed while waiting to update offline sync queue.");
   if (patch.userId !== undefined) throw new Error("Sync action owner cannot be changed.");
   const uid = currentUid();
   const queue = await readQueue(uid);
@@ -94,7 +98,9 @@ export async function updatePendingSyncAction(actionId: string, patch: Partial<P
 }
 
 export async function removePendingSyncAction(actionId: string): Promise<PendingSyncAction[]> {
+  const requestedUid = currentUid();
   return serializeMutation(async () => {
+    if (currentUid() !== requestedUid) throw new Error("Account changed while waiting to update offline sync queue.");
   const uid = currentUid();
   const queue = await readQueue(uid);
   const nextQueue = queue.filter((item) => item.id !== actionId);
@@ -105,7 +111,9 @@ export async function removePendingSyncAction(actionId: string): Promise<Pending
 }
 
 export async function clearSyncedSyncActions(): Promise<PendingSyncAction[]> {
+  const requestedUid = currentUid();
   return serializeMutation(async () => {
+    if (currentUid() !== requestedUid) throw new Error("Account changed while waiting to update offline sync queue.");
   const uid = currentUid();
   const queue = await readQueue(uid);
   const nextQueue = queue.filter((item) => item.status !== "synced");
@@ -116,7 +124,9 @@ export async function clearSyncedSyncActions(): Promise<PendingSyncAction[]> {
 }
 
 export async function clearAllSyncActions(): Promise<void> {
+  const requestedUid = currentUid();
   return serializeMutation(async () => {
+    if (currentUid() !== requestedUid) throw new Error("Account changed while waiting to update offline sync queue.");
     const uid = currentUid();
     if (currentUid() !== uid) throw new Error("Account changed during sync queue clear.");
     await AsyncStorage.removeItem(queueKey(uid));
