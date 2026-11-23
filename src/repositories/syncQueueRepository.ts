@@ -121,11 +121,16 @@ export async function clearAllSyncActions(): Promise<void> {
 }
 
 export async function setLastSyncedAt(value: string): Promise<void> {
-  await AsyncStorage.setItem(syncedKey(currentUid()), value);
+  const uid = currentUid();
+  await AsyncStorage.setItem(syncedKey(uid), value);
+  if (currentUid() !== uid) throw new Error("Account changed while saving sync timestamp.");
 }
 
 export async function getLastSyncedAt(): Promise<string | null> {
-  return AsyncStorage.getItem(syncedKey(currentUid()));
+  const uid = currentUid();
+  const value = await AsyncStorage.getItem(syncedKey(uid));
+  if (currentUid() !== uid) throw new Error("Account changed while reading sync timestamp.");
+  return value;
 }
 
 /** Read-only legacy inventory; never migrates, replays or deletes device-wide data. */
