@@ -23,6 +23,9 @@ function sortByNewest(items: PendingSyncAction[]) {
 
 async function readQueue(uid = currentUid()): Promise<PendingSyncAction[]> {
   const raw = await AsyncStorage.getItem(queueKey(uid));
+  // Auth may change while AsyncStorage is resolving. Never return a previous
+  // account's offline actions to the newly signed-in account.
+  if (currentUid() !== uid) throw new Error("Account changed while reading offline sync queue.");
   if (!raw) return [];
 
   let parsed: unknown;
