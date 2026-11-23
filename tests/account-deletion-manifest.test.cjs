@@ -12,7 +12,10 @@ test("deletion manifest covers every user-owned Firestore rule collection", () =
   const exclusions = new Set([
     "appSettings", "adminContent", "premiumFeatures", "accountDeletionRequests"
   ]);
-  const collections = [...rules.matchAll(/match \/([A-Za-z][A-Za-z0-9]*)\/\{[^}]+\}/g)].map(m => m[1]);
+  // The Firestore /databases/{database}/documents wrapper is not a collection.
+  const collections = [...rules.matchAll(/match \/([A-Za-z][A-Za-z0-9]*)\/\{[^}]+\}/g)]
+    .map(m => m[1])
+    .filter(name => name !== "databases");
   const missing = collections.filter(name => !entries.has(name) && !exclusions.has(name));
   assert.deepEqual(missing, [], "Missing collections in deletion manifest: " + missing.join(", "));
 });
