@@ -19,7 +19,7 @@ export default function StepsScreen() {
       <SafeAreaView edges={["top"]} style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
           <CommonBackButton />
-          <StepCounterCard />
+          <StepCounterCard onRefresh={data.refresh} />
 
           <View style={styles.sectionHeader}>
             <View>
