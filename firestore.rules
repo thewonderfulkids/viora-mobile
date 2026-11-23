@@ -113,7 +113,9 @@ service cloud.firestore {
         "dateOfBirth", "height", "weight", "heightCm", "weightKg",
         "fitnessGoal", "activityLevel", "onboardingCompleted",
         "updatedAt", "serverUpdatedAt", "language", "preferredLanguage",
-        "timezone", "city", "country"];
+        "timezone", "city", "country", "mobile", "age", "goal",
+        "stressLevel", "acceptedTerms", "termsAcceptedAt", "waterGoalMl",
+        "aiCoachEnabled", "notificationsEnabled"];
     }
 
     // Admin and entitlement fields must only be modified by trusted server code.
@@ -129,7 +131,7 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isOwner(uid) || isVioraAdmin();
       allow create: if isOwner(uid) && request.resource.data.uid == uid
-        && request.resource.data.keys().hasOnly(["uid", "email", "displayName", "fullName", "firstName", "lastName", "photoURL", "photoUrl", "avatarUrl", "phoneNumber", "gender", "dateOfBirth", "height", "weight", "heightCm", "weightKg", "fitnessGoal", "activityLevel", "onboardingCompleted", "createdAt", "updatedAt", "serverUpdatedAt", "language", "preferredLanguage", "timezone", "city", "country"]);
+        && request.resource.data.keys().hasOnly(["uid", "email", "displayName", "fullName", "firstName", "lastName", "photoURL", "photoUrl", "avatarUrl", "phoneNumber", "gender", "dateOfBirth", "height", "weight", "heightCm", "weightKg", "fitnessGoal", "activityLevel", "onboardingCompleted", "createdAt", "updatedAt", "serverUpdatedAt", "language", "preferredLanguage", "timezone", "city", "country", "mobile", "age", "goal", "stressLevel", "acceptedTerms", "termsAcceptedAt", "waterGoalMl", "aiCoachEnabled", "notificationsEnabled", "isDeleted"]);
       allow update: if isVioraAdmin() || (isOwner(uid) && userProtectedFieldsUnchanged());
       allow delete: if false;
     }
