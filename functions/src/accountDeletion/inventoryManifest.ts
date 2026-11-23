@@ -5,6 +5,8 @@
 export const USER_QUERY_COLLECTIONS = [
   "dailyStats", "hydrationLogs", "sleepLogs", "yogaSessions", "musicSessions",
   "activities", "aiConversations", "aiMemory", "conversationSummaries",
+  "wellnessIntelligence", "moodCheckIns", "mentalWellnessGoals",
+  "premiumProgramEntitlements", "privacySettings", "securitySettings",
   "aiRequestLogs", "journalEntries", "wellnessIntelligenceSnapshots",
   "wellnessGoals", "wellnessHabits", "habitCompletions", "nutritionEntries",
   "nutritionSummaries", "nutritionGoals", "moodEntries",
@@ -17,7 +19,7 @@ export const USER_QUERY_COLLECTIONS = [
 
 export const USER_UID_DOCUMENT_COLLECTIONS = [
   "users", "userSettings", "userWellnessProfiles", "reminderSettings",
-  "voicePreferences",
+  "voicePreferences", "privacySettings", "securitySettings",
 ] as const;
 
 export const USER_OWNERSHIP_FIELDS = [
@@ -27,6 +29,7 @@ export const USER_OWNERSHIP_FIELDS = [
 /** Never auto-delete these without an explicit data-retention and shared-data policy. */
 export const REVIEW_REQUIRED_COLLECTIONS = [
   "payments", "subscriptions", "familyGroups", "familyMembers", "familyInvites",
+  "premiumProgramEntitlements",
 ] as const;
 
 export const PROFILE_PHOTO_PREFIX = (uid: string) => `profile-photos/${uid}/`;
