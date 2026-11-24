@@ -121,3 +121,50 @@ test('history reads started by Alice cannot populate Bob’s coach after account
   await opened;
   assert.equal(f.render().messages.length, 0);
 });
+
+
+test('Dashboard clears prior account data and ignores stale success and failure', async () => {
+  const state = [], refs = [], requests = [];
+  let sc = 0, rc = 0, listener, cleanup;
+  const auth = { currentUser: { uid: 'alice' } };
+  const { useDashboard } = load('src/hooks/useDashboard.ts', {
+    'firebase/auth': { onAuthStateChanged(_auth, cb) { listener = cb; return () => {}; } },
+    '../firebase/firebaseConfig': { auth },
+    '../services/dashboardService': { getDashboardData(uid) {
+      return new Promise((resolve, reject) => requests.push({ uid, resolve, reject }));
+    } },
+    react: {
+      useEffect(fn) { if (!cleanup) cleanup = fn(); },
+      useRef(initial) { const i = rc++; return refs[i] ?? (refs[i] = { current: initial }); },
+      useState(initial) {
+        const i = sc++;
+        if (!(i in state)) state[i] = initial;
+        return [state[i], value => { state[i] = typeof value === 'function' ? value(state[i]) : value; }];
+      },
+    },
+  });
+  const render = () => { sc = rc = 0; return useDashboard(); };
+  render();
+  listener(auth.currentUser);
+  requests[0].resolve({ owner: 'alice' });
+  await Promise.resolve();
+  assert.equal(render().data.owner, 'alice');
+  const staleSuccess = render().refresh();
+  const staleFailure = render().refresh();
+  auth.currentUser = { uid: 'bob' };
+  listener(auth.currentUser);
+  assert.equal(render().data, null);
+  assert.equal(render().loading, true);
+  requests[3].resolve({ owner: 'bob' });
+  await Promise.resolve();
+  requests[1].resolve({ owner: 'alice' });
+  requests[2].reject(Error('Alice private error'));
+  await Promise.all([staleSuccess, staleFailure]);
+  assert.equal(render().data.owner, 'bob');
+  assert.equal(render().error, null);
+  const pending = render().refresh();
+  cleanup();
+  requests[4].resolve({ owner: 'unexpected' });
+  await pending;
+  assert.equal(render().data.owner, 'bob');
+});
