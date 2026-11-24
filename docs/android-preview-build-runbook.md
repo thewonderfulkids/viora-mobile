@@ -21,3 +21,7 @@
 - The workflow's `workflow_dispatch` trigger on a feature branch cannot be assumed runnable from GitHub Actions while the workflow is absent from the default branch.
 - GitHub Actions CI success validates compilation and dependency compatibility, not Android runtime behavior.
 - Do not publish or merge until the Phase A security and functional blockers have been resolved and device tests pass.
+
+## 2026-11-24 — preview activation
+
+Migration commit `23702ce40cd6c65d2c4bacd04f08e102675fa0d4` passed Expo, Phase A and Firestore CI (runs 45299774060, 45299774059, 45299773931). The feature-branch push workflow supports the explicit APK queue marker and checks the repository token and internal preview configuration before submitting. This documentation commit requests that guarded preview workflow; queue acceptance, EAS completion and device validation remain unverified. Do not retry blindly if an EAS build was already accepted.
