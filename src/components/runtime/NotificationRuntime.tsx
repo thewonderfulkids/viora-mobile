@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 
+import { auth } from "../../firebase/firebaseConfig";
 import { useAuth } from "../../context/AuthContext";
 import { initializeNativeNotificationRuntime } from "../../services/notifications/nativeNotificationService";
 
@@ -34,9 +35,14 @@ export function NotificationRuntime() {
   useEffect(() => {
     if (Platform.OS === "web" || !user) return;
 
-    void initializeNativeNotificationRuntime();
+    let active = true;
+    const uid = user.uid;
+    void initializeNativeNotificationRuntime().catch(() => undefined);
 
     const openResponse = (response: Notifications.NotificationResponse) => {
+      if (!active || auth.currentUser?.uid !== uid) return;
+      const data = response.notification.request.content.data;
+      if (data?.userId !== uid) return;
       const responseId = response.notification.request.identifier;
       if (handledResponseId.current === responseId) return;
       handledResponseId.current = responseId;
@@ -49,9 +55,9 @@ export function NotificationRuntime() {
 
     void Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) openResponse(response);
-    });
+    }).catch(() => undefined);
 
-    return () => subscription.remove();
+    return () => { active = false; subscription.remove(); };
   }, [user]);
 
   return null;
