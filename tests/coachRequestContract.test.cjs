@@ -21,6 +21,7 @@ function load(file, imports, globals = {}) {
 
 function setup() {
   const outgoing = [], prompts = [];
+  const quotas = new Map();
   const user = { uid: 'synthetic-member', getIdToken: async () => 'fixture-token' };
   const auth = { currentUser: user };
   const admin = Object.fromEntries([
@@ -45,7 +46,18 @@ function setup() {
     'firebase-admin/app': { initializeApp() {} },
     'firebase-admin/auth': { getAuth: () => ({ verifyIdToken: async (token) => {
       assert.equal(token, 'fixture-token');
+      return { uid: user.uid };
     } }) },
+    'firebase-admin/firestore': {
+      FieldValue: { serverTimestamp: () => null },
+      getFirestore: () => ({
+        collection: name => ({ doc: uid => name + '/' + uid }),
+        runTransaction: async run => run({
+          get: async key => ({ data: () => quotas.get(key) }),
+          set: (key, value) => quotas.set(key, value),
+        }),
+      }),
+    },
     'firebase-functions': { setGlobalOptions() {} },
     'firebase-functions/https': { onRequest: (_options, fn) => fn },
   }, { console: { error() {} } }).generateWellnessAdviceHttp;
@@ -118,4 +130,11 @@ test('context does not go to the endpoint if account changes while the token is 
   };
   await assert.rejects(f.service.askContextAwareWellnessCoach({ uid: 'synthetic-member', question: 'hello', dashboard, conversationId: 'fixture' }), /sign-in changed/);
   assert.equal(f.outgoing.length, 0);
+});
+
+test('AI quota rejects sixth request before provider invocation', async () => {
+  const f = setup();
+  for (let i=0;i<5;i++) assert.equal((await f.post({question:'hello',dashboard})).status,200);
+  assert.equal((await f.post({question:'hello',dashboard})).status,429);
+  assert.equal(f.prompts.length,5);
 });
