@@ -11,6 +11,7 @@ const AI_FUNCTION_URL =
   "https://asia-south1-viora-9021a.cloudfunctions.net/generateWellnessAdviceHttp";
 
 const AI_REQUEST_TIMEOUT_MS = 30000;
+const COACH_CONTEXT_MAX_LENGTH = 3500;
 
 function isValidAIResponse(
   data: GenerateAIResponse
@@ -30,7 +31,13 @@ export class VioraCloudAIProvider implements AIProvider {
     try {
       const user = auth.currentUser;
       if (!user) throw new Error("Please sign in to use Viora AI.");
+      if (request.expectedUid && request.expectedUid !== user.uid) {
+        throw new Error("Your sign-in changed. Please try again.");
+      }
       const idToken = await user.getIdToken();
+      if (auth.currentUser !== user) {
+        throw new Error("Your sign-in changed. Please try again.");
+      }
       const response = await fetch(AI_FUNCTION_URL, {
         method: "POST",
         headers: {
@@ -39,6 +46,9 @@ export class VioraCloudAIProvider implements AIProvider {
         },
         body: JSON.stringify({
           question: request.question,
+          coachContext: request.coachContext
+            ?.slice(0, COACH_CONTEXT_MAX_LENGTH)
+            .replace(/[\uD800-\uDBFF]$/, ""),
           dashboard: request.dashboard,
           mode: request.mode ?? "wellness",
           conversationId: request.conversationId ?? null,

@@ -5,7 +5,7 @@ import {
 } from "../../repositories/aiCoachRepository";
 import { AICoachAskResult } from "../../types";
 import { buildAICoachContextBundle } from "./coachContextService";
-import { buildContextAwareCoachPrompt } from "./coachPromptBuilder";
+import { buildContextAwareCoachContext } from "./coachPromptBuilder";
 import { processConversationMemory } from "./memoryIntelligenceService";
 import { processConversationSummary } from "./conversationSummaryService";
 import { generateWellnessAdvice } from "./remoteAIService";
@@ -48,13 +48,12 @@ export async function askContextAwareWellnessCoach({
     onQuestionSaved?.();
   }
 
-  const prompt = buildContextAwareCoachPrompt({
-    context,
-    question: cleanQuestion,
-  });
+  const coachContext = buildContextAwareCoachContext(context);
 
   const reply = await generateWellnessAdvice({
-    question: prompt,
+    question: cleanQuestion,
+    coachContext,
+    expectedUid: uid,
     dashboard,
   });
 

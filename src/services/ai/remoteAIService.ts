@@ -4,9 +4,13 @@ import { runManagedAIRequest } from "./requestManager";
 
 export async function generateWellnessAdvice({
   question,
+  coachContext,
+  expectedUid,
   dashboard,
 }: {
   question: string;
+  coachContext?: string;
+  expectedUid?: string;
   dashboard: DashboardData;
 }) {
   const result = await runManagedAIRequest({
@@ -16,6 +20,8 @@ export async function generateWellnessAdvice({
     execute: async () => {
       const response = await aiService.generateWellnessAdvice({
         question,
+        coachContext,
+        expectedUid,
         dashboard,
         mode: "wellness",
       });

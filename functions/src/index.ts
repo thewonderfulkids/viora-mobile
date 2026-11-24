@@ -41,13 +41,21 @@ export const generateWellnessAdviceHttp = onRequest(
       return;
     }
 
-    if (!req.body || typeof req.body.question !== "string" || req.body.question.trim().length === 0 || req.body.question.length > 2000 || !req.body.dashboard?.todayStats) {
+    const body = req.body;
+    const hasCoachContext = body?.coachContext !== undefined;
+    // Older APKs place the generated Coach context and question in one field.
+    const questionLimit = hasCoachContext ? 2000 : 8000;
+    if (
+      !body || typeof body.question !== "string" || !body.question.trim() ||
+      body.question.length > questionLimit || !body.dashboard?.todayStats ||
+      (hasCoachContext && (typeof body.coachContext !== "string" || body.coachContext.length > 3500))
+    ) {
       res.status(400).json({ error: "Invalid wellness request" });
       return;
     }
 
     try {
-      const result = await generateWellnessAdviceHandler(req.body);
+      const result = await generateWellnessAdviceHandler(body);
       res.status(200).json(result);
     } catch (error: any) {
       // Do not expose OpenAI project identifiers, model entitlements,

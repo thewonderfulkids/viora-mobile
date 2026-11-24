@@ -38,7 +38,7 @@ function fixture() {
     '../activity': { ActivityLogger: { aiChat: async () => { throw Error('activity unavailable'); } } },
     '../../repositories/aiCoachRepository': repository,
     './coachContextService': { buildAICoachContextBundle: async () => ({ contextSnapshot: {}, quickActions: [], followUps: [] }) },
-    './coachPromptBuilder': { buildContextAwareCoachPrompt: ({ question }) => question },
+    './coachPromptBuilder': { buildContextAwareCoachContext: () => "synthetic context" },
     './memoryIntelligenceService': { processConversationMemory: async () => {} },
     './conversationSummaryService': { processConversationSummary: async () => {} },
     './remoteAIService': { generateWellnessAdvice: async ({ question }) => {

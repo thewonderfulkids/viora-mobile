@@ -1,5 +1,6 @@
 export type WellnessAIInput = {
   question: string;
+  coachContext?: string;
   dashboard: {
     user?: {
       fullName?: string;

@@ -14,13 +14,7 @@ function buildRecentConversationText(context: AICoachContextBundle) {
     .join("\n");
 }
 
-export function buildContextAwareCoachPrompt({
-  context,
-  question,
-}: {
-  context: AICoachContextBundle;
-  question: string;
-}) {
+export function buildContextAwareCoachContext(context: AICoachContextBundle) {
   const intelligenceContext = buildAIContext({
     memoryContext: context.memoryContext,
     intelligence: context.wellnessIntelligence.coreIntelligence,
@@ -67,8 +61,5 @@ AI Coach 2.0 rules:
 - For risky sleep, stress, dehydration, or low activity patterns, be practical but not alarming.
 - Keep the response useful for mobile UI.
 - End with one clear follow-up question or next action.
-- Keep response under 220 words.
-
-Current user question:
-${question}`;
+- Keep response under 220 words.`;
 }
