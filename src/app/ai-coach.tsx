@@ -37,7 +37,7 @@ import { useAICoach, useToast, useVoiceAI } from "../hooks";
 import { T } from "../i18n";
 import { useAppTranslation } from "../i18n/useAppTranslation";
 import { colors, radius, spacing } from "../theme";
-import { VoiceCommandResult } from "../types";
+import { submitCoachVoiceInput } from "../services/voice/coachVoiceInput";
 
 function formatThreadDate(value: Date | null) {
   if (!value) return "Recently";
@@ -46,16 +46,6 @@ function formatThreadDate(value: Date | null) {
     day: "2-digit",
     month: "short",
   });
-}
-
-function isActionIntent(result: VoiceCommandResult) {
-  return [
-    "log_hydration",
-    "log_nutrition",
-    "log_mood",
-    "log_sleep",
-    "create_goal",
-  ].includes(result.intent.type);
 }
 
 export default function AIScreen() {
@@ -87,8 +77,7 @@ export default function AIScreen() {
     saving: voiceSaving,
     speaking,
     error: voiceError,
-    startListening,
-    submitCommand,
+    startTranscribing,
     stopSpeaking,
   } = useVoiceAI({ autoNavigate: false });
 
@@ -174,50 +163,20 @@ export default function AIScreen() {
     router.replace("/dashboard" as any);
   }, []);
 
-  const handleVoiceResult = useCallback(
-    async (result: VoiceCommandResult | null) => {
-      if (!result) return;
-
-      if (
-        (result.intent.type === "navigation" || result.intent.type === "read_report") &&
-        result.targetRoute
-      ) {
-        toast.info({ title: result.title, message: result.message });
-        router.push({ pathname: result.targetRoute as never });
-        return;
-      }
-
-      if (isActionIntent(result)) {
-        await handleAsk(
-          `${result.transcript}\n\nViora understood this as: ${result.message}. Explain what changed and what I should do next.`
-        );
-        return;
-      }
-
-      await handleAsk(result.transcript);
-    },
-    [handleAsk, toast]
-  );
-
   const handleComposerSend = useCallback(async () => {
-    const value = input.trim();
-    if (!value) return;
-
-    if (voiceMode) {
-      setInput("");
-      const result = await submitCommand(value, "manual");
-      await handleVoiceResult(result);
-      return;
-    }
-
-    await handleAsk(value);
-  }, [handleAsk, handleVoiceResult, input, submitCommand, voiceMode]);
+    await handleAsk(input);
+  }, [handleAsk, input]);
 
   const handleStartListening = useCallback(async () => {
+    if (loading || voiceSaving) return;
     setVoiceMode(true);
-    const result = await startListening();
-    await handleVoiceResult(result);
-  }, [handleVoiceResult, startListening]);
+    const transcript = await startTranscribing();
+    if (!transcript) return;
+    await submitCoachVoiceInput(transcript, {
+      ask: handleAsk,
+      navigate: (pathname) => router.push({ pathname: pathname as never }),
+    });
+  }, [handleAsk, loading, startTranscribing, voiceSaving]);
 
   const renderHistory = () => (
     <View style={[styles.historyPane, isCompact ? styles.historyPaneCompact : styles.historyPaneDesktop]}>
@@ -430,7 +389,7 @@ export default function AIScreen() {
                 <TextInput
                   value={input}
                   onChangeText={setInput}
-                  placeholder={voiceMode ? "Speak or type: I drank 500 ml water..." : "Ask Viora..."}
+                  placeholder={voiceMode ? "Speak or type a question…" : "Ask Viora..."}
                   placeholderTextColor={colors.mutedText}
                   style={styles.composerInput}
                   multiline
