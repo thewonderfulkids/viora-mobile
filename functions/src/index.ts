@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { setGlobalOptions } from "firebase-functions";
 import { onRequest } from "firebase-functions/https";
 
@@ -34,8 +35,9 @@ export const generateWellnessAdviceHttp = onRequest(
       return;
     }
 
+    let uid: string;
     try {
-      await getAuth().verifyIdToken(match[1], true);
+      uid = (await getAuth().verifyIdToken(match[1], true)).uid;
     } catch {
       res.status(401).json({ error: "Invalid or expired authentication" });
       return;
@@ -55,6 +57,22 @@ export const generateWellnessAdviceHttp = onRequest(
     }
 
     try {
+      const db = getFirestore();
+      const quota = db.collection("aiRateLimits").doc(uid);
+      const minute = Math.floor(Date.now() / 60000);
+      const day = Math.floor(Date.now() / 86400000);
+      const allowed = await db.runTransaction(async tx => {
+        const old = (await tx.get(quota)).data();
+        const minuteCount = old?.minute === minute ? Number(old.minuteCount) || 0 : 0;
+        const dayCount = old?.day === day ? Number(old.dayCount) || 0 : 0;
+        if (minuteCount >= 5 || dayCount >= 100) return false;
+        tx.set(quota, { uid, minute, day, minuteCount: minuteCount + 1, dayCount: dayCount + 1, updatedAt: FieldValue.serverTimestamp() });
+        return true;
+      });
+      if (!allowed) {
+        res.status(429).json({ error: "AI Coach request limit reached. Please try again later." });
+        return;
+      }
       const result = await generateWellnessAdviceHandler(body);
       res.status(200).json(result);
     } catch (error: any) {
