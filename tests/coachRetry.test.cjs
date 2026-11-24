@@ -20,7 +20,7 @@ function load(path, imports) {
 
 function fixture() {
   const state = [], refs = [], stored = [], providerCalls = [];
-  let stateCursor = 0, refCursor = 0, failedModelCalls = 1, failedUserSaves = 0;
+  let stateCursor = 0, refCursor = 0, failedModelCalls = 1, failedUserSaves = 0, authListener;
   const auth = { currentUser: { uid: 'alice' } };
   const repository = {
     async saveAICoachMessage(message) {
@@ -48,12 +48,13 @@ function fixture() {
     } },
   });
   const { useAICoach } = load('src/hooks/useAICoach.ts', {
+    'firebase/auth': { onAuthStateChanged(_auth, cb) { authListener = cb; return () => {}; } },
     './useDashboard': { useDashboard: () => ({ data: {} }) },
     '../firebase/firebaseConfig': { auth },
     '../repositories/aiCoachRepository': repository,
     '../services/ai/contextAwareCoachService': service,
     react: {
-      useCallback: fn => fn, useEffect() {},
+      useCallback: fn => fn, useEffect(fn) { if (!authListener) fn(); },
       useRef(initial) { const index = refCursor++; return refs[index] ?? (refs[index] = { current: initial }); },
       useState(initial) {
         const index = stateCursor++;
@@ -62,7 +63,7 @@ function fixture() {
       },
     },
   });
-  return { auth, stored, providerCalls, failNextUserSave: () => { failedUserSaves++; }, render() { stateCursor = refCursor = 0; return useAICoach(); } };
+  return { auth, stored, providerCalls, notifyAuth: () => authListener(auth.currentUser), failNextUserSave: () => { failedUserSaves++; }, render() { stateCursor = refCursor = 0; return useAICoach(); } };
 }
 
 test('model failure then Retry produces one persisted and visible question and answer; deliberate repeats stay separate', async () => {
@@ -167,4 +168,21 @@ test('Dashboard clears prior account data and ignores stale success and failure'
   requests[4].resolve({ owner: 'unexpected' });
   await pending;
   assert.equal(render().data.owner, 'bob');
+});
+
+
+test('auth listener clears loaded coach messages and retry state on sign-out', async () => {
+  const f = fixture();
+  await f.render().reloadHistory();
+  assert.equal(f.render().messages.length, 1);
+  await assert.rejects(f.render().askWellnessCoach('private question'), /model unavailable/);
+  assert.equal(f.render().retryAvailable, true);
+  f.auth.currentUser = null;
+  f.notifyAuth();
+  const coach = f.render();
+  assert.equal(coach.messages.length, 0);
+  assert.equal(coach.threads.length, 0);
+  assert.equal(coach.contextSnapshot, null);
+  assert.equal(coach.retryAvailable, false);
+  assert.equal(coach.loading, false);
 });
