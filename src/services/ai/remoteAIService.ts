@@ -16,7 +16,9 @@ export async function generateWellnessAdvice({
   const result = await runManagedAIRequest({
     operation: "generateWellnessAdvice",
     timeoutMs: 35000,
-    maxRetries: 1,
+    // This POST consumes quota and has no server idempotency key. Even after
+    // a timeout or disconnect, the server may already have accepted it.
+    maxRetries: 0,
     execute: async () => {
       const response = await aiService.generateWellnessAdvice({
         question,

@@ -71,13 +71,14 @@ function setup() {
   }
   const cloud = load('src/services/ai/VioraCloudAIProvider.ts', {
     '../../firebase/firebaseConfig': { auth },
+    './aiErrors': load('src/services/ai/aiErrors.ts', {}, { Error }),
   }, {
     setTimeout, clearTimeout, AbortController,
     async fetch(_url, init) {
       const body = JSON.parse(init.body);
       outgoing.push(body);
       const { status, result } = await post(body, { authorization: init.headers.Authorization });
-      return { ok: status === 200, json: async () => result };
+      return { ok: status === 200, status, json: async () => result };
     },
   });
   const ai = load('src/services/ai/AIService.ts', { './VioraCloudAIProvider': cloud });
