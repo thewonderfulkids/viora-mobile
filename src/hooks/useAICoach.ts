@@ -82,11 +82,12 @@ export function useAICoach() {
           conversationId,
         });
 
+        if (auth.currentUser?.uid !== currentUser.uid) return;
         setContextSnapshot(context.contextSnapshot);
         setQuickActions(context.quickActions);
         setFollowUps(context.followUps);
       } finally {
-        setContextLoading(false);
+        if (auth.currentUser?.uid === currentUser.uid) setContextLoading(false);
       }
     },
     [activeConversationId, data]
@@ -97,7 +98,7 @@ export function useAICoach() {
     if (!currentUser) return;
 
     const conversationThreads = await getAICoachThreads({ uid: currentUser.uid });
-    setThreads(conversationThreads);
+    if (auth.currentUser?.uid === currentUser.uid) setThreads(conversationThreads);
   }, []);
 
   const loadLatestHistory = useCallback(async () => {
@@ -115,6 +116,7 @@ export function useAICoach() {
 
     try {
       const latestHistory = await getAICoachLatestHistory({ uid: currentUser.uid });
+      if (auth.currentUser?.uid !== currentUser.uid) return;
       const mappedMessages = mapMessages(latestHistory.messages);
       const nextConversationId =
         latestHistory.messages.length > 0
@@ -125,9 +127,9 @@ export function useAICoach() {
       setThreads(latestHistory.threads);
       setActiveConversationId(nextConversationId);
     } catch (error: any) {
-      setHistoryError(error?.message || "Unable to load AI conversation history.");
+      if (auth.currentUser?.uid === currentUser.uid) setHistoryError(error?.message || "Unable to load AI conversation history.");
     } finally {
-      setHistoryLoading(false);
+      if (auth.currentUser?.uid === currentUser.uid) setHistoryLoading(false);
     }
   }, []);
 
@@ -147,13 +149,14 @@ export function useAICoach() {
           conversationId,
         });
 
+        if (auth.currentUser?.uid !== currentUser.uid) return;
         setActiveConversationId(conversationId);
         setMessages(mapMessages(conversationMessages));
         await refreshCoachContext(conversationId);
       } catch (error: any) {
-        setHistoryError(error?.message || "Unable to open this conversation.");
+        if (auth.currentUser?.uid === currentUser.uid) setHistoryError(error?.message || "Unable to open this conversation.");
       } finally {
-        setHistoryLoading(false);
+        if (auth.currentUser?.uid === currentUser.uid) setHistoryLoading(false);
       }
     },
     [refreshCoachContext]
