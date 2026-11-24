@@ -31,6 +31,8 @@ function fixture() {
       stored.push(message);
     },
     async getAICoachThreads() { throw Error('history refresh unavailable'); },
+    async getAICoachLatestHistory() { return { messages: [{ id: 'private', role: 'user', message: 'Alice private history', conversationId: 'alice-conv' }], threads: [] }; },
+    async getAICoachConversation() { return [{ id: 'private', role: 'user', message: 'Alice private history' }]; },
   };
   const service = load('src/services/ai/contextAwareCoachService.ts', {
     '../activity': { ActivityLogger: { aiChat: async () => { throw Error('activity unavailable'); } } },
@@ -104,4 +106,18 @@ test('Retry cannot continue across accounts or a newly opened conversation', asy
   await f.render().askWellnessCoach(undefined, { retry: true });
   assert.equal(f.stored.length, 1);
   assert.equal(f.providerCalls.length, 1);
+});
+
+
+test('history reads started by Alice cannot populate Bob’s coach after account switch', async () => {
+  const f = fixture();
+  const latest = f.render().reloadHistory();
+  f.auth.currentUser = { uid: 'bob' };
+  await latest;
+  assert.equal(f.render().messages.length, 0);
+  f.auth.currentUser = { uid: 'alice' };
+  const opened = f.render().openConversation('alice-conv');
+  f.auth.currentUser = { uid: 'bob' };
+  await opened;
+  assert.equal(f.render().messages.length, 0);
 });
