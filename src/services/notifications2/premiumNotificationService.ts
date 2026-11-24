@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
+import { auth } from "../../firebase/firebaseConfig";
+
 import { getRotatingReminderBody } from "./messages";
 import {
   PremiumNotificationSettings,
@@ -164,6 +166,13 @@ export async function upsertPremiumReminder(input: {
   sound: boolean;
   vibration: boolean;
 }) {
+  const userId = auth.currentUser?.uid;
+  const checkOwner = () => {
+    if (!userId || auth.currentUser?.uid !== userId) {
+      throw new Error("Sign in again before saving this reminder.");
+    }
+  };
+  checkOwner();
   const permissionGranted = await requestPremiumNotificationPermission();
   if (!permissionGranted) {
     throw new Error("Notification permission was not granted.");
@@ -179,80 +188,86 @@ export async function upsertPremiumReminder(input: {
     ? reminders.find((item) => item.id === input.id)
     : undefined;
 
-  if (previous) {
-    await cancelNotificationIds(previous.notificationIds);
-  }
-
   const id = previous?.id ?? createId();
   const meta = CATEGORY_META[input.category];
   const title = meta.title;
   const body = getRotatingReminderBody(input.category);
   const notificationIds: string[] = [];
   const analytics: ReminderDeliveryRecord[] = [];
+  let reminder: PremiumReminder;
 
-  if (input.enabled) {
-    const weekdays = input.weekdays.length > 0 ? input.weekdays : [1, 2, 3, 4, 5, 6, 7];
+  checkOwner();
+  try {
+    if (input.enabled) {
+      const weekdays = input.weekdays.length > 0 ? input.weekdays : [1, 2, 3, 4, 5, 6, 7];
 
-    for (const weekday of weekdays) {
-      const notificationId = await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          sound: input.sound ? "default" : undefined,
-          data: {
-            deepLink: meta.deepLink,
-            reminderId: id,
-            category: input.category,
+      for (const weekday of weekdays) {
+        checkOwner();
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            sound: input.sound ? "default" : undefined,
+            data: {
+              actionRoute: meta.deepLink,
+              userId,
+              reminderId: id,
+              category: input.category,
+            },
+            ...(Platform.OS === "android"
+              ? {
+                  priority: Notifications.AndroidNotificationPriority.HIGH,
+                  vibrate: input.vibration ? [0, 250, 120, 250] : undefined,
+                }
+              : {}),
           },
-          ...(Platform.OS === "android"
-            ? {
-                priority: Notifications.AndroidNotificationPriority.HIGH,
-                vibrate: input.vibration ? [0, 250, 120, 250] : undefined,
-              }
-            : {}),
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-          weekday,
-          hour: input.hour,
-          minute: input.minute,
-          ...(Platform.OS === "android"
-            ? { channelId: "viora-premium-reminders" }
-            : {}),
-        },
-      });
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday,
+            hour: input.hour,
+            minute: input.minute,
+            ...(Platform.OS === "android"
+              ? { channelId: "viora-premium-reminders" }
+              : {}),
+          },
+        });
 
-      notificationIds.push(notificationId);
-      analytics.push({
-        id: `${id}-${weekday}`,
-        reminderId: id,
-        category: input.category,
-        scheduledFor: `weekday:${weekday} ${String(input.hour).padStart(2, "0")}:${String(input.minute).padStart(2, "0")}`,
-        status: "scheduled",
-      });
+        notificationIds.push(notificationId);
+        analytics.push({
+          id: `${id}-${weekday}`,
+          reminderId: id,
+          category: input.category,
+          scheduledFor: `weekday:${weekday} ${String(input.hour).padStart(2, "0")}:${String(input.minute).padStart(2, "0")}`,
+          status: "scheduled",
+        });
+      }
     }
+    checkOwner();
+    reminder = {
+      id,
+      category: input.category,
+      title,
+      body,
+      hour: input.hour,
+      minute: input.minute,
+      enabled: input.enabled,
+      weekdays: input.weekdays,
+      deepLink: meta.deepLink,
+      sound: input.sound,
+      vibration: input.vibration,
+      createdAt: previous?.createdAt ?? new Date().toISOString(),
+      notificationIds,
+    };
+
+    await saveReminders([
+      reminder,
+      ...reminders.filter((item) => item.id !== id),
+    ]);
+  } catch (error) {
+    await cancelNotificationIds(notificationIds);
+    throw error;
   }
-
-  const reminder: PremiumReminder = {
-    id,
-    category: input.category,
-    title,
-    body,
-    hour: input.hour,
-    minute: input.minute,
-    enabled: input.enabled,
-    weekdays: input.weekdays,
-    deepLink: meta.deepLink,
-    sound: input.sound,
-    vibration: input.vibration,
-    createdAt: previous?.createdAt ?? new Date().toISOString(),
-    notificationIds,
-  };
-
-  await saveReminders([
-    reminder,
-    ...reminders.filter((item) => item.id !== id),
-  ]);
+  if (previous) await cancelNotificationIds(previous.notificationIds);
 
   if (analytics.length > 0) {
     await addAnalytics(analytics);
@@ -262,7 +277,11 @@ export async function upsertPremiumReminder(input: {
 }
 
 export async function togglePremiumReminder(id: string, enabled: boolean) {
+  const userId = auth.currentUser?.uid;
   const reminders = await getPremiumReminders();
+  if (!userId || auth.currentUser?.uid !== userId) {
+    throw new Error("Sign in again before changing this reminder.");
+  }
   const target = reminders.find((item) => item.id === id);
   if (!target) return;
 
@@ -279,7 +298,9 @@ export async function togglePremiumReminder(id: string, enabled: boolean) {
 }
 
 export async function seedRecommendedReminders() {
+  const userId = auth.currentUser?.uid;
   const reminders = await getPremiumReminders();
+  if (!userId || auth.currentUser?.uid !== userId) return reminders;
   if (reminders.length > 0) return reminders;
 
   const defaults = [
@@ -290,6 +311,7 @@ export async function seedRecommendedReminders() {
   ];
 
   for (const item of defaults) {
+    if (auth.currentUser?.uid !== userId) break;
     try {
       await upsertPremiumReminder({
         ...item,

@@ -153,7 +153,7 @@ export default function NotificationCenterScreen() {
           <View style={styles.infoCard}>
             <Ionicons name="information-circle-outline" size={23} color={premiumPalette.sky} />
             <Text style={styles.infoText}>
-              Reminder delivery analytics are stored locally. Android may delay exact timing under battery-saving modes.
+              If a reminder set on an older version does not open its screen, edit and save the reminder again. Android may delay delivery in battery-saving modes.
             </Text>
           </View>
         </ScrollView>

@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
+import { auth } from "../../firebase/firebaseConfig";
 import { SmartReminderSettings, WellnessReminder } from "../../types";
 
 const ANDROID_CHANNEL_ID = "viora-reminders-v3";
@@ -160,15 +161,17 @@ export async function syncNativeWellnessReminders(
 
 export async function scheduleWellnessTestNotification(): Promise<boolean> {
   if (!isNativeRuntime()) return false;
+  const userId = auth.currentUser?.uid;
+  if (!userId) return false;
   const granted = await requestWellnessNotificationPermission();
-  if (!granted) return false;
+  if (!granted || auth.currentUser?.uid !== userId) return false;
 
-  await Notifications.scheduleNotificationAsync({
+  const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: "Viora reminder test",
       body: "Notifications are ready on this device.",
       sound: "default",
-      data: { actionRoute: "/smart-notifications", vioraTest: true },
+      data: { actionRoute: "/smart-notifications", vioraTest: true, userId },
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -178,5 +181,9 @@ export async function scheduleWellnessTestNotification(): Promise<boolean> {
     } as Notifications.NotificationTriggerInput,
   });
 
+  if (auth.currentUser?.uid !== userId) {
+    await Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined);
+    return false;
+  }
   return true;
 }

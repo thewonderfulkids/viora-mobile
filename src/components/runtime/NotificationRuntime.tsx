@@ -8,6 +8,9 @@ import { useAuth } from "../../context/AuthContext";
 import { initializeNativeNotificationRuntime } from "../../services/notifications/nativeNotificationService";
 
 const ALLOWED_NOTIFICATION_ROUTES = new Set([
+  "/(tabs)",
+  "/steps",
+  "/mental-wellness",
   "/hydration",
   "/sleep",
   "/yoga",
@@ -42,6 +45,7 @@ export function NotificationRuntime() {
     const openResponse = (response: Notifications.NotificationResponse) => {
       if (!active || auth.currentUser?.uid !== uid) return;
       const data = response.notification.request.content.data;
+      // Older device-local schedules can still deliver, but have no trusted tap owner.
       if (data?.userId !== uid) return;
       const responseId = response.notification.request.identifier;
       if (handledResponseId.current === responseId) return;
