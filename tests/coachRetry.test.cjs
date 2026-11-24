@@ -20,7 +20,7 @@ function load(path, imports) {
 
 function fixture() {
   const state = [], refs = [], stored = [], providerCalls = [];
-  let stateCursor = 0, refCursor = 0, failedModelCalls = 1, failedUserSaves = 0, authListener;
+  let stateCursor = 0, refCursor = 0, failedModelCalls = 1, failedUserSaves = 0, authListener, deferredHistory;
   const auth = { currentUser: { uid: 'alice' } };
   const repository = {
     async saveAICoachMessage(message) {
@@ -31,7 +31,7 @@ function fixture() {
       stored.push(message);
     },
     async getAICoachThreads() { throw Error('history refresh unavailable'); },
-    async getAICoachLatestHistory() { return { messages: [{ id: 'private', role: 'user', message: 'Alice private history', conversationId: 'alice-conv' }], threads: [] }; },
+    async getAICoachLatestHistory() { if (deferredHistory) { const pending = deferredHistory; deferredHistory = null; return pending; } return { messages: [{ id: 'private', role: 'user', message: 'Alice private history', conversationId: 'alice-conv' }], threads: [] }; },
     async getAICoachConversation() { return [{ id: 'private', role: 'user', message: 'Alice private history' }]; },
   };
   const service = load('src/services/ai/contextAwareCoachService.ts', {
@@ -63,7 +63,7 @@ function fixture() {
       },
     },
   });
-  return { auth, stored, providerCalls, notifyAuth: () => authListener(auth.currentUser), failNextUserSave: () => { failedUserSaves++; }, render() { stateCursor = refCursor = 0; return useAICoach(); } };
+  return { auth, stored, providerCalls, deferHistory() { let resolve; deferredHistory = new Promise(r => { resolve = r; }); return resolve; }, notifyAuth: () => authListener(auth.currentUser), failNextUserSave: () => { failedUserSaves++; }, render() { stateCursor = refCursor = 0; return useAICoach(); } };
 }
 
 test('model failure then Retry produces one persisted and visible question and answer; deliberate repeats stay separate', async () => {
@@ -185,4 +185,21 @@ test('auth listener clears loaded coach messages and retry state on sign-out', a
   assert.equal(coach.contextSnapshot, null);
   assert.equal(coach.retryAvailable, false);
   assert.equal(coach.loading, false);
+});
+
+test('stale history cannot overwrite a new Alice session after Alice-Bob-Alice', async () => {
+  const f = fixture();
+  const resolveStale = f.deferHistory();
+  const stale = f.render().reloadHistory();
+  f.auth.currentUser = { uid: 'bob' };
+  f.notifyAuth();
+  f.auth.currentUser = { uid: 'alice' };
+  f.notifyAuth();
+  await new Promise(resolve => setImmediate(resolve));
+  f.render().startNewConversation();
+  resolveStale({ messages: [{ id: 'stale', role: 'user', message: 'old session', conversationId: 'old' }], threads: [] });
+  await stale;
+  assert.equal(f.render().messages.length, 0);
+  assert.equal(f.render().retryAvailable, false);
+  assert.equal(f.render().historyLoading, false);
 });
