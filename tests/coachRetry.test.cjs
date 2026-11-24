@@ -147,7 +147,7 @@ test('Dashboard clears prior account data and ignores stale success and failure'
   render();
   listener(auth.currentUser);
   requests[0].resolve({ owner: 'alice' });
-  await Promise.resolve();
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(render().data.owner, 'alice');
   const staleSuccess = render().refresh();
   const staleFailure = render().refresh();
@@ -156,7 +156,7 @@ test('Dashboard clears prior account data and ignores stale success and failure'
   assert.equal(render().data, null);
   assert.equal(render().loading, true);
   requests[3].resolve({ owner: 'bob' });
-  await Promise.resolve();
+  await new Promise(resolve => setImmediate(resolve));
   requests[1].resolve({ owner: 'alice' });
   requests[2].reject(Error('Alice private error'));
   await Promise.all([staleSuccess, staleFailure]);
