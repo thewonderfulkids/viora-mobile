@@ -7,7 +7,7 @@ export const USER_QUERY_COLLECTIONS = [
   "activities", "aiConversations", "aiMemory", "conversationSummaries",
   "wellnessIntelligence", "moodCheckIns", "mentalWellnessGoals",
   "premiumProgramEntitlements", "privacySettings", "securitySettings",
-  "aiRequestLogs", "journalEntries", "wellnessIntelligenceSnapshots",
+  "aiRateLimits", "aiRequestLogs", "journalEntries", "wellnessIntelligenceSnapshots",
   "wellnessGoals", "wellnessHabits", "habitCompletions", "nutritionEntries",
   "nutritionSummaries", "nutritionGoals", "moodEntries",
   "mentalWellnessSummaries", "wellnessReports", "nutritionReports",
@@ -19,7 +19,7 @@ export const USER_QUERY_COLLECTIONS = [
 
 export const USER_UID_DOCUMENT_COLLECTIONS = [
   "users", "userSettings", "userWellnessProfiles", "reminderSettings",
-  "voicePreferences", "privacySettings", "securitySettings",
+  "voicePreferences", "aiRateLimits", "privacySettings", "securitySettings",
 ] as const;
 
 export const USER_OWNERSHIP_FIELDS = [
