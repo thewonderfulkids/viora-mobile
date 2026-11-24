@@ -1,0 +1,107 @@
+const assert = require('node:assert/strict');
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
+const test = require('node:test');
+const vm = require('node:vm');
+const ts = require('typescript');
+
+const compilerOptions = { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 };
+function load(path, imports) {
+  const module = { exports: {} };
+  const source = readFileSync(join(__dirname, '..', path), 'utf8');
+  vm.runInNewContext(ts.transpileModule(source, { compilerOptions }).outputText, {
+    exports: module.exports, require(id) {
+      assert.ok(Object.hasOwn(imports, id), `Unexpected module ${id}`);
+      return imports[id];
+    },
+  });
+  return module.exports;
+}
+
+function fixture() {
+  const state = [], refs = [], stored = [], providerCalls = [];
+  let stateCursor = 0, refCursor = 0, failedModelCalls = 1, failedUserSaves = 0;
+  const auth = { currentUser: { uid: 'alice' } };
+  const repository = {
+    async saveAICoachMessage(message) {
+      if (message.role === 'user' && failedUserSaves > 0) {
+        failedUserSaves--;
+        throw Error('save unavailable');
+      }
+      stored.push(message);
+    },
+    async getAICoachThreads() { throw Error('history refresh unavailable'); },
+  };
+  const service = load('src/services/ai/contextAwareCoachService.ts', {
+    '../activity': { ActivityLogger: { aiChat: async () => { throw Error('activity unavailable'); } } },
+    '../../repositories/aiCoachRepository': repository,
+    './coachContextService': { buildAICoachContextBundle: async () => ({ contextSnapshot: {}, quickActions: [], followUps: [] }) },
+    './coachPromptBuilder': { buildContextAwareCoachPrompt: ({ question }) => question },
+    './memoryIntelligenceService': { processConversationMemory: async () => {} },
+    './conversationSummaryService': { processConversationSummary: async () => {} },
+    './remoteAIService': { generateWellnessAdvice: async ({ question }) => {
+      providerCalls.push(question);
+      if (failedModelCalls > 0) { failedModelCalls--; throw Error('model unavailable'); }
+      return 'synthetic coach reply';
+    } },
+  });
+  const { useAICoach } = load('src/hooks/useAICoach.ts', {
+    './useDashboard': { useDashboard: () => ({ data: {} }) },
+    '../firebase/firebaseConfig': { auth },
+    '../repositories/aiCoachRepository': repository,
+    '../services/ai/contextAwareCoachService': service,
+    react: {
+      useCallback: fn => fn, useEffect() {},
+      useRef(initial) { const index = refCursor++; return refs[index] ?? (refs[index] = { current: initial }); },
+      useState(initial) {
+        const index = stateCursor++;
+        if (!(index in state)) state[index] = typeof initial === 'function' ? initial() : initial;
+        return [state[index], value => { state[index] = typeof value === 'function' ? value(state[index]) : value; }];
+      },
+    },
+  });
+  return { auth, stored, providerCalls, failNextUserSave: () => { failedUserSaves++; }, render() { stateCursor = refCursor = 0; return useAICoach(); } };
+}
+
+test('model failure then Retry produces one persisted and visible question and answer; deliberate repeats stay separate', async () => {
+  const f = fixture();
+  const question = 'आज का प्लान बना दो';
+  await assert.rejects(f.render().askWellnessCoach(question), /model unavailable/);
+  assert.equal(f.render().messages.length, 1);
+  assert.equal(f.stored.length, 1);
+  // A caller replaying the same displayed text on Retry must not create a new turn.
+  await f.render().askWellnessCoach(question, { retry: true });
+  assert.deepEqual(f.providerCalls, [question, question]);
+  assert.equal(f.render().messages.length, 2);
+  assert.equal(f.stored.map(x => x.role).join(','), 'user,assistant');
+  assert.equal(f.render().retryAvailable, false);
+  await f.render().askWellnessCoach(question, { retry: true });
+  assert.equal(f.providerCalls.length, 2);
+  await f.render().askWellnessCoach(question);
+  assert.equal(f.render().messages.length, 4);
+  assert.equal(f.stored.map(x => x.role).join(','), 'user,assistant,user,assistant');
+});
+
+test('Retry persists a question after its first write fails before acknowledgment', async () => {
+  const f = fixture();
+  f.failNextUserSave();
+  await assert.rejects(f.render().askWellnessCoach('question'), /save unavailable/);
+  assert.equal(f.stored.length, 0);
+  await assert.rejects(f.render().askWellnessCoach(undefined, { retry: true }), /model unavailable/);
+  assert.equal(f.stored.length, 1);
+  await f.render().askWellnessCoach(undefined, { retry: true });
+  assert.equal(f.render().messages.length, 2);
+  assert.equal(f.stored.map(x => x.role).join(','), 'user,assistant');
+});
+
+test('Retry cannot continue across accounts or a newly opened conversation', async () => {
+  const f = fixture();
+  await assert.rejects(f.render().askWellnessCoach('first turn'), /model unavailable/);
+  f.auth.currentUser = { uid: 'bob' };
+  await f.render().askWellnessCoach(undefined, { retry: true });
+  f.auth.currentUser = { uid: 'alice' };
+  f.render().startNewConversation();
+  await f.render().askWellnessCoach(undefined, { retry: true });
+  assert.equal(f.stored.length, 1);
+  assert.equal(f.providerCalls.length, 1);
+});

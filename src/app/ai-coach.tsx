@@ -70,6 +70,7 @@ export default function AIScreen() {
     openConversation,
     startNewConversation,
     askWellnessCoach,
+    retryAvailable,
   } = useAICoach();
 
   const {
@@ -85,7 +86,6 @@ export default function AIScreen() {
   const { t } = useAppTranslation();
 
   const [input, setInput] = useState("");
-  const [lastQuestion, setLastQuestion] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(!isCompact);
   const [voiceMode, setVoiceMode] = useState(false);
 
@@ -119,15 +119,14 @@ export default function AIScreen() {
   );
 
   const handleAsk = useCallback(
-    async (text?: string) => {
+    async (text?: string, retry = false) => {
       const question = (text ?? input).trim();
-      if (!question || loading) return;
+      if ((!question && !retry) || loading) return;
 
-      setLastQuestion(question);
-      setInput("");
+      if (!retry) setInput("");
 
       try {
-        await askWellnessCoach(question);
+        await askWellnessCoach(question, { retry });
       } catch (error: any) {
         toast.error({
           title: "Viora AI",
@@ -141,7 +140,6 @@ export default function AIScreen() {
   const handleNewChat = useCallback(() => {
     startNewConversation();
     setInput("");
-    setLastQuestion(null);
     setShowHistory(false);
     setVoiceMode(false);
   }, [startNewConversation]);
@@ -155,9 +153,9 @@ export default function AIScreen() {
   );
 
   const handleRetry = useCallback(() => {
-    if (!lastQuestion || loading) return;
-    handleAsk(lastQuestion);
-  }, [handleAsk, lastQuestion, loading]);
+    if (!retryAvailable || loading) return;
+    return handleAsk(undefined, true);
+  }, [handleAsk, retryAvailable, loading]);
 
   const handleDashboard = useCallback(() => {
     router.replace("/dashboard" as any);
@@ -376,7 +374,7 @@ export default function AIScreen() {
               <View style={styles.followUpWrap}>
                 <AICoachFollowUpChips suggestions={followUps} disabled={loading} onPress={handleAsk} />
 
-                {!loading && lastQuestion ? (
+                {!loading && retryAvailable ? (
                   <Pressable onPress={handleRetry} style={styles.retryButton} accessibilityRole="button">
                     <Text style={styles.retryText}>Retry last question</Text>
                   </Pressable>

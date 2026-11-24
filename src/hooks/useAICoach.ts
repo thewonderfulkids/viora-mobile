@@ -53,6 +53,10 @@ export function useAICoach() {
   const { data } = useDashboard();
   const didLoadInitialHistory = useRef(false);
 
+  const pendingSend = useRef(false);
+  const failedAttempt = useRef<{ uid: string; conversationId: string; question: string; questionSaved: boolean } | null>(null);
+  const [retryAvailable, setRetryAvailable] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [contextLoading, setContextLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -104,6 +108,8 @@ export function useAICoach() {
       return;
     }
 
+    failedAttempt.current = null;
+    setRetryAvailable(false);
     setHistoryLoading(true);
     setHistoryError(null);
 
@@ -128,7 +134,9 @@ export function useAICoach() {
   const openConversation = useCallback(
     async (conversationId: string) => {
       const currentUser = auth.currentUser;
-      if (!currentUser || !conversationId) return;
+      if (!currentUser || !conversationId || pendingSend.current) return;
+      failedAttempt.current = null;
+      setRetryAvailable(false);
 
       setHistoryLoading(true);
       setHistoryError(null);
@@ -152,6 +160,9 @@ export function useAICoach() {
   );
 
   const startNewConversation = useCallback(() => {
+    if (pendingSend.current) return;
+    failedAttempt.current = null;
+    setRetryAvailable(false);
     const conversationId = createConversationId();
 
     setActiveConversationId(conversationId);
@@ -175,47 +186,56 @@ export function useAICoach() {
     }
   }, [activeConversationId, data, refreshCoachContext]);
 
-  async function askWellnessCoach(userQuestion?: string) {
+  async function askWellnessCoach(userQuestion?: string, options?: { retry?: boolean }) {
     const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("Please login again");
+    if (!data) throw new Error("Dashboard not loaded");
+    if (pendingSend.current) return;
 
-    if (!currentUser) {
-      throw new Error("Please login again");
+    const retry = options?.retry === true;
+    const attempt = retry
+      ? failedAttempt.current
+      : { uid: currentUser.uid, conversationId: activeConversationId, question: userQuestion?.trim() ?? "", questionSaved: false };
+    if (retry && (!attempt || attempt.uid !== currentUser.uid || attempt.conversationId !== activeConversationId)) return;
+    if (!attempt?.question) throw new Error("Please enter a wellness question.");
+
+    pendingSend.current = true;
+    failedAttempt.current = null;
+    setRetryAvailable(false);
+    if (!retry) {
+      const userMessage = createLocalMessage("user", attempt.question);
+      setMessages((prev) => [...prev, userMessage]);
     }
-
-    if (!data) {
-      throw new Error("Dashboard not loaded");
-    }
-
-    const question = userQuestion?.trim();
-
-    if (!question) {
-      throw new Error("Please enter a wellness question.");
-    }
-
-    const userMessage = createLocalMessage("user", question);
-
-    setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
 
     try {
       const result = await askContextAwareWellnessCoach({
-        uid: currentUser.uid,
-        question,
-        conversationId: activeConversationId,
+        uid: attempt.uid,
+        question: attempt.question,
+        conversationId: attempt.conversationId,
         dashboard: data,
+        questionSaved: attempt.questionSaved,
+        onQuestionSaved: () => { attempt.questionSaved = true; },
       });
 
+      if (auth.currentUser?.uid !== attempt.uid) return;
       const assistantMessage = createLocalMessage("assistant", result.reply);
-
       setMessages((prev) => [...prev, assistantMessage]);
       setContextSnapshot(result.contextSnapshot);
       setQuickActions(result.quickActions);
       setFollowUps(result.followUps);
 
-      await loadThreads();
-
+      // A failed refresh must not turn an answered question into a retry.
+      void loadThreads().catch(() => undefined);
       return result.reply;
+    } catch (error) {
+      if (auth.currentUser?.uid === attempt.uid) {
+        failedAttempt.current = attempt;
+        setRetryAvailable(true);
+      }
+      throw error;
     } finally {
+      pendingSend.current = false;
       setLoading(false);
     }
   }
@@ -236,5 +256,6 @@ export function useAICoach() {
     openConversation,
     startNewConversation,
     askWellnessCoach,
+    retryAvailable,
   };
 }

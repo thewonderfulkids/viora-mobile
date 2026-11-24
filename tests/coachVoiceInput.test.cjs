@@ -68,8 +68,8 @@ test('Coach mic entry sends transcript to the chat and retry uses the same text'
   };
   const aliases = new Proxy({}, { get: (_, key) => key });
   const mockCoach = {
-    messages: [], threads: [], quickActions: [], followUps: [],
-    askWellnessCoach: async (text) => { calls.push(text); mockCoach.messages.push({ id: String(calls.length), role: 'user', message: text }); throw Error('unavailable'); },
+    messages: [], retryAvailable: false, threads: [], quickActions: [], followUps: [],
+    askWellnessCoach: async (text, options) => { calls.push(options?.retry ? transcript : text); if (!options?.retry) mockCoach.messages.push({ id: String(calls.length), role: 'user', message: text }); mockCoach.retryAvailable = true; throw Error('unavailable'); },
   };
   const appSource = fs.readFileSync(path.join(__dirname, '../src/app/ai-coach.tsx'), 'utf8');
   const app = { exports: {} };
@@ -101,6 +101,6 @@ test('Coach mic entry sends transcript to the chat and retry uses the same text'
   assert.ok(find(render(), x => x.type === 'AIMessageBubble' && x.props.message === transcript));
   const retry = find(render(), x => x.props?.children?.props?.children === 'Retry last question');
   assert.ok(retry);
-  retry.props.onPress();
+  await retry.props.onPress();
   assert.deepEqual(calls, [transcript, transcript]);
 });

@@ -1,7 +1,6 @@
 import { ActivityLogger } from "../activity";
 import { DashboardData } from "../dashboardService";
 import {
-  getAICoachThreads,
   saveAICoachMessage,
 } from "../../repositories/aiCoachRepository";
 import { AICoachAskResult } from "../../types";
@@ -16,11 +15,15 @@ export async function askContextAwareWellnessCoach({
   question,
   conversationId,
   dashboard,
+  questionSaved = false,
+  onQuestionSaved,
 }: {
   uid: string;
   question: string;
   conversationId: string;
   dashboard: DashboardData;
+  questionSaved?: boolean;
+  onQuestionSaved?: () => void;
 }): Promise<AICoachAskResult> {
   const cleanQuestion = question.trim();
 
@@ -34,13 +37,16 @@ export async function askContextAwareWellnessCoach({
     conversationId,
   });
 
-  await saveAICoachMessage({
-    uid,
-    role: "user",
-    message: cleanQuestion,
-    conversationId,
-    dashboard,
-  });
+  if (!questionSaved) {
+    await saveAICoachMessage({
+      uid,
+      role: "user",
+      message: cleanQuestion,
+      conversationId,
+      dashboard,
+    });
+    onQuestionSaved?.();
+  }
 
   const prompt = buildContextAwareCoachPrompt({
     context,
@@ -61,25 +67,23 @@ export async function askContextAwareWellnessCoach({
     model: "gpt-5.5",
   });
 
-  await ActivityLogger.aiChat({
+  void ActivityLogger.aiChat({
     userId: uid,
     question: cleanQuestion,
     conversationId,
     model: "gpt-5.5",
-  });
+  }).catch(() => undefined);
 
-  processConversationMemory({
+  void processConversationMemory({
     userId: uid,
     userMessage: cleanQuestion,
     assistantMessage: reply,
-  });
+  }).catch(() => undefined);
 
-  processConversationSummary({
+  void processConversationSummary({
     userId: uid,
     conversationId,
-  });
-
-  await getAICoachThreads({ uid });
+  }).catch(() => undefined);
 
   return {
     reply,
