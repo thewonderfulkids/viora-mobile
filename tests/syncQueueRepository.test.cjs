@@ -6,12 +6,12 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function setup({ onGetItem } = {}) {
+function setup({ onGetItem, onSetItem } = {}) {
   const storage = new Map();
   const auth = { currentUser: { uid: 'alice' } };
   const asyncStorage = {
     async getItem(key) { await Promise.resolve(); if (onGetItem) await onGetItem(key); return storage.get(key) ?? null; },
-    async setItem(key, value) { await Promise.resolve(); storage.set(key, value); },
+    async setItem(key, value) { await Promise.resolve(); if (onSetItem) await onSetItem(key, value); storage.set(key, value); },
     async removeItem(key) { await Promise.resolve(); storage.delete(key); },
   };
   const source = fs.readFileSync(require('node:path').join(__dirname, '../src/repositories/syncQueueRepository.ts'), 'utf8');
@@ -87,4 +87,18 @@ test('account switch during asynchronous queue read rejects stale results', asyn
   authRef = auth;
   await assert.rejects(repo.getPendingSyncActions(), /Account changed/);
   assert.equal(storage.get('@viora/sync-queue/v2/alice'), original);
+});
+
+test('account switch during queue write rejects success and preserves owner isolation', async () => {
+  let authRef;
+  const { repo, storage, auth } = setup({ onSetItem: async () => {
+    authRef.currentUser = { uid: 'bob' };
+  } });
+  authRef = auth;
+  const bobOriginal = JSON.stringify([action('bob-existing', 'bob')]);
+  storage.set('@viora/sync-queue/v2/bob', bobOriginal);
+  await assert.rejects(repo.savePendingSyncAction(action('alice-pending')), /Account changed while saving/);
+  assert.equal(storage.get('@viora/sync-queue/v2/bob'), bobOriginal);
+  assert.equal(JSON.parse(storage.get('@viora/sync-queue/v2/alice'))[0].id, 'alice-pending');
+  assert.deepEqual(Array.from((await repo.getPendingSyncActions()).map(x => x.id)), ['bob-existing']);
 });
