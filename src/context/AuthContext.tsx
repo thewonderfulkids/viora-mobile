@@ -8,6 +8,7 @@ import { UserAccessRole, UserDoc } from "../firebase/firestoreTypes";
 import { isVioraAccessAdmin } from "../services/adminAccess";
 
 type AuthContextType = {
+  authSessionId: number;
   user: User | null;
   userDoc: UserDoc | null;
   loading: boolean;
@@ -19,6 +20,7 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType>({
+  authSessionId: 0,
   user: null,
   userDoc: null,
   loading: true,
@@ -127,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
+        authSessionId: snapshot.session,
         user,
         userDoc,
         loading,
