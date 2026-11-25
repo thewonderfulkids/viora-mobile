@@ -46,7 +46,7 @@ jobs:
       - name: Mobile TypeScript
         run: npx tsc --noEmit
       - name: Offline regression tests
-        run: node --test tests/account-deletion-execution.test.cjs tests/syncQueueRepository.test.cjs tests/coachVoiceInput.test.cjs tests/coachRetry.test.cjs tests/coachRequestContract.test.cjs tests/notificationTap.test.cjs tests/coachHttpErrors.test.cjs tests/stepCounterSession.test.cjs tests/authProviderSession.test.cjs tests/profilePhotoSession.test.cjs tests/yogaPlayback.test.cjs
+        run: node --test tests/account-deletion-execution.test.cjs tests/syncQueueRepository.test.cjs tests/coachVoiceInput.test.cjs tests/coachRetry.test.cjs tests/coachRequestContract.test.cjs tests/notificationTap.test.cjs tests/coachHttpErrors.test.cjs tests/stepCounterSession.test.cjs tests/authProviderSession.test.cjs tests/profilePhotoSession.test.cjs tests/yogaPlayback.test.cjs tests/aiQuota.test.cjs
       - name: Expo Doctor
         run: npx expo-doctor
       - name: Install Firebase Functions dependencies
