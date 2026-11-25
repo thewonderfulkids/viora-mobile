@@ -9,8 +9,10 @@ function buildAvatarPath(uid: string) {
 
 export async function uploadProfilePhoto(
   uid: string,
-  base64Image: string
+  base64Image: string,
+  assertCurrent: () => void = () => {},
 ): Promise<string> {
+  assertCurrent();
   if (!base64Image) {
     throw new Error("Selected image could not be prepared for upload.");
   }
@@ -29,5 +31,6 @@ export async function uploadProfilePhoto(
     },
   });
 
+  assertCurrent();
   return getDownloadURL(storageRef);
 }
