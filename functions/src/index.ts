@@ -59,13 +59,18 @@ export const generateWellnessAdviceHttp = onRequest(
     try {
       const db = getFirestore();
       const quota = db.collection("aiRateLimits").doc(uid);
-      const minute = Math.floor(Date.now() / 60000);
-      const day = Math.floor(Date.now() / 86400000);
       const allowed = await db.runTransaction(async tx => {
         const old = (await tx.get(quota)).data();
-        const minuteCount = old?.minute === minute ? Number(old.minuteCount) || 0 : 0;
-        const dayCount = old?.day === day ? Number(old.dayCount) || 0 : 0;
-        if (minuteCount >= 5 || dayCount >= 100) return false;
+        // Recompute on every transaction attempt, using one clock sample.
+        const now = Date.now();
+        const minute = Math.floor(now / 60000);
+        const day = Math.floor(now / 86400000);
+        const minuteCount = old?.minute === minute ? old.minuteCount : 0;
+        const dayCount = old?.day === day ? old.dayCount : 0;
+        // Fail closed for corrupt active-window counters rather than granting extra quota.
+        if (!Number.isSafeInteger(minuteCount) || minuteCount < 0 ||
+            !Number.isSafeInteger(dayCount) || dayCount < 0 ||
+            minuteCount >= 5 || dayCount >= 100) return false;
         tx.set(quota, { uid, minute, day, minuteCount: minuteCount + 1, dayCount: dayCount + 1, updatedAt: FieldValue.serverTimestamp() });
         return true;
       });
