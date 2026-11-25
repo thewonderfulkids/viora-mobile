@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import { LanguageProvider } from "../i18n/LanguageProvider";
 import { NetworkProvider } from "../providers/NetworkProvider";
 import { ToastProvider } from "../providers/ToastProvider";
+import { subscribeToStepCounter } from "../services/steps";
 
 function AuthenticatedNavigationShell() {
   const pathname = usePathname();
@@ -39,6 +40,13 @@ function AuthenticatedNavigationShell() {
   );
 }
 
+function StepCounterRuntime() {
+  // Keep tracking within the foreground account even between wellness screens.
+  // The service owns the auth and foreground subscriptions and stops on logout.
+  useEffect(() => subscribeToStepCounter(() => {}), []);
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
@@ -50,6 +58,7 @@ export default function RootLayout() {
                 <StatusBar style="dark" />
                 <OfflineBanner />
                 <NotificationRuntime />
+                <StepCounterRuntime />
                 <AuthenticatedNavigationShell />
               </ToastProvider>
             </NetworkProvider>
