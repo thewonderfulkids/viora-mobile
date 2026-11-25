@@ -104,3 +104,14 @@ test('Coach mic entry sends transcript to the chat and retry uses the same text'
   await retry.props.onPress();
   assert.deepEqual(calls, [transcript, transcript]);
 });
+
+test('blank speech is ignored and advisory Hinglish stays in chat', async () => {
+  const calls = [];
+  const actions = { ask: async value => calls.push(['ask', value]), navigate: route => calls.push(['navigate', route]) };
+  await submitCoachVoiceInput('  \n  ', actions);
+  assert.deepEqual(calls, []);
+  for (const prompt of ['मेरा nutrition plan बनाओ', 'आज के steps के हिसाब से advice दो', 'membership plan samjhao', 'steps kholo aur advice do']) {
+    await submitCoachVoiceInput(prompt, actions);
+    assert.deepEqual(calls.pop(), ['ask', prompt]);
+  }
+});
