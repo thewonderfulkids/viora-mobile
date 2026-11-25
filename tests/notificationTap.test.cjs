@@ -5,7 +5,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function fixture() {
+function fixture(overrides = {}) {
   const auth = { currentUser: { uid: 'account-a' } };
   const jobs = new Map();
   const store = new Map();
@@ -16,11 +16,12 @@ function fixture() {
   const cleanups = [];
   let onAccountChange;
   let lastResponse = null;
+  let presentationHandler;
   let failWrite = false, failRead = false;
   const notifications = {
     AndroidImportance: {}, AndroidNotificationPriority: {}, AndroidNotificationVisibility: {},
-    SchedulableTriggerInputTypes: { WEEKLY: 'weekly', TIME_INTERVAL: 'interval' },
-    setNotificationHandler() {},
+    SchedulableTriggerInputTypes: { WEEKLY: 'weekly', DAILY: 'daily', DATE: 'date', TIME_INTERVAL: 'interval' },
+    setNotificationHandler(handler) { presentationHandler = handler.handleNotification; },
     setNotificationChannelAsync: async () => {},
     getPermissionsAsync: async () => ({ granted: true }),
     getAllScheduledNotificationsAsync: async () => [...jobs].map(([identifier, task]) => ({ identifier, ...task })),
@@ -52,7 +53,8 @@ function fixture() {
       if (id === 'react') return { useEffect: cb => { cleanups.push(cb()); }, useRef: current => ({ current }) };
       if (id.endsWith('/AuthContext')) return { useAuth: () => ({ user: auth.currentUser }) };
       if (id.endsWith('/firebaseConfig')) return { auth };
-      if (id.endsWith('/nativeNotificationService')) return { initializeNativeNotificationRuntime: async () => {} };
+      if (id.endsWith('/nativeNotificationService')) return native;
+      if (Object.hasOwn(overrides, id)) return overrides[id];
       if (id === './messages') return { getRotatingReminderBody: () => 'Reminder' };
       if (id === '@react-native-async-storage/async-storage') return { __esModule: true, default: {
         getItem: async k => { if (failRead) throw Error("read unavailable"); return store.get(k); }, setItem: async (k, v) => {
@@ -69,7 +71,8 @@ function fixture() {
   const native = load('src/services/notifications/nativeNotificationService.ts');
   const { NotificationRuntime } = load('src/components/runtime/NotificationRuntime.tsx');
   return {
-    auth, jobs, tray, store, routes, notifications, premium, native,
+    auth, jobs, tray, store, routes, notifications, premium, native, load,
+    presentation: data => presentationHandler({ request: { content: { data } } }),
     notifyAuth: () => onAccountChange?.(auth.currentUser),
     failReads: () => { failRead = true; },
     failWrites: () => { failWrite = true; },
@@ -117,7 +120,7 @@ test('upgrade cancels identifiable old Premium jobs but never adopts their owner
   f.jobs.set('legacy', legacy);
   f.tray.set('legacy', legacy);
   f.store.set('@viora/premium-reminders-v2', JSON.stringify([{ id: 'r-old', category: 'hydration', notificationIds: ['legacy'] }]));
-  f.jobs.set('unrelated', { content: { data: { vioraReminderId: 'not-premium' } } });
+  f.jobs.set('unrelated', { content: { data: { otherFeatureId: 'not-premium' } } });
   f.mount();
   f.tap('legacy');
   f.tap('legacy-test', { actionRoute: '/smart-notifications', vioraTest: true });
@@ -233,4 +236,96 @@ test('known other-account native jobs and tray entries clear even if local setti
   await f.premium.reconcilePremiumNotificationSession();
   assert.equal(f.jobs.size, 0);
   assert.equal(f.tray.size, 0);
+});
+
+
+const smartReminder = uid => ({
+  id: uid + '_hydration', userId: uid, title: 'Synthetic title', message: 'Synthetic wellness nudge',
+  type: 'hydration', status: 'scheduled', cadence: 'daily', actionRoute: '/hydration',
+  scheduledFor: new Date(Date.now() + 86400000).toISOString(),
+});
+const smartSettings = (uid, enabled = true) => ({ userId: uid, enabled });
+
+test('root auth cleanup clears Smart schedules, tray and test alerts but not current or unrelated jobs', async () => {
+  const f = fixture();
+  const a = f.auth.currentUser;
+  await f.native.syncNativeWellnessReminders([smartReminder(a.uid)], smartSettings(a.uid));
+  await f.native.scheduleWellnessTestNotification();
+  for (const [id, job] of f.jobs) f.tray.set(id, job);
+  const unowned = { content: { data: { vioraReminderId: 'ownerless' } } };
+  f.jobs.set('old', unowned);
+  f.tray.set('old', unowned);
+  f.jobs.set('unrelated', { content: { data: { otherAppFeature: true } } });
+  const b = { uid: 'account-b' };
+  f.auth.currentUser = b;
+  await f.native.syncNativeWellnessReminders([smartReminder(b.uid)], smartSettings(b.uid));
+  assert.equal(f.jobs.size, 5);
+  const bId = [...f.jobs].find(([, job]) => job.content.data.userId === b.uid)[0];
+  f.mount();
+  f.notifyAuth();
+  await f.native.reconcileNativeSmartNotifications();
+  assert.deepEqual([...f.jobs.keys()], ['unrelated', bId]);
+  assert.equal(f.tray.size, 0);
+  f.tray.set(bId, f.jobs.get(bId));
+  f.auth.currentUser = null;
+  f.notifyAuth();
+  await f.native.reconcileNativeSmartNotifications();
+  assert.deepEqual([...f.jobs.keys()], ['unrelated']);
+  assert.equal(f.tray.size, 0);
+});
+
+test('foreground presentation suppresses Smart content for an absent or mismatched owner', async () => {
+  const f = fixture();
+  assert.equal((await f.presentation({ vioraReminderId: 'a', userId: 'account-a' })).shouldShowBanner, true);
+  assert.equal((await f.presentation({ vioraTest: true, userId: 'account-b' })).shouldPlaySound, false);
+  assert.equal((await f.presentation({ vioraReminderId: 'unscoped' })).shouldShowList, false);
+  f.auth.currentUser = null;
+  assert.equal((await f.presentation({ vioraReminderId: 'a', userId: 'account-a' })).shouldShowBanner, false);
+  assert.equal((await f.presentation({ otherFeature: true })).shouldShowBanner, true);
+});
+
+test('a native schedule completed after switch is cleaned up; stale work cannot cancel B', async () => {
+  const f = fixture();
+  const a = f.auth.currentUser, b = { uid: 'account-b' };
+  const schedule = f.notifications.scheduleNotificationAsync;
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  f.notifications.scheduleNotificationAsync = async task => {
+    const id = await schedule(task);
+    if (task.content.data.userId === a.uid) { entered(); await gate; }
+    return id;
+  };
+  const stale = f.native.syncNativeWellnessReminders([smartReminder(a.uid)], smartSettings(a.uid), a);
+  await started;
+  f.auth.currentUser = b;
+  const next = f.native.syncNativeWellnessReminders([smartReminder(b.uid)], smartSettings(b.uid), b);
+  release();
+  await Promise.all([stale, next]);
+  await f.native.syncNativeWellnessReminders([], smartSettings(a.uid, false), a);
+  assert.deepEqual([...f.jobs.values()].map(job => job.content.data.userId), [b.uid]);
+});
+
+test('a dashboard whose settings load returns after switch cannot save or schedule anything', async () => {
+  let resolveSettings;
+  const staleSettings = new Promise(resolve => { resolveSettings = resolve; });
+  const writes = [], builds = [];
+  const f = fixture({
+    '../../repositories/notificationRepository': {
+      getSmartReminderSettings: uid => uid === 'account-a' ? staleSettings : smartSettings(uid),
+      getLatestWellnessReminders: async () => [],
+      saveWellnessReminders: async rows => writes.push(...rows.map(row => row.userId)),
+    },
+    './reminderEngine': { buildSmartReminders: async uid => { builds.push(uid); return [smartReminder(uid)]; } },
+  });
+  const { getSmartNotificationDashboard } = f.load('src/services/notifications/notificationService.ts');
+  const stale = getSmartNotificationDashboard('account-a');
+  f.auth.currentUser = { uid: 'account-b' };
+  const dashboard = await getSmartNotificationDashboard('account-b');
+  resolveSettings(smartSettings('account-a'));
+  await assert.rejects(stale, /no longer current/);
+  assert.equal(dashboard.userId, 'account-b');
+  assert.deepEqual(writes, ['account-b']);
+  assert.deepEqual(builds, ['account-b']);
+  assert.deepEqual([...f.jobs.values()].map(job => job.content.data.userId), ['account-b']);
 });

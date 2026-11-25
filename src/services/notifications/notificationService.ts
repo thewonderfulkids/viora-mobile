@@ -1,3 +1,4 @@
+import { auth } from "../../firebase/firebaseConfig";
 import {
   getLatestWellnessReminders,
   getSmartReminderSettings,
@@ -15,6 +16,14 @@ import {
 } from "../../types";
 import { buildSmartReminders } from "./reminderEngine";
 import { syncNativeWellnessReminders } from "./nativeNotificationService";
+
+type Owner = NonNullable<typeof auth.currentUser>;
+let dashboardVersion = 0;
+function assertOwner(owner: Owner | null, uid: string): asserts owner is Owner {
+  if (!owner || auth.currentUser !== owner || owner.uid !== uid) {
+    throw new Error("Sign in again to manage Smart reminders.");
+  }
+}
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -82,21 +91,36 @@ function mergeGeneratedWithExisting(
 }
 
 export async function getSmartNotificationDashboard(
-  userId: string
+  userId: string,
+  owner = auth.currentUser,
 ): Promise<SmartNotificationDashboard> {
-  const settings = await getSmartReminderSettings(userId);
+  assertOwner(owner, userId);
+  const version = ++dashboardVersion;
+  const isCurrent = () => auth.currentUser === owner && dashboardVersion === version;
+  const assertCurrent = () => {
+    if (!isCurrent()) throw new Error("Smart reminder refresh is no longer current.");
+  };
+  const settings = await getSmartReminderSettings(userId, assertCurrent);
+  assertCurrent();
+  if (settings.userId !== userId) throw new Error("Smart reminder settings are unavailable.");
   const [existingReminders, generatedReminders] = await Promise.all([
     getLatestWellnessReminders(userId, 30),
     buildSmartReminders(userId, settings),
   ]);
 
-  const reminders = mergeGeneratedWithExisting(generatedReminders, existingReminders);
+  assertCurrent();
+  const reminders = mergeGeneratedWithExisting(
+    generatedReminders.filter(item => item.userId === userId),
+    existingReminders.filter(item => item.userId === userId),
+  );
 
   if (reminders.length > 0) {
     await saveWellnessReminders(reminders);
   }
 
-  await syncNativeWellnessReminders(reminders, settings);
+  assertCurrent();
+  await syncNativeWellnessReminders(reminders, settings, owner, isCurrent);
+  assertCurrent();
 
   const activeReminders = reminders.filter((item) => item.status === "scheduled");
   const completedReminders = reminders.filter((item) => item.status === "completed");
@@ -122,14 +146,20 @@ export async function getSmartNotificationDashboard(
 }
 
 export async function updateSmartNotificationSettings(
-  input: SmartReminderSettingsInput
+  input: SmartReminderSettingsInput,
+  owner = auth.currentUser,
 ): Promise<SmartReminderSettings> {
-  return saveSmartReminderSettings(input);
+  assertOwner(owner, input.userId);
+  ++dashboardVersion;
+  return saveSmartReminderSettings(input, () => assertOwner(owner, input.userId));
 }
 
 export async function setWellnessReminderStatus(
   reminderId: string,
-  status: WellnessReminderStatus
+  status: WellnessReminderStatus,
+  owner = auth.currentUser,
 ): Promise<void> {
+  assertOwner(owner, owner?.uid ?? "");
+  ++dashboardVersion;
   await updateWellnessReminderStatus(reminderId, status);
 }

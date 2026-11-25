@@ -6,7 +6,7 @@ import { AppState, Platform } from "react-native";
 
 import { auth } from "../../firebase/firebaseConfig";
 import { useAuth } from "../../context/AuthContext";
-import { initializeNativeNotificationRuntime } from "../../services/notifications/nativeNotificationService";
+import { initializeNativeNotificationRuntime, reconcileNativeSmartNotifications } from "../../services/notifications/nativeNotificationService";
 
 import { reconcilePremiumNotificationSession } from "../../services/notifications2/premiumNotificationService";
 
@@ -40,7 +40,10 @@ export function NotificationRuntime() {
 
   useEffect(() => {
     if (Platform.OS !== "android" && Platform.OS !== "ios") return;
-    const reconcile = () => { void reconcilePremiumNotificationSession().catch(() => undefined); };
+    const reconcile = () => {
+      void reconcilePremiumNotificationSession().catch(() => undefined);
+      void reconcileNativeSmartNotifications().catch(() => undefined);
+    };
     let authReady = false;
     const unsubscribe = onAuthStateChanged(auth, () => { authReady = true; reconcile(); });
     const state = AppState.addEventListener("change", (next) => { if (authReady && next === "active") reconcile(); });

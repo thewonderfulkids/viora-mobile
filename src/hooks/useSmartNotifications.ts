@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import { useAuth } from "../context/AuthContext";
+import { auth } from "../firebase/firebaseConfig";
 import {
   getSmartNotificationDashboard,
   setWellnessReminderStatus,
@@ -26,6 +27,9 @@ type UseSmartNotificationsResult = {
 
 export function useSmartNotifications(): UseSmartNotificationsResult {
   const { user } = useAuth();
+  const mounted = useRef(false);
+  const version = useRef(0);
+  const isCurrent = useCallback(() => mounted.current && Boolean(user && auth.currentUser === user), [user]);
 
   const [data, setData] = useState<SmartNotificationDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,31 +39,35 @@ export function useSmartNotifications(): UseSmartNotificationsResult {
 
   const loadDashboard = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
-      if (!user?.uid) {
-        setData(null);
-        setLoading(false);
-        return;
-      }
+      if (!user || !isCurrent()) return;
+      const ticket = ++version.current;
+      const canApply = () => isCurrent() && version.current === ticket;
 
       try {
-        if (mode === "initial") setLoading(true);
-        if (mode === "refresh") setRefreshing(true);
-
+        setLoading(mode === "initial");
+        setRefreshing(mode === "refresh");
         setError(null);
-        const dashboard = await getSmartNotificationDashboard(user.uid);
-        setData(dashboard);
-      } catch (err: any) {
-        setError(err?.message || "Unable to load smart notifications.");
+        const dashboard = await getSmartNotificationDashboard(user.uid, user);
+        if (canApply()) setData(dashboard);
+      } catch (err: unknown) {
+        if (canApply()) setError(err instanceof Error ? err.message : "Unable to load smart notifications.");
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (canApply()) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     },
-    [user?.uid]
+    [isCurrent, user]
   );
 
   useEffect(() => {
-    loadDashboard("initial");
+    mounted.current = true;
+    void loadDashboard("initial");
+    return () => {
+      mounted.current = false;
+      version.current += 1;
+    };
   }, [loadDashboard]);
 
   const refresh = useCallback(async () => {
@@ -68,45 +76,44 @@ export function useSmartNotifications(): UseSmartNotificationsResult {
 
   const updateSettings = useCallback(
     async (input: Omit<SmartReminderSettingsInput, "userId">) => {
-      if (!user?.uid) {
-        Alert.alert("Login required", "Please login again.");
-        return;
-      }
+      if (!user || !isCurrent()) return;
 
       try {
         setSaving(true);
-        await updateSmartNotificationSettings({ userId: user.uid, ...input });
+        await updateSmartNotificationSettings({ ...input, userId: user.uid }, user);
         await loadDashboard("refresh");
       } catch (err: any) {
-        Alert.alert("Unable to save settings", err?.message || "Please try again.");
+        if (isCurrent()) Alert.alert("Unable to save settings", err?.message || "Please try again.");
       } finally {
-        setSaving(false);
+        if (isCurrent()) setSaving(false);
       }
     },
-    [loadDashboard, user?.uid]
+    [isCurrent, loadDashboard, user]
   );
 
   const updateReminderStatus = useCallback(
     async (reminderId: string, status: WellnessReminderStatus) => {
+      if (!user || !isCurrent() || !data?.reminders.some(item => item.id === reminderId && item.userId === user.uid)) return;
       try {
         setSaving(true);
-        await setWellnessReminderStatus(reminderId, status);
+        await setWellnessReminderStatus(reminderId, status, user);
         await loadDashboard("refresh");
       } catch (err: any) {
-        Alert.alert("Unable to update reminder", err?.message || "Please try again.");
+        if (isCurrent()) Alert.alert("Unable to update reminder", err?.message || "Please try again.");
       } finally {
-        setSaving(false);
+        if (isCurrent()) setSaving(false);
       }
     },
-    [loadDashboard]
+    [data, isCurrent, loadDashboard, user]
   );
 
+  const ownsView = Boolean(user && user === auth.currentUser);
   return {
-    data,
-    loading,
-    refreshing,
-    saving,
-    error,
+    data: ownsView && data?.userId === user?.uid ? data : null,
+    loading: ownsView && loading,
+    refreshing: ownsView && refreshing,
+    saving: ownsView && saving,
+    error: ownsView ? error : null,
     refresh,
     updateSettings,
     updateReminderStatus,

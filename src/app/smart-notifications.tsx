@@ -8,10 +8,16 @@ import {
   ReminderSettingsCard,
 } from "../components/notifications";
 import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
+import { useAuth } from "../context/AuthContext";
 import { useSmartNotifications } from "../hooks";
 import { colors, spacing } from "../theme";
 
 export default function SmartNotificationsScreen() {
+  const { user, authSessionId } = useAuth();
+  return user ? <AccountSmartNotifications key={authSessionId} /> : null;
+}
+
+function AccountSmartNotifications() {
   const {
     data,
     loading,
