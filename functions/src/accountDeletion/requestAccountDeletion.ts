@@ -1,6 +1,7 @@
 import { getAuth } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { isExistingDeletionRequest } from "./deletionExecutionCore";
 
 /**
  * Creates an authenticated deletion request. This does not delete data.
@@ -24,8 +25,9 @@ export const requestAccountDeletion = onCall(
     const ref = db.doc(`accountDeletionRequests/${uid}`);
     const result = await db.runTransaction(async (tx) => {
       const previous = await tx.get(ref);
-      if (previous.exists && ["requested", "preflight", "processing"].includes(String(previous.data()?.status))) {
-        return { status: String(previous.data()?.status), alreadyRequested: true };
+      const status = previous.data()?.status;
+      if (isExistingDeletionRequest(status)) {
+        return { status, alreadyRequested: true };
       }
       tx.set(ref, {
         userId: uid,

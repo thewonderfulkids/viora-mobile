@@ -4,49 +4,82 @@
  */
 export type Candidate = { path: string; ownerIds: string[]; shared: boolean; retained: boolean };
 export type Inventory = { complete: boolean; candidates: Candidate[]; unresolved: string[] };
+export type DeletionCheckpoint = "processing" | "retry_required" | "auth_pending" | "completed";
+
+export function isExistingDeletionRequest(status: unknown): status is "requested" | "preflight" | DeletionCheckpoint {
+  return status === "requested" || status === "preflight" || status === "processing" ||
+    status === "retry_required" || status === "auth_pending" || status === "completed";
+}
+
 export interface DeletionAdapter {
   withExclusiveLease<T>(uid: string, run: () => Promise<T>): Promise<T>;
-  assertAuthorizedAndFrozen(uid: string): Promise<void>;
+  // Must authenticate this durable attempt, verify its freeze, and bind it to the
+  // original account generation. Recovery must work without the original Auth
+  // record, but must reject a recreated/rebound account.
+  assertAuthorizedAndFrozen(uid: string, phase: "cleanup" | "auth_pending" | "completed"): Promise<void>;
+  readCheckpoint(uid: string): Promise<DeletionCheckpoint | null>;
   inventory(uid: string): Promise<Inventory>;
   eraseOwnedRecord(uid: string, candidate: Candidate): Promise<void>;
   eraseOwnedStorage(uid: string): Promise<void>;
   verifyStorageEmpty(uid: string): Promise<boolean>;
-  checkpoint(uid: string, state: string): Promise<void>;
-  eraseAuth(uid: string): Promise<void>;
+  checkpoint(uid: string, state: DeletionCheckpoint): Promise<void>;
+  // Under the same attempt/lease, absence of that Auth record is already
+  // success. Only a confirmed not-found may be treated as success.
+  eraseAuthIfPresent(uid: string): Promise<void>;
 }
 export function planDeletion(uid: string, inventory: Inventory): Candidate[] {
   if (!uid || !inventory.complete || inventory.unresolved.length) throw Error("Incomplete inventory");
   const unique = new Map<string, Candidate>();
+  const protectedPaths = new Set<string>();
   for (const record of inventory.candidates) {
-    if (record.shared || record.retained) continue;
-    if (!record.path || !record.ownerIds.length || record.ownerIds.some(owner => owner !== uid)) {
+    if (!record.path) throw Error("Unverified record path");
+    if (record.shared || record.retained) {
+      protectedPaths.add(record.path);
+      continue;
+    }
+    if (!record.ownerIds.length || record.ownerIds.some(owner => owner !== uid)) {
       throw Error("Unverified ownership");
     }
     unique.set(record.path, record);
   }
+  for (const path of protectedPaths) {
+    if (unique.has(path)) throw Error("Conflicting deletion evidence");
+  }
   return [...unique.values()];
 }
 export async function executeDeletion(uid: string, adapter: DeletionAdapter) {
+  if (!uid) throw Error("Missing deletion user");
   return adapter.withExclusiveLease(uid, async () => {
-    await adapter.assertAuthorizedAndFrozen(uid);
-    const records = planDeletion(uid, await adapter.inventory(uid));
-    await adapter.checkpoint(uid, "processing");
-    try {
-      for (const record of records.slice(0, 100)) {
-        await adapter.eraseOwnedRecord(uid, record);
-      }
-      if (records.length > 100) return { complete: false };
-      await adapter.eraseOwnedStorage(uid);
-      if (planDeletion(uid, await adapter.inventory(uid)).length || !(await adapter.verifyStorageEmpty(uid))) {
-        throw Error("Cleanup verification failed");
-      }
-      await adapter.checkpoint(uid, "auth_pending");
-      await adapter.eraseAuth(uid);
-      await adapter.checkpoint(uid, "completed");
+    const state = await adapter.readCheckpoint(uid);
+    if (state === "completed") {
+      await adapter.assertAuthorizedAndFrozen(uid, "completed");
       return { complete: true };
-    } catch (error) {
-      await adapter.checkpoint(uid, "retry_required");
-      throw error;
     }
+    if (state === "auth_pending") {
+      await adapter.assertAuthorizedAndFrozen(uid, "auth_pending");
+    } else {
+      await adapter.assertAuthorizedAndFrozen(uid, "cleanup");
+      const records = planDeletion(uid, await adapter.inventory(uid));
+      await adapter.checkpoint(uid, "processing");
+      try {
+        for (const record of records.slice(0, 100)) {
+          await adapter.eraseOwnedRecord(uid, record);
+        }
+        if (records.length > 100) return { complete: false };
+        await adapter.eraseOwnedStorage(uid);
+        if (planDeletion(uid, await adapter.inventory(uid)).length || !(await adapter.verifyStorageEmpty(uid))) {
+          throw Error("Cleanup verification failed");
+        }
+      } catch (error) {
+        await adapter.checkpoint(uid, "retry_required");
+        throw error;
+      }
+      // This write may be committed even if its caller sees an error. Never
+      // replace the durable marker with a generic retry state after this point.
+      await adapter.checkpoint(uid, "auth_pending");
+    }
+    await adapter.eraseAuthIfPresent(uid);
+    await adapter.checkpoint(uid, "completed");
+    return { complete: true };
   });
 }

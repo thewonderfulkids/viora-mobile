@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const exportsObject = {};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync("functions/src/accountDeletion/deletionExecutionCore.ts","utf8"), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:exportsObject});
-const {planDeletion,executeDeletion}=exportsObject;
+const {planDeletion,executeDeletion,isExistingDeletionRequest}=exportsObject;
 const record={path:"dailyStats/a",ownerIds:["a"],shared:false,retained:false};
 test("rejects incomplete and foreign ownership",()=>{
  assert.throws(()=>planDeletion("a",{complete:false,candidates:[],unresolved:[]}),/Incomplete/);
@@ -14,9 +14,24 @@ test("rejects incomplete and foreign ownership",()=>{
 test("retains shared and financial records",()=>{
  assert.equal(planDeletion("a",{complete:true,candidates:[{...record,shared:true},{...record,retained:true}],unresolved:[]}).length,0);
 });
+test("rejects conflicting evidence for the same path in either order",()=>{
+ for(const protectedRecord of [{...record,shared:true},{...record,retained:true}]){
+  for(const candidates of [[record,protectedRecord],[protectedRecord,record]]){
+   assert.throws(()=>planDeletion("a",{complete:true,candidates,unresolved:[]}),/Conflicting deletion evidence/);
+  }
+ }
+ assert.equal(planDeletion("a",{complete:true,candidates:[record,{...record}],unresolved:[]}).length,1);
+});
+test("preserves active, recovery, and terminal states on repeat requests",()=>{
+ for(const status of ["requested","preflight","processing","retry_required","auth_pending","completed"]){
+  assert.equal(isExistingDeletionRequest(status),true);
+ }
+ assert.equal(isExistingDeletionRequest(undefined),false);
+ assert.equal(isExistingDeletionRequest("unknown"),false);
+});
 test("auth is removed only after verified cleanup; failures remain retryable",async()=>{
  let records=[record], events=[], fail=true;
- const adapter={withExclusiveLease:async(_,run)=>run(),assertAuthorizedAndFrozen:async()=>{},inventory:async()=>({complete:true,candidates:records,unresolved:[]}),eraseOwnedRecord:async()=>{if(fail)throw Error("failed");records=[]},eraseOwnedStorage:async()=>{},verifyStorageEmpty:async()=>true,checkpoint:async(_,s)=>events.push(s),eraseAuth:async()=>events.push("auth")};
+ const adapter={withExclusiveLease:async(_,run)=>run(),assertAuthorizedAndFrozen:async()=>{},readCheckpoint:async()=>null,inventory:async()=>({complete:true,candidates:records,unresolved:[]}),eraseOwnedRecord:async()=>{if(fail)throw Error("failed");records=[]},eraseOwnedStorage:async()=>{},verifyStorageEmpty:async()=>true,checkpoint:async(_,s)=>events.push(s),eraseAuthIfPresent:async()=>events.push("auth")};
  await assert.rejects(executeDeletion("a",adapter),/failed/);
  assert.equal(events.includes("auth"),false);
  assert.equal(events.at(-1),"retry_required");
@@ -24,4 +39,60 @@ test("auth is removed only after verified cleanup; failures remain retryable",as
  assert.equal((await executeDeletion("a",adapter)).complete,true);
  assert.equal(events.at(-2),"auth");
  assert.equal(events.at(-1),"completed");
+});
+function recoveryFixture({failedWrite, ambiguous=false}){
+ let status=null, auth="original", failed=false;
+ const events=[];
+ const adapter={
+  withExclusiveLease:async(_,run)=>run(),
+  readCheckpoint:async()=>status,
+  assertAuthorizedAndFrozen:async(_,phase)=>{
+   events.push(phase);
+   if(phase==="cleanup" && auth!=="original")throw Error("Original account required");
+   if(phase!=="cleanup" && auth==="replacement")throw Error("Account generation changed");
+  },
+  inventory:async()=>{events.push("inventory");return {complete:true,candidates:[],unresolved:[]}},
+  eraseOwnedRecord:async()=>assert.fail("no records to erase"),
+  eraseOwnedStorage:async()=>events.push("storage"),
+  verifyStorageEmpty:async()=>true,
+  checkpoint:async(_,next)=>{
+   if(next===failedWrite && !failed){
+    failed=true;
+    if(ambiguous)status=next;
+    throw Error("checkpoint response lost");
+   }
+   status=next;
+  },
+  eraseAuthIfPresent:async()=>{
+   if(auth==="original"){events.push("auth erased");auth=null}
+   else if(auth===null){events.push("auth already absent")}
+   else assert.fail("replacement must not be erased");
+  },
+ };
+ return {adapter,events,status:()=>status,recreate:()=>{auth="replacement"}};
+}
+test("completion write failure recovers after Auth was erased and never repeats data cleanup",async()=>{
+ const f=recoveryFixture({failedWrite:"completed"});
+ await assert.rejects(executeDeletion("a",f.adapter),/checkpoint response lost/);
+ assert.equal(f.status(),"auth_pending");
+ assert.equal((await executeDeletion("a",f.adapter)).complete,true);
+ assert.equal((await executeDeletion("a",f.adapter)).complete,true);
+ assert.deepEqual(f.events,["cleanup","inventory","storage","inventory","auth erased","auth_pending","auth already absent","completed"]);
+ assert.equal(f.status(),"completed");
+});
+test("ambiguous auth_pending write may be recovered without running cleanup again",async()=>{
+ const f=recoveryFixture({failedWrite:"auth_pending",ambiguous:true});
+ await assert.rejects(executeDeletion("a",f.adapter),/checkpoint response lost/);
+ assert.equal(f.status(),"auth_pending");
+ assert.equal(f.events.includes("auth erased"),false);
+ assert.equal((await executeDeletion("a",f.adapter)).complete,true);
+ assert.deepEqual(f.events,["cleanup","inventory","storage","inventory","auth_pending","auth erased"]);
+});
+test("auth_pending recovery refuses a replacement account",async()=>{
+ const f=recoveryFixture({failedWrite:"completed"});
+ await assert.rejects(executeDeletion("a",f.adapter),/checkpoint response lost/);
+ f.recreate();
+ await assert.rejects(executeDeletion("a",f.adapter),/Account generation changed/);
+ assert.equal(f.status(),"auth_pending");
+ assert.equal(f.events.filter(e=>e.startsWith("auth ")).length,1);
 });

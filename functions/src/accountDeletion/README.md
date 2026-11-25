@@ -89,3 +89,9 @@ This audit reviewed the listed repository source files only. Delegated services,
 - Repeat deletion requests preserve the preflight state.
 - Production destructive cleanup remains disabled until retention/shared-family decisions, full data verification, retry-safe execution, and explicit deployment approval.
 - Internal APK build is requested for testing only; an APK must not be treated as production clearance.
+
+## Offline execution recovery checkpoint
+
+- Conflicting erasable and shared/retained evidence for a document path now blocks the plan, regardless of candidate order. Resolve the inventory conflict before any erase.
+- The offline core persists `auth_pending` only after cleanup verification, never rewrites it to generic retry, and allows a subsequent attempt to reconcile already-absent Auth and finish its completion write. Repeat user requests do not overwrite recovery or completion state.
+- A future adapter must bind the durable checkpoint to the original request and account generation under its exclusive lease, fence writes until cleanup and Auth finalization, and count only confirmed Auth not-found as success. A recreated UID needs an explicit separate lifecycle and must not be erased by stale work. The core is not a production callable and this contract has no live adapter.
