@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getAppCheck } from "firebase-admin/app-check";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { setGlobalOptions } from "firebase-functions";
 import { onRequest } from "firebase-functions/https";
@@ -41,6 +42,21 @@ export const generateWellnessAdviceHttp = onRequest(
     } catch {
       res.status(401).json({ error: "Invalid or expired authentication" });
       return;
+    }
+
+    // Enforcement is opt-in until supported mobile clients can supply App Check tokens.
+    if (process.env.VIORA_ENFORCE_APP_CHECK === "true") {
+      const appCheckToken = req.get("X-Firebase-AppCheck");
+      if (!appCheckToken) {
+        res.status(401).json({ error: "App verification required" });
+        return;
+      }
+      try {
+        await getAppCheck().verifyToken(appCheckToken);
+      } catch {
+        res.status(401).json({ error: "App verification failed" });
+        return;
+      }
     }
 
     const body = req.body;
