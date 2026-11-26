@@ -6,9 +6,10 @@ const ts = require('typescript');
 const path = require('node:path');
 const code = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../functions/src/index.ts'),'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 
-function harness(initial, times, initialGlobal, enforce = false, token = undefined) {
+function harness(initial, times, initialGlobal, enforce = false, token = undefined, frozenUids = []) {
   let global = initialGlobal;
   const users = new Map([['aiRateLimits/test-user', initial]]);
+  const locks = new Map(frozenUids.map(uid => ['accountDeletionLocks/' + uid, {}]));
   const globalKey = 'aiGlobalBudget/daily';
   let writes = 0, calls = 0;
   const exports = {};
@@ -18,7 +19,10 @@ function harness(initial, times, initialGlobal, enforce = false, token = undefin
       clock = time;
       const pending = new Map();
       result = await fn({
-        get: async key => ({data: () => key === globalKey ? global : users.get(key)}),
+        get: async key => {
+          const value = key === globalKey ? global : locks.get(key) ?? users.get(key);
+          return { exists: value !== undefined, data: () => value };
+        },
         set: (key, value) => pending.set(key, value),
       });
       if (time === times[times.length-1] && pending.size) {
@@ -119,4 +123,22 @@ test('App Check enforcement rejects missing and invalid tokens before quota', as
   }
   const r = await harness(undefined,[now],undefined,true,'valid').request();
   assert.equal(r.status,200); assert.equal(r.calls,1);
+});
+
+test('account deletion lock blocks Coach before quota writes or a model call', async () => {
+  const h = harness(undefined,[now],{day:1,count:12},false,undefined,['frozen-user']);
+  const frozen = await h.request('frozen-user');
+  assert.equal(frozen.status,429);
+  assert.equal(frozen.stored,undefined);
+  assert.equal(frozen.global.count,12);
+  assert.equal(frozen.writes,0);
+  assert.equal(frozen.calls,0);
+
+  const control = await h.request('unfrozen-user');
+  assert.equal(control.status,200);
+  assert.equal(control.stored.uid,'unfrozen-user');
+  assert.equal(control.stored.dayCount,1);
+  assert.equal(control.global.count,13);
+  assert.equal(control.writes,1);
+  assert.equal(control.calls,1);
 });
