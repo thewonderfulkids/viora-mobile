@@ -49,6 +49,11 @@ function fixture() {
   const health = { requestHealthStepAccess: async () => true, readBackgroundAggregate: async (window, active) => active()?.consent ? {window, steps: 7} : null };
   const helper = {exports:{}};
   vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/services/steps/backgroundStepWindow.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:helper.exports});
+  const checkpoint = { exports: {} };
+  const checkpointSource = fs.readFileSync(path.join(__dirname, '../src/services/steps/healthCheckpoint.ts'), 'utf8');
+  vm.runInNewContext(ts.transpileModule(checkpointSource, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText, { exports: checkpoint.exports });
   const m = { exports: {} };
   vm.runInNewContext(code, {
     exports: m.exports,
@@ -58,6 +63,7 @@ function fixture() {
     require(id) {
       if (id === './healthConnectReader') return health;
       if (id === './backgroundStepWindow') return helper.exports;
+      if (id === './healthCheckpoint') return checkpoint.exports;
       if (id === 'firebase/auth') return { onAuthStateChanged: (_, listener) => {
         observers.add(listener); queueMicrotask(() => { if (observers.has(listener)) listener(auth.currentUser); });
         return () => observers.delete(listener);
