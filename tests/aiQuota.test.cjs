@@ -6,21 +6,22 @@ const ts = require('typescript');
 const path = require('node:path');
 const code = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../functions/src/index.ts'),'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 
-function harness(initial, times) {
+function harness(initial, times, initialGlobal) {
+  let global = initialGlobal;
   let stored = initial, writes = 0, calls = 0;
   const exports = {};
-  const db = {collection: () => ({doc: () => ({})}), async runTransaction(fn) {
+  const db = {collection: name => ({doc: () => name}), async runTransaction(fn) {
     let result;
     for (const time of times) {
       clock = time;
-      let pending;
-      result = await fn({get: async () => ({data: () => stored}), set: (_, value) => {pending = value;}});
-      if (time === times[times.length-1] && pending) {stored = pending; writes++;}
+      let pending, pendingGlobal;
+      result = await fn({get: async key => ({data: () => key === 'aiGlobalBudget' ? global : stored}), set: (key, value) => {if (key === 'aiGlobalBudget') pendingGlobal = value; else pending = value;}});
+      if (time === times[times.length-1] && pending) {stored = pending; global = pendingGlobal; writes++;}
     }
     return result;
   }};
   let clock = times[0];
-  vm.runInNewContext(code, {exports, Date: {now: () => clock}, console, require(id) {
+  vm.runInNewContext(code, {exports, process: {env: {}}, Date: {now: () => clock}, console, require(id) {
     if(id === 'firebase-admin/app') return {initializeApp(){}};
     if(id === 'firebase-admin/auth') return {getAuth: () => ({verifyIdToken: async () => ({uid:'test-user'})})};
     if(id === 'firebase-admin/firestore') return {getFirestore: () => db, FieldValue:{serverTimestamp: () => null}};
@@ -33,7 +34,7 @@ function harness(initial, times) {
     let status;
     const res = {status(n){status=n;return this;},json(){},send(){}};
     await exports.generateWellnessAdviceHttp({method:'POST',headers:{authorization:'Bearer test'},body:{question:'hello',dashboard:{todayStats:{waterMl:0,sleepMinutes:0,yogaMinutes:0,musicMinutes:0},wellnessScore:0}}},res);
-    return {status,writes,calls,stored};
+    return {status,writes,calls,stored,global};
   }};
 }
 const now = 86400000 + 60000;
@@ -69,4 +70,15 @@ test('transaction retry recomputes minute and day at midnight', async () => {
   assert.equal(result.stored.minuteCount,1);
   assert.equal(result.stored.dayCount,1);
   assert.equal(result.writes,1);
+});
+
+test('global quota rejects exhausted budget before provider or user writes', async () => {
+  const result = await harness(undefined,[now],{day:1,count:1000}).request();
+  assert.equal(result.status,429); assert.equal(result.calls,0); assert.equal(result.writes,0);
+});
+test('global quota reserves last available request and rejects next', async () => {
+  const h = harness(undefined,[now],{day:1,count:999});
+  assert.equal((await h.request()).global.count,1000);
+  const result = await h.request();
+  assert.equal(result.status,429); assert.equal(result.calls,1); assert.equal(result.writes,1);
 });
