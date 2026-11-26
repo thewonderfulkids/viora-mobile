@@ -95,3 +95,19 @@ test("clients cannot reset server-owned AI quota counters", async () => {
   await assertFails(updateDoc(doc(alice, "aiRateLimits/alice"), {minuteCount:0, dayCount:0}));
   await assertFails(setDoc(doc(alice, "aiRateLimits/alice"), {uid:"alice", minuteCount:0, dayCount:0}));
 });
+
+test("C02 frozen account cannot create update delete or remove its lock", async () => {
+  await env();
+  const uid = "freeze-test";
+  const db = user(uid), other = user("freeze-other");
+  const goal = doc(db, "wellnessGoals/freeze-test_goal");
+  await assertSucceeds(setDoc(goal, {uid, title:"before"}));
+  await assertFails(setDoc(doc(db, "accountDeletionLocks/"+uid), {frozen:true}));
+  await seed("accountDeletionLocks/"+uid, {frozen:true});
+  await assertFails(setDoc(doc(db, "hydrationLogs/freeze-new"), {uid, waterMl:250}));
+  await assertFails(updateDoc(goal, {title:"after"}));
+  await assertFails(require("firebase/firestore").deleteDoc(goal));
+  await assertFails(require("firebase/firestore").deleteDoc(doc(db,"accountDeletionLocks/"+uid)));
+  await assertSucceeds(getDoc(goal));
+  await assertSucceeds(setDoc(doc(other,"hydrationLogs/unfrozen-new"), {uid:"freeze-other",waterMl:250}));
+});
