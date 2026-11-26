@@ -5,6 +5,8 @@ import { AppState, AppStateStatus, Platform } from "react-native";
 
 import { auth } from "../../firebase/firebaseConfig";
 
+import { decodeStepDay, encodeStepDay, type HealthCheckpoint } from "./healthCheckpoint";
+
 const STORAGE_PREFIX = "@viora/steps/by-user";
 const DEFAULT_GOAL = 8000;
 
@@ -35,7 +37,7 @@ function getDateKey(date = new Date()) {
 }
 
 type Subscription = { remove: () => void };
-type Day = { key: string; steps: number; ready: boolean; pendingWrite: boolean; loaded: Promise<void>; failed: boolean; dirty: boolean };
+type Day = { checkpoints: HealthCheckpoint[]; key: string; steps: number; ready: boolean; pendingWrite: boolean; loaded: Promise<void>; failed: boolean; dirty: boolean };
 type HealthWindow = import("./backgroundStepWindow").BackgroundWindow;
 type HealthAggregate = import("./backgroundStepWindow").BackgroundAggregate;
 type Session = {
@@ -135,7 +137,7 @@ function count(value: unknown) {
 function selectDay(owner: Session, date = getDateKey()): Day {
   if (owner.day?.key === date) return owner.day;
   const storageKey = keyFor(owner.uid, `daily/${date}`);
-  const day: Day = { key: date, steps: 0, ready: false, pendingWrite: false, loaded: Promise.resolve(), failed: false, dirty: false };
+  const day: Day = { checkpoints: [], key: date, steps: 0, ready: false, pendingWrite: false, loaded: Promise.resolve(), failed: false, dirty: false };
   owner.day = day;
   loadDay(owner, day, storageKey);
   update(owner, { dateKey: date, steps: 0, loading: true });
@@ -145,7 +147,9 @@ function selectDay(owner: Session, date = getDateKey()): Day {
 function loadDay(owner: Session, day: Day, storageKey: string) {
   day.failed = false;
   day.loaded = read(storageKey).then((stored) => {
-    day.steps += count(stored);
+    const decoded = decodeStepDay(stored, owner.uid, Date.now());
+    day.steps += decoded.steps;
+    day.checkpoints = decoded.checkpoints;
     day.ready = true;
     if (owner.day === day) update(owner, { dateKey: day.key, steps: day.steps, loading: false, error: null });
   }).catch(() => {
@@ -161,7 +165,7 @@ function persistDay(owner: Session, day: Day) {
     if (!day.ready) return;
     const value = day.steps;
     try {
-      await AsyncStorage.setItem(storageKey, String(value));
+      await AsyncStorage.setItem(storageKey, day.checkpoints.length ? encodeStepDay(value, day.checkpoints) : String(value));
       if (day.steps === value) day.dirty = false;
     } catch {
       day.dirty = true;
@@ -206,8 +210,9 @@ function startWatching(owner: Session) {
           await day.loaded;
           try {
             if (day.ready) {
-              await AsyncStorage.setItem(storageKey, String(day.steps));
-              day.dirty = false;
+              const value = day.steps;
+              await AsyncStorage.setItem(storageKey, day.checkpoints.length ? encodeStepDay(value, day.checkpoints) : String(value));
+              day.dirty = day.steps !== value;
             }
           } catch {
             day.dirty = true;
