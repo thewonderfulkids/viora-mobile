@@ -35,7 +35,7 @@ function getDateKey(date = new Date()) {
 }
 
 type Subscription = { remove: () => void };
-type Day = { key: string; steps: number; ready: boolean; pendingWrite: boolean; loaded: Promise<void>; failed: boolean };
+type Day = { key: string; steps: number; ready: boolean; pendingWrite: boolean; loaded: Promise<void>; failed: boolean; dirty: boolean };
 type Session = {
   uid: string;
   actor: NonNullable<typeof auth.currentUser>;
@@ -126,7 +126,7 @@ function count(value: unknown) {
 function selectDay(owner: Session, date = getDateKey()): Day {
   if (owner.day?.key === date) return owner.day;
   const storageKey = keyFor(owner.uid, `daily/${date}`);
-  const day: Day = { key: date, steps: 0, ready: false, pendingWrite: false, loaded: Promise.resolve(), failed: false };
+  const day: Day = { key: date, steps: 0, ready: false, pendingWrite: false, loaded: Promise.resolve(), failed: false, dirty: false };
   owner.day = day;
   loadDay(owner, day, storageKey);
   update(owner, { dateKey: date, steps: 0, loading: true });
@@ -142,6 +142,22 @@ function loadDay(owner: Session, day: Day, storageKey: string) {
   }).catch(() => {
     day.failed = true;
     if (owner.day === day) update(owner, { loading: false, error: "Viora could not load today's steps." });
+  });
+}
+
+function persistDay(owner: Session, day: Day) {
+  const storageKey = keyFor(owner.uid, `daily/${day.key}`);
+  day.dirty = true;
+  return enqueueWrite(storageKey, async () => {
+    if (!day.ready) return;
+    const value = day.steps;
+    try {
+      await AsyncStorage.setItem(storageKey, String(value));
+      if (day.steps === value) day.dirty = false;
+    } catch {
+      day.dirty = true;
+      if (owner.day === day) update(owner, { error: "Viora could not save today's steps." });
+    }
   });
 }
 
@@ -172,15 +188,22 @@ function startWatching(owner: Session) {
       day.steps += delta;
       const storageKey = keyFor(owner.uid, `daily/${day.key}`);
       if (day.ready) {
-        void write(storageKey, day.steps).catch(() => undefined);
+        void persistDay(owner, day);
       } else if (!day.pendingWrite) {
         day.pendingWrite = true;
         // Preserve already-received deltas under their original account/day
         // during a slow midnight read, even if the UI's session changes.
         void enqueueWrite(storageKey, async () => {
           await day.loaded;
-          try { if (day.ready) await AsyncStorage.setItem(storageKey, String(day.steps)); }
-          finally { day.pendingWrite = false; }
+          try {
+            if (day.ready) {
+              await AsyncStorage.setItem(storageKey, String(day.steps));
+              day.dirty = false;
+            }
+          } catch {
+            day.dirty = true;
+            if (owner.day === day) update(owner, { error: "Viora could not save today's steps." });
+          } finally { day.pendingWrite = false; }
         }).catch(() => undefined);
       }
       update(owner, { steps: day.steps, active: true });
@@ -214,7 +237,7 @@ async function updatePermission(owner: Session, ask: boolean) {
   }
   if (!current(owner) || owner.permissionVersion !== version) return false;
   if (permission !== "granted") stopWatching(owner);
-  update(owner, { permission, error: ask && permission !== "granted" ? "Activity permission was not granted." : null });
+  update(owner, { permission, error: ask && permission !== "granted" ? "Activity permission was not granted." : owner.day?.failed || owner.day?.dirty ? owner.snapshot.error : null });
   if (permission === "granted") startWatching(owner);
   return permission === "granted";
 }
@@ -311,10 +334,10 @@ export async function refreshStepCounter(expectedUid?: string | null) {
     if (day.failed) loadDay(owner, day, storageKey);
     await day.loaded;
     if (day.ready) {
-      try { await write(storageKey, day.steps); }
-      catch { update(owner, { error: "Viora could not save today\u0027s steps." }); }
+      await persistDay(owner, day);
     }
   }
+  if (current(owner) && owner.day === day && day.ready && day.dirty) await persistDay(owner, day);
   if (foreground) await updatePermission(owner, false);
 }
 
