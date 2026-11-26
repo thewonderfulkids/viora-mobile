@@ -33,6 +33,8 @@ function fixture() {
     setItem: async (name, value) => { writes.push([name, value]); store.set(name, value); },
   };
   let now = new Date(2026, 10, 24, 23, 59, 40);
+  const timers = new Map();
+  let timerId = 0;
   let granted = true;
   const permission = () => ({ granted, status: granted ? 'granted' : 'denied' });
   const pedometer = {
@@ -47,7 +49,9 @@ function fixture() {
   const m = { exports: {} };
   vm.runInNewContext(code, {
     exports: m.exports,
-    Date: class extends Date { constructor() { super(now); } },
+    Date: class extends Date { constructor() { super(now); } static now() { return now.getTime(); } },
+    setTimeout: (fn, delay) => { const id = ++timerId; timers.set(id, {fn, due: now.getTime() + delay}); return id; },
+    clearTimeout: id => timers.delete(id),
     require(id) {
       if (id === 'firebase/auth') return { onAuthStateChanged: (_, listener) => {
         observers.add(listener); queueMicrotask(() => { if (observers.has(listener)) listener(auth.currentUser); });
@@ -67,6 +71,8 @@ function fixture() {
   return {
     svc: m.exports, move, store, io, writes, reads, events, auth,
     active: () => events.filter(e => e.live),
+    timers,
+    tick() { for (const [id, timer] of [...timers]) if (timer.due <= now.getTime()) { timers.delete(id); timer.fn(); } },
     midnight: () => { now = new Date(2026, 10, 25, 0, 0, 2); },
     appState(next) { app.currentState = next; appListeners.forEach(listener => listener(next)); },
     allow(next) { granted = next; },
@@ -191,4 +197,19 @@ test('a buffered midnight event remains with A when storage resolves after accou
   await flush();
   assert.equal(f.svc.getStepCounterSnapshot('A').steps, 9);
   unsubscribe();
+});
+
+test('midnight timer loads new day without sensor events and clears on background or unsubscribe', async () => {
+  const f = fixture();
+  f.move('A');
+  const unsubscribe = f.svc.subscribeToStepCounter(() => {});
+  await flush();
+  assert.equal(f.timers.size, 1);
+  f.midnight(); f.tick(); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').dateKey, '2026-11-25');
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps, 0);
+  assert.equal(f.active().length, 1);
+  f.appState('background'); assert.equal(f.timers.size, 0);
+  f.appState('active'); await flush(); assert.equal(f.timers.size, 1);
+  unsubscribe(); assert.equal(f.timers.size, 0);
 });
