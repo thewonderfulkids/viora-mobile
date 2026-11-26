@@ -36,7 +36,11 @@ function getDateKey(date = new Date()) {
 
 type Subscription = { remove: () => void };
 type Day = { key: string; steps: number; ready: boolean; pendingWrite: boolean; loaded: Promise<void>; failed: boolean; dirty: boolean };
+type HealthWindow = import("./backgroundStepWindow").BackgroundWindow;
+type HealthAggregate = import("./backgroundStepWindow").BackgroundAggregate;
 type Session = {
+  healthPending?: Map<string, { window: HealthWindow; previous: HealthAggregate | null; expires: number }>;
+  healthBusy?: boolean;
   healthConsent?: boolean;
   healthSessionId?: string;
   backgroundStart?: number;
@@ -350,7 +354,10 @@ export async function refreshStepCounter(expectedUid?: string | null) {
     }
   }
   if (current(owner) && owner.day === day && day.ready && day.dirty) await persistDay(owner, day);
-  if (foreground) await updatePermission(owner, false);
+  if (foreground) {
+    await updatePermission(owner, false);
+    if (owner.healthPending?.size) void retryHealthWindows(owner);
+  }
 }
 
 export function disposeStepCounter() {
@@ -373,6 +380,7 @@ export async function enableBackgroundSteps(expectedUid: string | null) {
   const granted = await reader.requestHealthStepAccess();
   if (!current(owner) || owner.healthVersion !== version) return false;
   owner.healthConsent = granted;
+  owner.healthPending = new Map();
   owner.healthSessionId = String(++healthSequence);
   owner.backgroundStart = undefined;
   return granted;
@@ -383,6 +391,7 @@ export function disableBackgroundSteps(expectedUid: string | null) {
   if (!owner || owner.uid !== expectedUid || !current(owner)) return;
   owner.healthVersion = (owner.healthVersion ?? 0) + 1;
   owner.healthConsent = false;
+  owner.healthPending?.clear();
   owner.backgroundStart = undefined;
 }
 
@@ -392,33 +401,48 @@ async function importBackground(owner: Session) {
   const end = Date.now();
   const sessionId = owner.healthSessionId;
   if (start === undefined || !sessionId || !owner.healthConsent || !current(owner) || end <= start) return;
+  const pending = owner.healthPending ??= new Map();
+  let cursor = Math.max(start, end - 7 * 86400000);
+  while (cursor < end) {
+    const dayStart = new Date(cursor);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const window = { uid: owner.uid, sessionId, startMs: cursor,
+      endMs: Math.min(end, dayEnd.getTime()), dayStartMs: dayStart.getTime(), dayEndMs: dayEnd.getTime() };
+    cursor = window.endMs;
+    pending.set(String(window.startMs), { window, previous: null, expires: end + 86400000 });
+  }
+  await retryHealthWindows(owner);
+}
+
+async function retryHealthWindows(owner: Session) {
+  const sessionId = owner.healthSessionId;
+  const pending = owner.healthPending;
+  if (!sessionId || !pending || owner.healthBusy || !foreground) return;
   const active = () => current(owner) && owner.healthSessionId === sessionId
     ? { uid: owner.uid, sessionId, consent: !!owner.healthConsent } : null;
+  owner.healthBusy = true;
   try {
     const reader = await import("./healthConnectReader");
     const { reconcileBackgroundSteps } = await import("./backgroundStepWindow");
-    // Split at local midnight; each exclusive interval belongs to its own day.
-    // Bound the session lookback to seven days, never read pre-consent history.
-    let cursor = Math.max(start, end - 7 * 86400000);
-    while (cursor < end && active()?.consent) {
-      const dayStart = new Date(cursor);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setDate(dayEnd.getDate() + 1);
-      const window = { uid: owner.uid, sessionId, startMs: cursor,
-        endMs: Math.min(end, dayEnd.getTime()), dayStartMs: dayStart.getTime(), dayEndMs: dayEnd.getTime() };
-      cursor = window.endMs;
+    for (const [id, entry] of pending) {
+      if (!active()?.consent || !foreground) break;
+      if (Date.now() > entry.expires) { pending.delete(id); continue; }
+      const { window } = entry;
       const aggregate = await reader.readBackgroundAggregate(window, active);
       const a = active();
       if (!aggregate || !a) continue;
-      const delta = reconcileBackgroundSteps(window, aggregate, a, null);
-      if (delta === null || delta <= 0) continue;
-      const date = getDateKey(dayStart);
+      const delta = reconcileBackgroundSteps(window, aggregate, a, entry.previous);
+      if (delta === null) continue;
+      if (delta === 0) { entry.previous = aggregate; continue; }
+      const date = getDateKey(new Date(window.dayStartMs));
       if (date === getDateKey()) {
         const day = selectDay(owner);
         await day.loaded;
         if (!active()?.consent || owner.day !== day || !day.ready) continue;
-        day.steps += delta;
+        day.steps = Math.max(0, day.steps + delta);
+        entry.previous = aggregate;
         await persistDay(owner, day);
         update(owner, { steps: day.steps });
       } else {
@@ -426,11 +450,12 @@ async function importBackground(owner: Session) {
         await enqueueWrite(storageKey, async () => {
           const stored = await AsyncStorage.getItem(storageKey);
           if (!active()?.consent) return;
-          await AsyncStorage.setItem(storageKey, String(count(stored) + delta));
+          await AsyncStorage.setItem(storageKey, String(Math.max(0, count(stored) + delta)));
+          entry.previous = aggregate;
         });
       }
     }
   } catch {
-    // Foreground pedometer remains available if the native reader fails.
-  }
+    // Retain unapplied intervals for the next refresh; foreground remains available.
+  } finally { owner.healthBusy = false; }
 }
