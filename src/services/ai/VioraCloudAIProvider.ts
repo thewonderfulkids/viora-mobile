@@ -72,7 +72,21 @@ export class VioraCloudAIProvider implements AIProvider {
           coachContext: request.coachContext
             ?.slice(0, COACH_CONTEXT_MAX_LENGTH)
             .replace(/[\uD800-\uDBFF]$/, ""),
-          dashboard: request.dashboard,
+          // Only send the fields the server uses to build the wellness prompt.
+          dashboard: {
+            user: request.dashboard.user ? {
+              goal: request.dashboard.user.goal,
+              stressLevel: request.dashboard.user.stressLevel,
+              lifestyle: request.dashboard.user.lifestyle,
+            } : null,
+            todayStats: {
+              waterMl: request.dashboard.todayStats.waterMl,
+              sleepMinutes: request.dashboard.todayStats.sleepMinutes,
+              yogaMinutes: request.dashboard.todayStats.yogaMinutes,
+              musicMinutes: request.dashboard.todayStats.musicMinutes,
+            },
+            wellnessScore: request.dashboard.wellnessScore,
+          },
           mode: request.mode ?? "wellness",
           conversationId: request.conversationId ?? null,
         }),

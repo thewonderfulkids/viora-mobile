@@ -34,6 +34,8 @@ export async function generateWellnessAdviceHandler(
   const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
   const response = await client.responses.create({
     model,
+    // Viora manages its own chat history; this request does not use stored responses.
+    store: false,
     input: [
       {
         role: "system",

@@ -26,7 +26,6 @@ User question:
 ${input.question}
 
 User profile:
-Name: ${user?.fullName ?? "User"}
 Goal: ${user?.goal ?? "Healthy Lifestyle"}
 Stress Level: ${user?.stressLevel ?? "Moderate"}
 Lifestyle: ${user?.lifestyle ?? "Not specified"}

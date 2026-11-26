@@ -20,7 +20,7 @@ function load(file, imports, globals = {}) {
 }
 
 function setup() {
-  const outgoing = [], prompts = [];
+  const outgoing = [], prompts = [], providerRequests = [];
   const quotas = new Map();
   const user = { uid: 'synthetic-member', getIdToken: async () => 'fixture-token' };
   const auth = { currentUser: user };
@@ -35,6 +35,7 @@ function setup() {
     'firebase-functions/https': { HttpsError: Error },
     './client': { getOpenAIClient: () => ({
       responses: { create: async (input) => {
+        providerRequests.push(input);
         prompts.push(input.input);
         return { output_text: 'synthetic model reply' };
       } },
@@ -95,7 +96,7 @@ function setup() {
     './conversationSummaryService': { processConversationSummary: async () => {} },
     './remoteAIService': remote,
   });
-  return { auth, post, service, outgoing, prompts };
+  return { auth, post, service, outgoing, prompts, providerRequests };
 }
 
 const dashboard = { todayStats: { waterMl: 300, sleepMinutes: 400, yogaMinutes: 0, musicMinutes: 0 }, wellnessScore: 62 };
@@ -138,4 +139,39 @@ test('AI quota rejects sixth request before provider invocation', async () => {
   for (let i=0;i<5;i++) assert.equal((await f.post({question:'hello',dashboard})).status,200);
   assert.equal((await f.post({question:'hello',dashboard})).status,429);
   assert.equal(f.prompts.length,5);
+});
+
+test('structured profile identifiers stay out of new client requests and old client provider prompts', async () => {
+  const f = setup();
+  const privateDashboard = {
+    ...dashboard,
+    user: {
+      uid: 'private-profile-id', fullName: 'Private Fixture Name',
+      email: 'private-profile@example.test', photoURL: 'https://example.test/private-photo',
+      goal: 'Healthy Lifestyle', stressLevel: 'Low', lifestyle: 'Active',
+    },
+    todayStats: { ...dashboard.todayStats, uid: 'private-stats-id', dateKey: 'private-day-key' },
+    greeting: 'Hello Private Fixture Name',
+    tasks: [{ title: 'private-task' }],
+  };
+  const question = 'आज का प्लान बना दो';
+  const result = await f.service.askContextAwareWellnessCoach({
+    uid: 'synthetic-member', question, dashboard: privateDashboard, conversationId: 'fixture',
+  });
+  assert.equal(result.reply, 'synthetic model reply');
+  assert.deepEqual(f.outgoing[0].dashboard, {
+    ...dashboard, user: { goal: 'Healthy Lifestyle', stressLevel: 'Low', lifestyle: 'Active' },
+  });
+
+  // Already installed APKs can still send their old dashboard shape.
+  assert.equal((await f.post({ question, dashboard: privateDashboard })).status, 200);
+  assert.equal(f.providerRequests.length, 2);
+  for (const request of f.providerRequests) {
+    assert.equal(request.store, false);
+    assert.equal(Object.hasOwn(request, 'previous_response_id'), false);
+    assert.match(request.input[1].content, /Sleep: 400 minutes/);
+    assert.match(request.input[1].content, /Goal: Healthy Lifestyle/);
+    assert.ok(request.input[1].content.includes(question));
+    assert.doesNotMatch(JSON.stringify(request), /Private Fixture Name|private-profile|private-stats|private-day|private-task|private-photo/);
+  }
 });
