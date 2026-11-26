@@ -158,8 +158,10 @@ export async function inspectLegacySyncQueue(): Promise<{
   missingOwnerCount: number;
   unreadable: boolean;
 }> {
+  const actor = auth.currentUser;
   const uid = currentUid();
   const raw = await AsyncStorage.getItem(LEGACY_SYNC_QUEUE_KEY);
+  if (auth.currentUser !== actor) throw new Error("Account changed during legacy inventory.");
   if (!raw) return { total: 0, currentUserCount: 0, otherUserCount: 0, missingOwnerCount: 0, unreadable: false };
   try {
     const items: unknown = JSON.parse(raw);
@@ -174,10 +176,10 @@ export async function inspectLegacySyncQueue(): Promise<{
       else if (typeof owner === "string" && owner.length > 0) otherUserCount++;
       else missingOwnerCount++;
     }
-    if (uid !== currentUid()) throw new Error("Account changed during legacy inventory.");
+    if (auth.currentUser !== actor) throw new Error("Account changed during legacy inventory.");
     return { total: items.length, currentUserCount, otherUserCount, missingOwnerCount, unreadable: false };
   } catch (error) {
-    if (uid !== auth.currentUser?.uid) throw error;
+    if (auth.currentUser !== actor) throw error;
     return { total: 0, currentUserCount: 0, otherUserCount: 0, missingOwnerCount: 0, unreadable: true };
   }
 }
