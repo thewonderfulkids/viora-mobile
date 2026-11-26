@@ -22,6 +22,16 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   const file = bucket.file('deletion-fixtures/'+uid+'/avatar.jpg'), foreign = bucket.file('deletion-fixtures/'+other+'/avatar.jpg');
   await file.save(Buffer.from('fixture')); await foreign.save(Buffer.from('other'));
   const adapter = createEmulatorDeletionAdapter(uid);
+  const contender = createEmulatorDeletionAdapter(uid);
+  await adapter.withExclusiveLease(uid, async () => {
+    await assert.rejects(contender.withExclusiveLease(uid, async () => {
+      assert.fail('Concurrent worker acquired lock');
+    }), /Fixture unavailable/);
+    assert.equal((await lock.get()).get('leased'),true);
+    assert.equal(typeof (await lock.get()).get('leaseToken'),'string');
+  });
+  assert.equal((await lock.get()).get('leased'),false);
+  assert.equal((await lock.get()).get('leaseToken'),null);
   const failing = {...adapter, eraseOwnedStorage: async () => {throw Error('injected interruption');}};
   await assert.rejects(executeDeletion(uid,failing),/injected interruption/);
   assert.equal((await lock.get()).get('state'),'retry_required');
