@@ -46,13 +46,18 @@ function fixture() {
       return { remove: () => { event.live = false; } };
     },
   };
+  const health = { requestHealthStepAccess: async () => true, readBackgroundAggregate: async (window, active) => active()?.consent ? {window, steps: 7} : null };
+  const helper = {exports:{}};
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,'../src/services/steps/backgroundStepWindow.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:helper.exports});
   const m = { exports: {} };
   vm.runInNewContext(code, {
     exports: m.exports,
-    Date: class extends Date { constructor() { super(now); } static now() { return now.getTime(); } },
+    Date: class extends Date { constructor(...args) { super(...(args.length ? args : [now])); } static now() { return now.getTime(); } },
     setTimeout: (fn, delay) => { const id = ++timerId; timers.set(id, {fn, due: now.getTime() + delay}); return id; },
     clearTimeout: id => timers.delete(id),
     require(id) {
+      if (id === './healthConnectReader') return health;
+      if (id === './backgroundStepWindow') return helper.exports;
       if (id === 'firebase/auth') return { onAuthStateChanged: (_, listener) => {
         observers.add(listener); queueMicrotask(() => { if (observers.has(listener)) listener(auth.currentUser); });
         return () => observers.delete(listener);
@@ -69,7 +74,7 @@ function fixture() {
     observers.forEach(listener => listener(auth.currentUser));
   };
   return {
-    svc: m.exports, move, store, io, writes, reads, events, auth,
+    svc: m.exports, move, store, io, writes, reads, events, auth, health,
     active: () => events.filter(e => e.live),
     timers,
     tick() { for (const [id, timer] of [...timers]) if (timer.due <= now.getTime()) { timers.delete(id); timer.fn(); } },
@@ -271,4 +276,37 @@ test('H01 background aggregate is consent and session scoped, with replacement n
   assert.equal(reconcile(window,{window,steps:-1},active,null),null);
   const crossing = {...window,endMs:301};
   assert.equal(reconcile(crossing,{window:crossing,steps:20},active,null),null);
+});
+
+test('H01 explicit consent imports exclusive midnight intervals once, and opt-out stops imports', async () => {
+  const f = fixture();
+  f.move('A');
+  const unsubscribe = f.svc.subscribeToStepCounter(() => {});
+  await flush();
+  assert.equal(await f.svc.enableBackgroundSteps('A'), true);
+  f.appState('background'); f.midnight(); f.appState('active');
+  await flush(); await flush();
+  assert.equal(f.store.get(key('A','daily/'+date)), '1241');
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps, 7);
+  f.appState('active'); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps, 7);
+  f.svc.disableBackgroundSteps('A');
+  f.appState('background'); f.appState('active'); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps, 7);
+  unsubscribe();
+});
+
+test('H01 late native aggregate cannot cross account transition', async () => {
+  const f = fixture(), delayed = defer();
+  f.move('A');
+  const unsubscribe = f.svc.subscribeToStepCounter(() => {});
+  await flush();
+  await f.svc.enableBackgroundSteps('A');
+  f.health.readBackgroundAggregate = async window => { await delayed.promise; return {window,steps:99}; };
+  f.appState('background'); f.midnight(); f.appState('active'); await flush();
+  f.move('B'); await flush();
+  delayed.resolve(); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('B').steps, 0);
+  assert.equal(f.store.get(key('A','daily/'+date)), '1234');
+  unsubscribe();
 });
