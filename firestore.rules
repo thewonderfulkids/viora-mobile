@@ -211,6 +211,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // AI quota counters are exclusively managed by the trusted backend.
+    match /aiRateLimits/{uid} {
+      allow read, write: if false;
+    }
+
+    match /aiGlobalBudget/{docId} {
+      allow read, write: if false;
+    }
+
     match /aiRequestLogs/{docId} {
       allow create, read, update, delete: if false;
     }
