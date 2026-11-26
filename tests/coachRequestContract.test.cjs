@@ -45,6 +45,7 @@ function setup() {
     ...admin,
     './ai': handler,
     'firebase-admin/app': { initializeApp() {} },
+    'firebase-admin/app-check': {},
     'firebase-admin/auth': { getAuth: () => ({ verifyIdToken: async (token) => {
       assert.equal(token, 'fixture-token');
       return { uid: user.uid };
@@ -61,7 +62,7 @@ function setup() {
     },
     'firebase-functions': { setGlobalOptions() {} },
     'firebase-functions/https': { onRequest: (_options, fn) => fn },
-  }, { console: { error() {} } }).generateWellnessAdviceHttp;
+  }, { process: {env: {}}, console: { error() {} } }).generateWellnessAdviceHttp;
   async function post(body, headers = { authorization: 'Bearer fixture-token' }) {
     let status, result;
     await endpoint({ method: 'POST', headers, body }, {
