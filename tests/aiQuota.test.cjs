@@ -8,22 +8,33 @@ const code = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../function
 
 function harness(initial, times, initialGlobal, enforce = false, token = undefined) {
   let global = initialGlobal;
-  let stored = initial, writes = 0, calls = 0;
+  const users = new Map([['aiRateLimits/test-user', initial]]);
+  const globalKey = 'aiGlobalBudget/daily';
+  let writes = 0, calls = 0;
   const exports = {};
-  const db = {collection: name => ({doc: () => name}), async runTransaction(fn) {
+  const db = {collection: name => ({doc: id => name + '/' + id}), async runTransaction(fn) {
     let result;
     for (const time of times) {
       clock = time;
-      let pending, pendingGlobal;
-      result = await fn({get: async key => ({data: () => key === 'aiGlobalBudget' ? global : stored}), set: (key, value) => {if (key === 'aiGlobalBudget') pendingGlobal = value; else pending = value;}});
-      if (time === times[times.length-1] && pending) {stored = pending; global = pendingGlobal; writes++;}
+      const pending = new Map();
+      result = await fn({
+        get: async key => ({data: () => key === globalKey ? global : users.get(key)}),
+        set: (key, value) => pending.set(key, value),
+      });
+      if (time === times[times.length-1] && pending.size) {
+        for (const [key, value] of pending) {
+          if (key === globalKey) global = value;
+          else users.set(key, value);
+        }
+        writes++;
+      }
     }
     return result;
   }};
   let clock = times[0];
   vm.runInNewContext(code, {exports, process: {env: {VIORA_ENFORCE_APP_CHECK: String(enforce)}}, Date: {now: () => clock}, console, require(id) {
     if(id === 'firebase-admin/app') return {initializeApp(){}};
-    if(id === 'firebase-admin/auth') return {getAuth: () => ({verifyIdToken: async () => ({uid:'test-user'})})};
+    if(id === 'firebase-admin/auth') return {getAuth: () => ({verifyIdToken: async uid => ({uid})})};
     if(id === 'firebase-admin/app-check') return {getAppCheck: () => ({verifyToken: async value => {if(value !== 'valid') throw Error('invalid'); return {};}})};
     if(id === 'firebase-admin/firestore') return {getFirestore: () => db, FieldValue:{serverTimestamp: () => null}};
     if(id === 'firebase-functions') return {setGlobalOptions(){}};
@@ -31,11 +42,11 @@ function harness(initial, times, initialGlobal, enforce = false, token = undefin
     if(id === './ai') return {generateWellnessAdviceHandler: async () => {calls++; return {};}};
     return {};
   }});
-  return {async request() {
+  return {async request(uid = 'test-user') {
     let status;
     const res = {status(n){status=n;return this;},json(){},send(){}};
-    await exports.generateWellnessAdviceHttp({method:'POST',get: () => token,headers:{authorization:'Bearer test'},body:{question:'hello',dashboard:{todayStats:{waterMl:0,sleepMinutes:0,yogaMinutes:0,musicMinutes:0},wellnessScore:0}}},res);
-    return {status,writes,calls,stored,global};
+    await exports.generateWellnessAdviceHttp({method:'POST',get: () => token,headers:{authorization:'Bearer ' + uid},body:{question:'hello',dashboard:{todayStats:{waterMl:0,sleepMinutes:0,yogaMinutes:0,musicMinutes:0},wellnessScore:0}}},res);
+    return {status,writes,calls,stored:users.get('aiRateLimits/' + uid),global};
   }};
 }
 const now = 86400000 + 60000;
@@ -82,6 +93,23 @@ test('global quota reserves last available request and rejects next', async () =
   assert.equal((await h.request()).global.count,1000);
   const result = await h.request();
   assert.equal(result.status,429); assert.equal(result.calls,1); assert.equal(result.writes,1);
+});
+
+test('two accounts share the last global quota slot without charging the denied account', async () => {
+  const h = harness(undefined,[now],{day:1,count:999});
+
+  const accepted = await h.request('test-alice');
+  assert.equal(accepted.status,200);
+  assert.equal(accepted.stored.uid,'test-alice');
+  assert.equal(accepted.stored.dayCount,1);
+  assert.equal(accepted.global.count,1000);
+
+  const denied = await h.request('test-bob');
+  assert.equal(denied.status,429);
+  assert.equal(denied.stored,undefined);
+  assert.equal(denied.global.count,1000);
+  assert.equal(denied.calls,1);
+  assert.equal(denied.writes,1);
 });
 
 test('App Check enforcement rejects missing and invalid tokens before quota', async () => {
