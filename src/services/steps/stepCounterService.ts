@@ -37,6 +37,10 @@ function getDateKey(date = new Date()) {
 type Subscription = { remove: () => void };
 type Day = { key: string; steps: number; ready: boolean; pendingWrite: boolean; loaded: Promise<void>; failed: boolean; dirty: boolean };
 type Session = {
+  healthConsent?: boolean;
+  healthSessionId?: string;
+  backgroundStart?: number;
+  healthVersion?: number;
   uid: string;
   actor: NonNullable<typeof auth.currentUser>;
   snapshot: StepCounterSnapshot;
@@ -64,6 +68,7 @@ let unsubscribeAuth: (() => void) | null = null;
 let appSubscription: Subscription | null = null;
 let foreground = false;
 let observerVersion = 0;
+let healthSequence = 0;
 let midnightTimer: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleMidnight() {
@@ -285,9 +290,16 @@ export function subscribeToStepCounter(listener: Listener) {
       if (listeners.size > 0 && version === observerVersion) replaceSession(auth.currentUser);
     });
     appSubscription = AppState.addEventListener("change", (state: AppStateStatus) => {
+      const wasForeground = foreground;
       foreground = state === "active";
-      if (foreground) void refreshStepCounter(auth.currentUser?.uid);
-      else if (session) stopWatching(session);
+      const owner = session;
+      if (foreground) {
+        if (!wasForeground && owner) void importBackground(owner);
+        void refreshStepCounter(auth.currentUser?.uid);
+      } else if (owner) {
+        stopWatching(owner);
+        if (wasForeground && owner.healthConsent && current(owner)) owner.backgroundStart = Date.now();
+      }
       scheduleMidnight();
     });
   }
@@ -350,4 +362,60 @@ export function disposeStepCounter() {
   foreground = false;
   scheduleMidnight();
   replaceSession(null);
+}
+
+/** Consent is deliberately session-only; no device history is imported on login. */
+export async function enableBackgroundSteps(expectedUid: string | null) {
+  const owner = session;
+  if (!owner || owner.uid !== expectedUid || !current(owner) || !foreground) return false;
+  const version = owner.healthVersion = (owner.healthVersion ?? 0) + 1;
+  const reader = await import("./healthConnectReader");
+  const granted = await reader.requestHealthStepAccess();
+  if (!current(owner) || owner.healthVersion !== version) return false;
+  owner.healthConsent = granted;
+  owner.healthSessionId = String(++healthSequence);
+  owner.backgroundStart = undefined;
+  return granted;
+}
+
+export function disableBackgroundSteps(expectedUid: string | null) {
+  const owner = session;
+  if (!owner || owner.uid !== expectedUid || !current(owner)) return;
+  owner.healthVersion = (owner.healthVersion ?? 0) + 1;
+  owner.healthConsent = false;
+  owner.backgroundStart = undefined;
+}
+
+async function importBackground(owner: Session) {
+  const start = owner.backgroundStart;
+  owner.backgroundStart = undefined;
+  const end = Date.now();
+  const sessionId = owner.healthSessionId;
+  if (start === undefined || !sessionId || !owner.healthConsent || !current(owner) || end <= start) return;
+  const active = () => current(owner) && owner.healthSessionId === sessionId
+    ? { uid: owner.uid, sessionId, consent: !!owner.healthConsent } : null;
+  try {
+    const reader = await import("./healthConnectReader");
+    const { reconcileBackgroundSteps } = await import("./backgroundStepWindow");
+    // Only import the current local day's exclusive background interval.
+    const dayStart = new Date(end);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const window = { uid: owner.uid, sessionId, startMs: Math.max(start, dayStart.getTime()),
+      endMs: end, dayStartMs: dayStart.getTime(), dayEndMs: dayEnd.getTime() };
+    const aggregate = await reader.readBackgroundAggregate(window, active);
+    const a = active();
+    if (!aggregate || !a) return;
+    const delta = reconcileBackgroundSteps(window, aggregate, a, null);
+    if (delta === null || delta <= 0 || getDateKey(new Date(end)) !== getDateKey()) return;
+    const day = selectDay(owner);
+    await day.loaded;
+    if (!active()?.consent || owner.day !== day || !day.ready) return;
+    day.steps += delta;
+    void persistDay(owner, day);
+    update(owner, { steps: day.steps });
+  } catch {
+    // Foreground pedometer remains available if the native reader fails.
+  }
 }
