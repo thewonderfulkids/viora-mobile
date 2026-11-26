@@ -1,12 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CommonBackButton, Screen } from "../components/common";
 import { StepCounterCard } from "../components/steps";
 import { useStepCounter } from "../hooks/useStepCounter";
 import { premiumPalette, premiumShadow } from "../theme/premium";
+
+import { auth } from "../firebase/firebaseConfig";
+import { enableBackgroundSteps, disableBackgroundSteps } from "../services/steps/stepCounterService";
 
 const GOALS = [5000, 8000, 10000, 12000];
 
@@ -71,6 +74,27 @@ export default function StepsScreen() {
               Current mode tracks live pedometer steps while Viora is active and saves today&apos;s total locally.
             </Text>
           </View>
+
+          {Platform.OS === "android" ? (
+            <View style={styles.infoCard}>
+              <View style={{ flex: 1, gap: 10 }}>
+                <Text style={styles.infoText}>Optional Health Connect: import steps recorded while Viora is in the background during this signed-in session. No earlier history is imported. Sync occurs on return to Viora.</Text>
+                <Pressable accessibilityRole="button" onPress={() => {
+                  void enableBackgroundSteps(auth.currentUser?.uid ?? null).then(ok =>
+                    Alert.alert("Health Connect", ok ? "Background step import enabled for this session." : "Permission unavailable or not granted.")
+                  ).catch(() => Alert.alert("Health Connect", "Could not enable step import."));
+                }}>
+                  <Text style={styles.meta}>Enable background step import</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => {
+                  disableBackgroundSteps(auth.currentUser?.uid ?? null);
+                  Alert.alert("Health Connect", "Background step import disabled.");
+                }}>
+                  <Text style={styles.meta}>Disable background step import</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
 
           {data.error ? <Text style={styles.error}>{data.error}</Text> : null}
 
