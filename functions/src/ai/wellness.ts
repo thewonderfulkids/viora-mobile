@@ -36,6 +36,8 @@ export async function generateWellnessAdviceHandler(
     model,
     // Viora manages its own chat history; this request does not use stored responses.
     store: false,
+    // Bound billable output, including reasoning tokens where applicable.
+    max_output_tokens: 1200,
     input: [
       {
         role: "system",
