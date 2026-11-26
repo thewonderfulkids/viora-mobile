@@ -54,8 +54,9 @@ export function NotificationRuntime() {
         if (disposed || version !== generation) return;
         if (results.some(result => result.status === "rejected") && attempt < 3) {
           retry = setTimeout(() => {
+            if (disposed || version !== generation) return;
             retry = null;
-            if (!disposed && version === generation) reconcile(attempt + 1);
+            reconcile(attempt + 1);
           }, 1000 * 2 ** attempt);
         }
       });

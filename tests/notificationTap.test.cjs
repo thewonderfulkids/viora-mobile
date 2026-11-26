@@ -14,6 +14,8 @@ function fixture(overrides = {}) {
   const handlers = new Set();
   let serial = 0;
   const cleanups = [];
+  const timers = new Map();
+  let timerId = 0;
   let onAccountChange;
   let lastResponse = null;
   let presentationHandler;
@@ -44,7 +46,15 @@ function fixture(overrides = {}) {
     const js = ts.transpileModule(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
     }).outputText;
-    vm.runInNewContext(js, { exports, require(id) {
+    vm.runInNewContext(js, { exports,
+      setTimeout(callback, delay) {
+        const id = ++timerId;
+        timers.set(id, { callback, delay });
+        return id;
+      },
+      clearTimeout(id) { timers.delete(id); },
+      require(id) {
+
       if (id === 'expo-notifications') return notifications;
       if (id === 'react-native') return { Platform: { OS: 'android' }, AppState: { addEventListener: () => ({ remove() {} }) } };
       if (id === 'firebase/auth') return { onAuthStateChanged: (_auth, cb) => { onAccountChange = cb; return () => { onAccountChange = null; }; } };
@@ -71,7 +81,7 @@ function fixture(overrides = {}) {
   const native = load('src/services/notifications/nativeNotificationService.ts');
   const { NotificationRuntime } = load('src/components/runtime/NotificationRuntime.tsx');
   return {
-    auth, jobs, tray, store, routes, notifications, premium, native, load,
+    auth, jobs, tray, store, routes, notifications, premium, native, load, timers,
     presentation: data => presentationHandler({ request: { content: { data } } }),
     notifyAuth: () => onAccountChange?.(auth.currentUser),
     failReads: () => { failRead = true; },
@@ -328,4 +338,91 @@ test('a dashboard whose settings load returns after switch cannot save or schedu
   assert.deepEqual(writes, ['account-b']);
   assert.deepEqual(builds, ['account-b']);
   assert.deepEqual([...f.jobs.values()].map(job => job.content.data.userId), ['account-b']);
+});
+
+const settleNotificationWork = () => new Promise(resolve => setImmediate(resolve));
+const timedSmartJob = uid => ({ content: { data: { vioraReminderId: 'fixture-' + uid, userId: uid } } });
+
+function runOnlyRetry(f, expectedDelay) {
+  assert.equal(f.timers.size, 1);
+  const [[id, timer]] = f.timers;
+  assert.equal(timer.delay, expectedDelay);
+  f.timers.delete(id);
+  timer.callback();
+}
+
+test('H05: failed native Smart cancellation retries and preserves the active account job', async () => {
+  const f = fixture();
+  f.jobs.set('old', timedSmartJob('account-b'));
+  f.jobs.set('current', timedSmartJob('account-a'));
+  const attempts = [];
+  const cancel = f.notifications.cancelScheduledNotificationAsync;
+  f.notifications.cancelScheduledNotificationAsync = async id => {
+    attempts.push(id);
+    if (attempts.length === 1) throw Error('synthetic transient cancellation failure');
+    await cancel(id);
+  };
+  f.mount();
+  f.notifyAuth();
+  await settleNotificationWork();
+  assert.deepEqual([...f.jobs.keys()], ['old', 'current']);
+  runOnlyRetry(f, 1000);
+  await settleNotificationWork();
+  assert.deepEqual(attempts, ['old', 'old']);
+  assert.deepEqual([...f.jobs.keys()], ['current']);
+  assert.equal(f.timers.size, 0);
+  f.unmount();
+});
+
+test('H05: persistent cancellation failure stops after three retries', async () => {
+  const f = fixture();
+  f.jobs.set('old', timedSmartJob('account-b'));
+  const attempts = [];
+  f.notifications.cancelScheduledNotificationAsync = async id => {
+    attempts.push(id);
+    throw Error('synthetic persistent cancellation failure');
+  };
+  f.mount();
+  f.notifyAuth();
+  await settleNotificationWork();
+  for (const delay of [1000, 2000, 4000]) {
+    runOnlyRetry(f, delay);
+    await settleNotificationWork();
+  }
+  assert.deepEqual(attempts, ['old', 'old', 'old', 'old']);
+  assert.equal(f.timers.size, 0);
+  f.unmount();
+});
+
+test('H05: new auth generation and unmount invalidate previously queued callbacks', async () => {
+  const f = fixture();
+  f.jobs.set('old', timedSmartJob('account-b'));
+  f.notifications.cancelScheduledNotificationAsync = async () => {
+    throw Error('synthetic cancellation failure');
+  };
+  let scans = 0;
+  const list = f.notifications.getAllScheduledNotificationsAsync;
+  f.notifications.getAllScheduledNotificationsAsync = async () => {
+    scans++;
+    return list();
+  };
+  f.mount();
+  f.notifyAuth();
+  await settleNotificationWork();
+  assert.equal(f.timers.size, 1);
+  const old = [...f.timers.values()][0];
+  f.notifyAuth(); // A newer auth generation for the same effective account.
+  await settleNotificationWork();
+  assert.equal(f.timers.size, 1);
+  const current = [...f.timers.values()][0];
+  assert.notEqual(current, old);
+  const before = scans;
+  old.callback(); // A callback already dispatched before cancellation must be inert.
+  await settleNotificationWork();
+  assert.equal(scans, before);
+  f.unmount();
+  assert.equal(f.timers.size, 0);
+  current.callback();
+  await settleNotificationWork();
+  assert.equal(scans, before);
 });
