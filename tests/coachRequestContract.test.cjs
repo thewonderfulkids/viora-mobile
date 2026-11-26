@@ -175,3 +175,24 @@ test('structured profile identifiers stay out of new client requests and old cli
     assert.doesNotMatch(JSON.stringify(request), /Private Fixture Name|private-profile|private-stats|private-day|private-task|private-photo/);
   }
 });
+
+
+test('malformed wellness statistics and profile fields are rejected before quota or provider use', async () => {
+  const f = setup();
+  const invalid = [
+    { ...dashboard, todayStats: [] },
+    { ...dashboard, todayStats: {} },
+    { ...dashboard, todayStats: { ...dashboard.todayStats, waterMl: -1 } },
+    { ...dashboard, todayStats: { ...dashboard.todayStats, sleepMinutes: '400' } },
+    { ...dashboard, todayStats: { ...dashboard.todayStats, yogaMinutes: Infinity } },
+    { ...dashboard, wellnessScore: 101 },
+    { ...dashboard, user: { goal: { injected: true } } },
+    { ...dashboard, user: { lifestyle: 'x'.repeat(257) } },
+  ];
+  for (const value of invalid) {
+    assert.equal((await f.post({ question: 'hello', dashboard: value })).status, 400);
+  }
+  assert.equal(f.providerRequests.length, 0);
+  for (let i = 0; i < 5; i++) assert.equal((await f.post({ question: 'hello', dashboard })).status, 200);
+  assert.equal(f.providerRequests.length, 5);
+});
