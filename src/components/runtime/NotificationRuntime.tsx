@@ -40,14 +40,30 @@ export function NotificationRuntime() {
 
   useEffect(() => {
     if (Platform.OS !== "android" && Platform.OS !== "ios") return;
-    const reconcile = () => {
-      void reconcilePremiumNotificationSession().catch(() => undefined);
-      void reconcileNativeSmartNotifications().catch(() => undefined);
+    let disposed = false;
+    let generation = 0;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    const reconcile = (attempt = 0) => {
+      const version = ++generation;
+      if (retry !== null) clearTimeout(retry);
+      retry = null;
+      void Promise.allSettled([
+        reconcilePremiumNotificationSession(),
+        reconcileNativeSmartNotifications(),
+      ]).then(results => {
+        if (disposed || version !== generation) return;
+        if (results.some(result => result.status === "rejected") && attempt < 3) {
+          retry = setTimeout(() => {
+            retry = null;
+            if (!disposed && version === generation) reconcile(attempt + 1);
+          }, 1000 * 2 ** attempt);
+        }
+      });
     };
     let authReady = false;
     const unsubscribe = onAuthStateChanged(auth, () => { authReady = true; reconcile(); });
     const state = AppState.addEventListener("change", (next) => { if (authReady && next === "active") reconcile(); });
-    return () => { unsubscribe(); state.remove(); };
+    return () => { disposed = true; generation++; if (retry !== null) clearTimeout(retry); unsubscribe(); state.remove(); };
   }, []);
 
   useEffect(() => {
