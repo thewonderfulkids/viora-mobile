@@ -397,24 +397,39 @@ async function importBackground(owner: Session) {
   try {
     const reader = await import("./healthConnectReader");
     const { reconcileBackgroundSteps } = await import("./backgroundStepWindow");
-    // Only import the current local day's exclusive background interval.
-    const dayStart = new Date(end);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
-    const window = { uid: owner.uid, sessionId, startMs: Math.max(start, dayStart.getTime()),
-      endMs: end, dayStartMs: dayStart.getTime(), dayEndMs: dayEnd.getTime() };
-    const aggregate = await reader.readBackgroundAggregate(window, active);
-    const a = active();
-    if (!aggregate || !a) return;
-    const delta = reconcileBackgroundSteps(window, aggregate, a, null);
-    if (delta === null || delta <= 0 || getDateKey(new Date(end)) !== getDateKey()) return;
-    const day = selectDay(owner);
-    await day.loaded;
-    if (!active()?.consent || owner.day !== day || !day.ready) return;
-    day.steps += delta;
-    void persistDay(owner, day);
-    update(owner, { steps: day.steps });
+    // Split at local midnight; each exclusive interval belongs to its own day.
+    // Bound the session lookback to seven days, never read pre-consent history.
+    let cursor = Math.max(start, end - 7 * 86400000);
+    while (cursor < end && active()?.consent) {
+      const dayStart = new Date(cursor);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setDate(dayEnd.getDate() + 1);
+      const window = { uid: owner.uid, sessionId, startMs: cursor,
+        endMs: Math.min(end, dayEnd.getTime()), dayStartMs: dayStart.getTime(), dayEndMs: dayEnd.getTime() };
+      cursor = window.endMs;
+      const aggregate = await reader.readBackgroundAggregate(window, active);
+      const a = active();
+      if (!aggregate || !a) continue;
+      const delta = reconcileBackgroundSteps(window, aggregate, a, null);
+      if (delta === null || delta <= 0) continue;
+      const date = getDateKey(dayStart);
+      if (date === getDateKey()) {
+        const day = selectDay(owner);
+        await day.loaded;
+        if (!active()?.consent || owner.day !== day || !day.ready) continue;
+        day.steps += delta;
+        await persistDay(owner, day);
+        update(owner, { steps: day.steps });
+      } else {
+        const storageKey = keyFor(owner.uid, `daily/${date}`);
+        await enqueueWrite(storageKey, async () => {
+          const stored = await AsyncStorage.getItem(storageKey);
+          if (!active()?.consent) return;
+          await AsyncStorage.setItem(storageKey, String(count(stored) + delta));
+        });
+      }
+    }
   } catch {
     // Foreground pedometer remains available if the native reader fails.
   }
