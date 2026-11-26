@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { getApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
@@ -22,6 +23,10 @@ export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
   const records = lock.collection("records");
   const prefix = "deletion-fixtures/" + uid + "/";
   let leased = false;
+  let leaseToken: string | null = null;
+  const assertLease = (doc: FirebaseFirestore.DocumentSnapshot) => {
+    if (!leaseToken || doc.get("leaseToken") !== leaseToken || doc.get("leased") !== true || doc.get("frozen") !== true) throw Error("Fixture lease lost");
+  };
   const guard = (target: string) => { if (target !== uid || !leased) throw Error("Fixture lease required"); };
   async function user() {
     try { return await auth.getUser(uid); }
@@ -30,18 +35,28 @@ export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
   return {
     async withExclusiveLease(target, run) {
       if (target !== uid || leased) throw Error("Invalid lease");
+      const token = randomUUID();
       await db.runTransaction(async tx => {
         const doc = await tx.get(lock);
         if (!doc.exists || doc.get("frozen") !== true || doc.get("leased") === true) throw Error("Fixture unavailable");
-        tx.update(lock, { leased: true });
+        tx.update(lock, { leased: true, leaseToken: token });
       });
       leased = true;
+      leaseToken = token;
       try { return await run(); }
-      finally { leased = false; await lock.update({ leased: false }); }
+      finally {
+        leased = false;
+        leaseToken = null;
+        await db.runTransaction(async tx => {
+          const doc = await tx.get(lock);
+          if (doc.get("leaseToken") === token) tx.update(lock, { leased: false, leaseToken: null });
+        });
+      }
     },
     async assertAuthorizedAndFrozen(target, phase) {
       guard(target);
       const doc = await lock.get();
+      assertLease(doc);
       const account = await user();
       if (doc.get("frozen") !== true || doc.get("leased") !== true ||
           (account && (!account.disabled || account.metadata.creationTime !== doc.get("creationTime"))) ||
@@ -64,6 +79,7 @@ export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
       guard(target);
       if (!candidate.path.startsWith(records.path + "/") || candidate.path.slice(records.path.length + 1).includes("/")) throw Error("Invalid fixture path");
       await db.runTransaction(async tx => {
+        assertLease(await tx.get(lock));
         const ref = db.doc(candidate.path);
         const doc = await tx.get(ref);
         if (!doc.exists) return;
@@ -74,20 +90,31 @@ export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
     },
     async eraseOwnedStorage(target) {
       guard(target);
+      assertLease(await lock.get());
       const [files] = await bucket.getFiles({ prefix });
-      for (const file of files) await file.delete({ ignoreNotFound: true });
+      for (const file of files) {
+        assertLease(await lock.get());
+        await file.delete({ ignoreNotFound: true });
+      }
     },
     async verifyStorageEmpty(target) {
       guard(target);
       const [files] = await bucket.getFiles({ prefix, maxResults: 1 });
       return files.length === 0;
     },
-    async checkpoint(target, state) { guard(target); await lock.update({ state }); },
+    async checkpoint(target, state) {
+      guard(target);
+      await db.runTransaction(async tx => {
+        assertLease(await tx.get(lock));
+        tx.update(lock, { state });
+      });
+    },
     async eraseAuthIfPresent(target) {
       guard(target);
       const account = await user();
       if (!account) return;
       const doc = await lock.get();
+      assertLease(doc);
       if (!account.disabled || account.metadata.creationTime !== doc.get("creationTime") || doc.get("state") !== "auth_pending") throw Error("Auth generation changed");
       await auth.deleteUser(uid);
     }
