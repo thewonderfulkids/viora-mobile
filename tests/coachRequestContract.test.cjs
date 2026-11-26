@@ -19,8 +19,8 @@ function load(file, imports, globals = {}) {
   return module.exports;
 }
 
-function setup() {
-  const outgoing = [], prompts = [], providerRequests = [];
+function setup({ providerError } = {}) {
+  const outgoing = [], prompts = [], providerRequests = [], errorLogs = [];
   const quotas = new Map();
   const user = { uid: 'synthetic-member', getIdToken: async () => 'fixture-token' };
   const auth = { currentUser: user };
@@ -37,6 +37,7 @@ function setup() {
       responses: { create: async (input) => {
         providerRequests.push(input);
         prompts.push(input.input);
+        if (providerError) throw providerError;
         return { output_text: 'synthetic model reply' };
       } },
     }) },
@@ -62,7 +63,7 @@ function setup() {
     },
     'firebase-functions': { setGlobalOptions() {} },
     'firebase-functions/https': { onRequest: (_options, fn) => fn },
-  }, { process: {env: {}}, console: { error() {} } }).generateWellnessAdviceHttp;
+  }, { process: {env: {}}, console: { error: (...args) => errorLogs.push(args) } }).generateWellnessAdviceHttp;
   async function post(body, headers = { authorization: 'Bearer fixture-token' }) {
     let status, result;
     await endpoint({ method: 'POST', headers, body }, {
@@ -97,7 +98,7 @@ function setup() {
     './conversationSummaryService': { processConversationSummary: async () => {} },
     './remoteAIService': remote,
   });
-  return { auth, post, service, outgoing, prompts, providerRequests };
+  return { auth, post, service, outgoing, prompts, providerRequests, errorLogs };
 }
 
 const dashboard = { todayStats: { waterMl: 300, sleepMinutes: 400, yogaMinutes: 0, musicMinutes: 0 }, wellnessScore: 62 };
@@ -196,4 +197,20 @@ test('malformed wellness statistics and profile fields are rejected before quota
   assert.equal(f.providerRequests.length, 0);
   for (let i = 0; i < 5; i++) assert.equal((await f.post({ question: 'hello', dashboard })).status, 200);
   assert.equal(f.providerRequests.length, 5);
+});
+
+test('provider failure sends a generic 503 and logs only a fixed message', async () => {
+  const question = 'synthetic-private-request';
+  const providerError = Object.assign(new Error('synthetic-provider-diagnostic'), {
+    request: { question },
+  });
+  const f = setup({ providerError });
+  const { status, result } = await f.post({ question, dashboard });
+
+  assert.equal(f.providerRequests.length, 1);
+  assert.ok(f.prompts[0][1].content.includes(question));
+  assert.equal(status, 503);
+  assert.deepEqual(Object.keys(result), ['error']);
+  assert.equal(result.error, 'AI Coach is temporarily unavailable. Please try again later.');
+  assert.deepEqual(f.errorLogs, [['Wellness AI provider request failed']]);
 });
