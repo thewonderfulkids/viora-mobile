@@ -64,6 +64,22 @@ let unsubscribeAuth: (() => void) | null = null;
 let appSubscription: Subscription | null = null;
 let foreground = false;
 let observerVersion = 0;
+let midnightTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleMidnight() {
+  if (midnightTimer !== null) clearTimeout(midnightTimer);
+  midnightTimer = null;
+  if (!foreground || !session || !current(session)) return;
+  const owner = session;
+  const next = new Date();
+  next.setHours(24, 0, 0, 0);
+  midnightTimer = setTimeout(() => {
+    midnightTimer = null;
+    if (!foreground || !current(owner)) return;
+    selectDay(owner);
+    scheduleMidnight();
+  }, Math.max(1, next.getTime() - Date.now()));
+}
 
 function keyFor(uid: string, suffix: string) {
   return `${STORAGE_PREFIX}/${encodeURIComponent(uid)}/${suffix}`;
@@ -226,6 +242,7 @@ function replaceSession(actor: typeof auth.currentUser) {
     session = owner;
     owner.initialized = Promise.resolve().then(() => current(owner) ? initialize(owner) : undefined);
   }
+  scheduleMidnight();
   notify();
 }
 
@@ -241,6 +258,7 @@ export function subscribeToStepCounter(listener: Listener) {
       foreground = state === "active";
       if (foreground) void refreshStepCounter(auth.currentUser?.uid);
       else if (session) stopWatching(session);
+      scheduleMidnight();
     });
   }
   listener(getStepCounterSnapshot());
@@ -287,5 +305,6 @@ export function disposeStepCounter() {
   appSubscription?.remove();
   appSubscription = null;
   foreground = false;
+  scheduleMidnight();
   replaceSession(null);
 }
