@@ -6,7 +6,7 @@ const ts = require('typescript');
 const path = require('node:path');
 const code = ts.transpileModule(fs.readFileSync(path.join(__dirname,'../functions/src/index.ts'),'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 
-function harness(initial, times, initialGlobal) {
+function harness(initial, times, initialGlobal, enforce = false, token = undefined) {
   let global = initialGlobal;
   let stored = initial, writes = 0, calls = 0;
   const exports = {};
@@ -21,9 +21,10 @@ function harness(initial, times, initialGlobal) {
     return result;
   }};
   let clock = times[0];
-  vm.runInNewContext(code, {exports, process: {env: {}}, Date: {now: () => clock}, console, require(id) {
+  vm.runInNewContext(code, {exports, process: {env: {VIORA_ENFORCE_APP_CHECK: String(enforce)}}, Date: {now: () => clock}, console, require(id) {
     if(id === 'firebase-admin/app') return {initializeApp(){}};
     if(id === 'firebase-admin/auth') return {getAuth: () => ({verifyIdToken: async () => ({uid:'test-user'})})};
+    if(id === 'firebase-admin/app-check') return {getAppCheck: () => ({verifyToken: async value => {if(value !== 'valid') throw Error('invalid'); return {};}})};
     if(id === 'firebase-admin/firestore') return {getFirestore: () => db, FieldValue:{serverTimestamp: () => null}};
     if(id === 'firebase-functions') return {setGlobalOptions(){}};
     if(id === 'firebase-functions/https') return {onRequest: (_, fn) => fn};
@@ -33,7 +34,7 @@ function harness(initial, times, initialGlobal) {
   return {async request() {
     let status;
     const res = {status(n){status=n;return this;},json(){},send(){}};
-    await exports.generateWellnessAdviceHttp({method:'POST',headers:{authorization:'Bearer test'},body:{question:'hello',dashboard:{todayStats:{waterMl:0,sleepMinutes:0,yogaMinutes:0,musicMinutes:0},wellnessScore:0}}},res);
+    await exports.generateWellnessAdviceHttp({method:'POST',get: () => token,headers:{authorization:'Bearer test'},body:{question:'hello',dashboard:{todayStats:{waterMl:0,sleepMinutes:0,yogaMinutes:0,musicMinutes:0},wellnessScore:0}}},res);
     return {status,writes,calls,stored,global};
   }};
 }
@@ -81,4 +82,13 @@ test('global quota reserves last available request and rejects next', async () =
   assert.equal((await h.request()).global.count,1000);
   const result = await h.request();
   assert.equal(result.status,429); assert.equal(result.calls,1); assert.equal(result.writes,1);
+});
+
+test('App Check enforcement rejects missing and invalid tokens before quota', async () => {
+  for (const token of [undefined, 'invalid']) {
+    const r = await harness(undefined,[now],undefined,true,token).request();
+    assert.equal(r.status,401); assert.equal(r.writes,0); assert.equal(r.calls,0);
+  }
+  const r = await harness(undefined,[now],undefined,true,'valid').request();
+  assert.equal(r.status,200); assert.equal(r.calls,1);
 });
