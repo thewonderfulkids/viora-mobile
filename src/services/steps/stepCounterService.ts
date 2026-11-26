@@ -35,7 +35,7 @@ function getDateKey(date = new Date()) {
 }
 
 type Subscription = { remove: () => void };
-type Day = { key: string; steps: number; ready: boolean; pendingWrite: boolean; loaded: Promise<void> };
+type Day = { key: string; steps: number; ready: boolean; pendingWrite: boolean; loaded: Promise<void>; failed: boolean };
 type Session = {
   uid: string;
   actor: NonNullable<typeof auth.currentUser>;
@@ -126,17 +126,23 @@ function count(value: unknown) {
 function selectDay(owner: Session, date = getDateKey()): Day {
   if (owner.day?.key === date) return owner.day;
   const storageKey = keyFor(owner.uid, `daily/${date}`);
-  const day: Day = { key: date, steps: 0, ready: false, pendingWrite: false, loaded: Promise.resolve() };
+  const day: Day = { key: date, steps: 0, ready: false, pendingWrite: false, loaded: Promise.resolve(), failed: false };
   owner.day = day;
+  loadDay(owner, day, storageKey);
+  update(owner, { dateKey: date, steps: 0, loading: true });
+  return day;
+}
+
+function loadDay(owner: Session, day: Day, storageKey: string) {
+  day.failed = false;
   day.loaded = read(storageKey).then((stored) => {
     day.steps += count(stored);
     day.ready = true;
-    if (owner.day === day) update(owner, { dateKey: date, steps: day.steps, loading: false });
+    if (owner.day === day) update(owner, { dateKey: day.key, steps: day.steps, loading: false, error: null });
   }).catch(() => {
+    day.failed = true;
     if (owner.day === day) update(owner, { loading: false, error: "Viora could not load today's steps." });
   });
-  update(owner, { dateKey: date, steps: 0, loading: true });
-  return day;
 }
 
 function stopWatching(owner: Session) {
@@ -173,7 +179,8 @@ function startWatching(owner: Session) {
         // during a slow midnight read, even if the UI's session changes.
         void enqueueWrite(storageKey, async () => {
           await day.loaded;
-          if (day.ready) await AsyncStorage.setItem(storageKey, String(day.steps));
+          try { if (day.ready) await AsyncStorage.setItem(storageKey, String(day.steps)); }
+          finally { day.pendingWrite = false; }
         }).catch(() => undefined);
       }
       update(owner, { steps: day.steps, active: true });
@@ -294,7 +301,20 @@ export async function refreshStepCounter(expectedUid?: string | null) {
   if (!owner || owner.uid !== expectedUid || !current(owner)) return;
   await owner.initialized;
   if (!current(owner)) return;
-  await selectDay(owner).loaded;
+  const day = selectDay(owner);
+  await day.loaded;
+  if (!current(owner)) return;
+  if (day.failed) {
+    const storageKey = keyFor(owner.uid, `daily/${day.key}`);
+    await writes.get(storageKey)?.catch(() => undefined);
+    if (!current(owner) || owner.day !== day) return;
+    if (day.failed) loadDay(owner, day, storageKey);
+    await day.loaded;
+    if (day.ready) {
+      try { await write(storageKey, day.steps); }
+      catch { update(owner, { error: "Viora could not save today\u0027s steps." }); }
+    }
+  }
   if (foreground) await updatePermission(owner, false);
 }
 
