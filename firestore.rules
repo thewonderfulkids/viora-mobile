@@ -7,6 +7,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Server-owned freeze marker; missing marker preserves existing behavior.
+    function accountWritable() {
+      return signedIn() && !exists(/databases/$(database)/documents/accountDeletionLocks/$(request.auth.uid));
+    }
+
+    match /accountDeletionLocks/{uid} {
+      allow read, write: if false;
+    }
+
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
@@ -130,84 +139,85 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if isOwner(uid) || isVioraAdmin();
-      allow create: if isOwner(uid) && request.resource.data.uid == uid
-        && request.resource.data.keys().hasOnly(["uid", "email", "displayName", "fullName", "firstName", "lastName", "photoURL", "photoUrl", "avatarUrl", "phoneNumber", "gender", "dateOfBirth", "height", "weight", "heightCm", "weightKg", "fitnessGoal", "activityLevel", "onboardingCompleted", "createdAt", "updatedAt", "serverUpdatedAt", "language", "preferredLanguage", "timezone", "city", "country", "mobile", "age", "goal", "stressLevel", "acceptedTerms", "termsAcceptedAt", "waterGoalMl", "aiCoachEnabled", "notificationsEnabled", "isDeleted"]);
-      allow update: if isVioraAdmin() || (isOwner(uid) && userProtectedFieldsUnchanged());
+      allow create: if accountWritable() && (isOwner(uid) && request.resource.data.uid == uid
+        && request.resource.data.keys().hasOnly(["uid", "email", "displayName", "fullName", "firstName", "lastName", "photoURL", "photoUrl", "avatarUrl", "phoneNumber", "gender", "dateOfBirth", "height", "weight", "heightCm", "weightKg", "fitnessGoal", "activityLevel", "onboardingCompleted", "createdAt", "updatedAt", "serverUpdatedAt", "language", "preferredLanguage", "timezone", "city", "country", "mobile", "age", "goal", "stressLevel", "acceptedTerms", "termsAcceptedAt", "waterGoalMl", "aiCoachEnabled", "notificationsEnabled", "isDeleted"]));
+      allow update: if accountWritable() && (isVioraAdmin() || (isOwner(uid) && userProtectedFieldsUnchanged()));
       allow delete: if false;
     }
 
     match /userSettings/{uid} {
-      allow read, create, update: if isOwner(uid);
+      allow read: if isOwner(uid);
+      allow create, update: if accountWritable() && (isOwner(uid));
       allow delete: if false;
     }
 
     match /dailyStats/{docId} {
       allow read: if (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data)) || ownsExistingAnyUserDoc();
-      allow create: if canCreateOwnedDoc(docId);
-      allow update: if canUpdateOwnedDoc(docId);
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /hydrationLogs/{docId} {
       allow read: if ownsExistingDoc();
-      allow create: if ownsIncomingDoc();
-      allow update: if ownsExistingDoc() && ownsIncomingDoc() && ownerFieldsUnchanged();
+      allow create: if accountWritable() && (ownsIncomingDoc());
+      allow update: if accountWritable() && (ownsExistingDoc() && ownsIncomingDoc() && ownerFieldsUnchanged());
       allow delete: if false;
     }
 
     match /sleepLogs/{docId} {
       allow read: if ownsExistingDoc();
-      allow create: if ownsIncomingDoc();
-      allow update: if ownsExistingDoc() && ownsIncomingDoc() && ownerFieldsUnchanged();
+      allow create: if accountWritable() && (ownsIncomingDoc());
+      allow update: if accountWritable() && (ownsExistingDoc() && ownsIncomingDoc() && ownerFieldsUnchanged());
       allow delete: if false;
     }
 
     match /yogaSessions/{docId} {
       allow read: if ownsExistingDoc();
-      allow create: if ownsIncomingDoc();
-      allow update: if ownsExistingDoc() && ownsIncomingDoc() && ownerFieldsUnchanged();
+      allow create: if accountWritable() && (ownsIncomingDoc());
+      allow update: if accountWritable() && (ownsExistingDoc() && ownsIncomingDoc() && ownerFieldsUnchanged());
       allow delete: if false;
     }
 
     match /musicSessions/{docId} {
       allow read: if ownsExistingDoc();
-      allow create: if ownsIncomingDoc();
-      allow update: if ownsExistingDoc() && ownsIncomingDoc() && ownerFieldsUnchanged();
+      allow create: if accountWritable() && (ownsIncomingDoc());
+      allow update: if accountWritable() && (ownsExistingDoc() && ownsIncomingDoc() && ownerFieldsUnchanged());
       allow delete: if false;
     }
 
     match /activities/{docId} {
       allow read: if ownsExistingAnyUserDoc();
-      allow update: if canUpdateOwnedDocWithoutPrefix();
-      allow create: if ownsIncomingAnyUserDoc();
+      allow update: if accountWritable() && (canUpdateOwnedDocWithoutPrefix());
+      allow create: if accountWritable() && (ownsIncomingAnyUserDoc());
       allow delete: if false;
     }
 
     match /journalEntries/{docId} {
       allow read: if ownsExistingAnyUserDoc();
-      allow create: if ownsIncomingAnyUserDoc();
-      allow update: if canUpdateOwnedDocWithoutPrefix();
+      allow create: if accountWritable() && (ownsIncomingAnyUserDoc());
+      allow update: if accountWritable() && (canUpdateOwnedDocWithoutPrefix());
       allow delete: if false;
     }
 
     match /aiConversations/{docId} {
       allow read: if ownsExistingAnyUserDoc();
-      allow create: if ownsIncomingAnyUserDoc();
-      allow update: if canUpdateOwnedDocWithoutPrefix();
+      allow create: if accountWritable() && (ownsIncomingAnyUserDoc());
+      allow update: if accountWritable() && (canUpdateOwnedDocWithoutPrefix());
       allow delete: if false;
     }
 
     match /aiMemory/{docId} {
       allow read: if ownsExistingAnyUserDoc();
-      allow update: if canUpdateOwnedDocWithoutPrefix();
-      allow create: if ownsIncomingAnyUserDoc();
+      allow update: if accountWritable() && (canUpdateOwnedDocWithoutPrefix());
+      allow create: if accountWritable() && (ownsIncomingAnyUserDoc());
       allow delete: if false;
     }
 
     match /conversationSummaries/{docId} {
       allow read: if ownsExistingAnyUserDoc();
-      allow update: if canUpdateOwnedDocWithoutPrefix();
-      allow create: if ownsIncomingAnyUserDoc();
+      allow update: if accountWritable() && (canUpdateOwnedDocWithoutPrefix());
+      allow create: if accountWritable() && (ownsIncomingAnyUserDoc());
       allow delete: if false;
     }
 
@@ -225,97 +235,106 @@ service cloud.firestore {
     }
 
     match /userWellnessProfiles/{uid} {
-      allow read, create, update: if isOwner(uid);
+      allow read: if isOwner(uid);
+      allow create, update: if accountWritable() && (isOwner(uid));
       allow delete: if false;
     }
 
     match /wellnessIntelligence/{docId} {
       allow read: if ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /wellnessIntelligenceSnapshots/{docId} {
       allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /wellnessGoals/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow read: if ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
+      allow delete: if accountWritable() && (ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data)));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
     }
 
     match /wellnessHabits/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if accountWritable() && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
     }
 
     match /habitCompletions/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if accountWritable() && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
     }
 
     match /reminderSettings/{uid} {
-      allow read, create, update: if isOwner(uid);
+      allow read: if isOwner(uid);
+      allow create, update: if accountWritable() && (isOwner(uid));
       allow delete: if false;
     }
 
     match /notifications/{docId} {
       allow read: if ownsExistingAnyUserDoc();
-      allow update: if canUpdateOwnedDocWithoutPrefix();
-      allow create: if ownsIncomingAnyUserDoc();
+      allow update: if accountWritable() && (canUpdateOwnedDocWithoutPrefix());
+      allow create: if accountWritable() && (ownsIncomingAnyUserDoc());
       allow delete: if false;
     }
 
     match /nutritionEntries/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if accountWritable() && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
     }
 
     match /nutritionSummaries/{docId} {
       allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /nutritionGoals/{docId} {
       allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /moodEntries/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if accountWritable() && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
     }
 
     match /moodCheckIns/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if accountWritable() && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
     }
 
     match /mentalWellnessSummaries/{docId} {
       allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /mentalWellnessGoals/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if accountWritable() && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
     }
 
     match /subscriptions/{docId} {
@@ -345,15 +364,15 @@ service cloud.firestore {
 
     match /privacySettings/{docId} {
       allow read: if ownsExistingAnyUserDoc() || isOwner(docId);
-      allow update: if isOwner(docId) || canUpdateOwnedDocWithoutPrefix();
-      allow create: if ownsIncomingAnyUserDoc() || isOwner(docId);
+      allow update: if accountWritable() && (isOwner(docId) || canUpdateOwnedDocWithoutPrefix());
+      allow create: if accountWritable() && (ownsIncomingAnyUserDoc() || isOwner(docId));
       allow delete: if false;
     }
 
     match /securitySettings/{docId} {
       allow read: if ownsExistingAnyUserDoc() || isOwner(docId);
-      allow update: if isOwner(docId) || canUpdateOwnedDocWithoutPrefix();
-      allow create: if ownsIncomingAnyUserDoc() || isOwner(docId);
+      allow update: if accountWritable() && (isOwner(docId) || canUpdateOwnedDocWithoutPrefix());
+      allow create: if accountWritable() && (ownsIncomingAnyUserDoc() || isOwner(docId));
       allow delete: if false;
     }
 
@@ -366,100 +385,104 @@ service cloud.firestore {
 
     match /wellnessReports/{docId} {
       allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /nutritionReports/{docId} {
       allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /mentalWellnessReports/{docId} {
       allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /goalReports/{docId} {
       allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /reportExports/{docId} {
       allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
       allow delete: if false;
     }
 
     match /voiceCommands/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if accountWritable() && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
     }
 
     match /voiceSessions/{docId} {
-      allow read, delete: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if canUpdateOwnedDoc(docId);
-      allow create: if canCreateOwnedDoc(docId);
+      allow read: if ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if accountWritable() && (ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (canUpdateOwnedDoc(docId));
+      allow create: if accountWritable() && (canCreateOwnedDoc(docId));
     }
 
     match /voicePreferences/{uid} {
-      allow read, create, update: if isOwner(uid);
+      allow read: if isOwner(uid);
+      allow create, update: if accountWritable() && (isOwner(uid));
       allow delete: if false;
     }
 
 
     match /familyGroups/{docId} {
       allow read: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
-      allow create: if ownerUserNotForeign(request.resource.data) && incomingOwnerNotForeign() && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
+      allow create: if accountWritable() && (ownerUserNotForeign(request.resource.data) && incomingOwnerNotForeign() && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
       allow delete: if false;
     }
 
     match /familyMembers/{docId} {
-      allow read, delete: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
-      allow create: if ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow read: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow delete: if accountWritable() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
+      allow create: if accountWritable() && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
     }
 
     match /familyInvites/{docId} {
       allow read: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId);
-      allow update: if ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
-      allow create: if ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId);
+      allow update: if accountWritable() && (ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
+      allow create: if accountWritable() && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
       allow delete: if false;
     }
 
     match /betaFeedback/{docId} {
       allow read: if ownsExistingAnyUserDoc() || isVioraAdmin();
-      allow update: if isVioraAdmin() || canUpdateOwnedDocWithoutPrefix();
-      allow create: if ownsIncomingAnyUserDoc();
+      allow update: if accountWritable() && (isVioraAdmin() || canUpdateOwnedDocWithoutPrefix());
+      allow create: if accountWritable() && (ownsIncomingAnyUserDoc());
       allow delete: if false;
     }
 
     match /clientErrorLogs/{docId} {
       allow read: if ownsExistingAnyUserDoc() || isVioraAdmin();
-      allow create: if signedIn() && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == null);
-      allow update: if isVioraAdmin();
+      allow create: if accountWritable() && (signedIn() && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == null));
+      allow update: if accountWritable() && (isVioraAdmin());
       allow delete: if false;
     }
 
     match /appSettings/{docId} {
       allow read: if true;
-      allow create, update: if isVioraAdmin();
+      allow create, update: if accountWritable() && (isVioraAdmin());
       allow delete: if false;
     }
 
     match /adminContent/{docId} {
       allow read: if true;
-      allow create, update: if isVioraAdmin();
+      allow create, update: if accountWritable() && (isVioraAdmin());
       allow delete: if false;
     }
 
