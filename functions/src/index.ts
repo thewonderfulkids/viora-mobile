@@ -56,6 +56,27 @@ export const generateWellnessAdviceHttp = onRequest(
       return;
     }
 
+    // Validate only fields consumed by the provider; tolerate legacy dashboard extras.
+    const dashboard = body.dashboard;
+    const stats = dashboard.todayStats;
+    const isRecord = (value: unknown): value is Record<string, unknown> =>
+      value !== null && typeof value === "object" && !Array.isArray(value);
+    const boundedNumber = (value: unknown, max: number) =>
+      typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= max;
+    const profile = dashboard.user;
+    if (!isRecord(body) || !isRecord(dashboard) || !isRecord(stats) ||
+        !boundedNumber(stats.waterMl, 100000) ||
+        !boundedNumber(stats.sleepMinutes, 1440) ||
+        !boundedNumber(stats.yogaMinutes, 1440) ||
+        !boundedNumber(stats.musicMinutes, 1440) ||
+        !boundedNumber(dashboard.wellnessScore, 100) ||
+        (profile != null && (!isRecord(profile) ||
+          ["goal", "stressLevel", "lifestyle"].some(key =>
+            profile[key] != null && (typeof profile[key] !== "string" || (profile[key] as string).length > 256))))) {
+      res.status(400).json({ error: "Invalid wellness request" });
+      return;
+    }
+
     try {
       const db = getFirestore();
       const quota = db.collection("aiRateLimits").doc(uid);
