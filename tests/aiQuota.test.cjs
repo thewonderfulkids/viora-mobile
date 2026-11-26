@@ -32,7 +32,7 @@ function harness(initial, times) {
   return {async request() {
     let status;
     const res = {status(n){status=n;return this;},json(){},send(){}};
-    await exports.generateWellnessAdviceHttp({method:'POST',headers:{authorization:'Bearer test'},body:{question:'hello',dashboard:{todayStats:{}}}},res);
+    await exports.generateWellnessAdviceHttp({method:'POST',headers:{authorization:'Bearer test'},body:{question:'hello',dashboard:{todayStats:{waterMl:0,sleepMinutes:0,yogaMinutes:0,musicMinutes:0},wellnessScore:0}}},res);
     return {status,writes,calls,stored};
   }};
 }
