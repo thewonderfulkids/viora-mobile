@@ -213,3 +213,42 @@ test('midnight timer loads new day without sensor events and clears on backgroun
   f.appState('active'); await flush(); assert.equal(f.timers.size, 1);
   unsubscribe(); assert.equal(f.timers.size, 0);
 });
+
+test('failed daily write preserves count and refresh retries without double counting', async () => {
+  const f = fixture();
+  f.move('A');
+  const unsubscribe = f.svc.subscribeToStepCounter(() => {});
+  await flush();
+  const set = f.io.setItem;
+  f.io.setItem = async () => { throw Error('temporary storage failure'); };
+  f.active()[0].callback({steps: 10});
+  await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,1244);
+  assert.match(f.svc.getStepCounterSnapshot('A').error,/save/);
+  assert.equal(f.store.get(key('A','daily/'+date)),'1234');
+  f.io.setItem = set;
+  await f.svc.refreshStepCounter('A');
+  assert.equal(f.store.get(key('A','daily/'+date)),'1244');
+  assert.equal(f.svc.getStepCounterSnapshot('A').error,null);
+  unsubscribe();
+});
+test('failed midnight read recovers stored baseline plus buffered deltas', async () => {
+  const f = fixture();
+  f.move('A');
+  const unsubscribe = f.svc.subscribeToStepCounter(() => {});
+  await flush();
+  const next = key('A','daily/2026-11-25');
+  f.store.set(next,'4');
+  const get = f.io.getItem;
+  f.io.getItem = async k => { if(k===next) throw Error('read failed'); return get(k); };
+  f.midnight();
+  f.active()[0].callback({steps: 8});
+  await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,8);
+  f.io.getItem = get;
+  await f.svc.refreshStepCounter('A');
+  await flush();
+  assert.equal(f.store.get(next),'12');
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,12);
+  unsubscribe();
+});
