@@ -1,3 +1,4 @@
+import { getApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
@@ -12,10 +13,11 @@ export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
       !loopback(process.env.FIREBASE_STORAGE_EMULATOR_HOST) ||
       process.env.GCLOUD_PROJECT !== "demo-viora-deletion" ||
       !/^fixture-[a-zA-Z0-9-]+$/.test(uid)) throw Error("Emulator fixture required");
-  const db = getFirestore();
-  if (db.app.options.projectId !== "demo-viora-deletion") throw Error("Wrong Firebase project");
-  const auth = getAuth(db.app);
-  const bucket = getStorage(db.app).bucket("demo-viora-deletion.appspot.com");
+  const app = getApp();
+  if (app.options.projectId !== "demo-viora-deletion") throw Error("Wrong Firebase project");
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  const bucket = getStorage(app).bucket("demo-viora-deletion.appspot.com");
   const lock = db.doc("deletionFixtures/" + uid);
   const records = lock.collection("records");
   const prefix = "deletion-fixtures/" + uid + "/";
