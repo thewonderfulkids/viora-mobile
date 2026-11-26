@@ -10,12 +10,15 @@ test("deletion manifest covers every user-owned Firestore rule collection", () =
   assert.ok(queryBlock && directBlock);
   const entries = new Set([...queryBlock[1].matchAll(/"([^"]+)"/g), ...directBlock[1].matchAll(/"([^"]+)"/g)].map(m => m[1]));
   const exclusions = new Set([
-    "appSettings", "adminContent", "premiumFeatures", "accountDeletionRequests"
+    "appSettings", "adminContent", "premiumFeatures", "accountDeletionRequests",
+    // Shared aggregate, not a user-owned record; never erase on account deletion.
+    "aiGlobalBudget"
   ]);
   // The Firestore /databases/{database}/documents wrapper is not a collection.
   const collections = [...rules.matchAll(/match \/([A-Za-z][A-Za-z0-9]*)\/\{[^}]+\}/g)]
     .map(m => m[1])
     .filter(name => name !== "databases");
+  assert.ok(!entries.has("aiGlobalBudget"), "Global budget must not be a user deletion candidate");
   const missing = collections.filter(name => !entries.has(name) && !exclusions.has(name));
   assert.deepEqual(missing, [], "Missing collections in deletion manifest: " + missing.join(", "));
 });
