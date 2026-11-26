@@ -252,3 +252,23 @@ test('failed midnight read recovers stored baseline plus buffered deltas', async
   assert.equal(f.svc.getStepCounterSnapshot('A').steps,12);
   unsubscribe();
 });
+
+test('H01 background aggregate is consent and session scoped, with replacement not addition', () => {
+  const source = fs.readFileSync(path.join(__dirname,'../src/services/steps/backgroundStepWindow.ts'),'utf8');
+  const mod = {exports:{}};
+  vm.runInNewContext(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:mod.exports});
+  const reconcile = mod.exports.reconcileBackgroundSteps;
+  const window = {uid:'A',sessionId:'one',startMs:100,endMs:200,dayStartMs:0,dayEndMs:300};
+  const active = {uid:'A',sessionId:'one',consent:true};
+  const aggregate = {window,steps:20};
+  assert.equal(reconcile(window,aggregate,active,null),20);
+  assert.equal(reconcile(window,aggregate,active,aggregate),0);
+  assert.equal(reconcile(window,{window,steps:25},active,aggregate),5);
+  assert.equal(reconcile(window,aggregate,{...active,consent:false},null),null);
+  assert.equal(reconcile(window,aggregate,{...active,uid:'B'},null),null);
+  assert.equal(reconcile(window,aggregate,{...active,sessionId:'two'},null),null);
+  assert.equal(reconcile(window,{window:{...window,startMs:99},steps:20},active,null),null);
+  assert.equal(reconcile(window,{window,steps:-1},active,null),null);
+  const crossing = {...window,endMs:301};
+  assert.equal(reconcile(crossing,{window:crossing,steps:20},active,null),null);
+});
