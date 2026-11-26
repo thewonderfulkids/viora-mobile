@@ -100,6 +100,8 @@ export const generateWellnessAdviceHttp = onRequest(
       const globalLimit = Number(process.env.VIORA_AI_GLOBAL_DAILY_LIMIT ?? "1000");
       if (!Number.isSafeInteger(globalLimit) || globalLimit < 1) throw new Error("Invalid AI budget configuration");
       const allowed = await db.runTransaction(async tx => {
+        const freeze = await tx.get(db.collection("accountDeletionLocks").doc(uid));
+        if (freeze.exists) return false;
         const old = (await tx.get(quota)).data();
         const global = (await tx.get(globalQuota)).data();
         // Recompute on every transaction attempt, using one clock sample.
