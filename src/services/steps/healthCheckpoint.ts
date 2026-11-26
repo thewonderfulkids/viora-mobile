@@ -28,3 +28,23 @@ export function decodeHealthCheckpoints(raw: string | null, uid: string, now: nu
     return result;
   } catch { return []; }
 }
+
+/** A single storage value holds both the daily count and its applied checkpoints.
+ * Legacy numeric totals remain readable. Never write count and checkpoint separately.
+ */
+export function decodeStepDay(raw: string | null, uid: string, now: number): { steps: number; checkpoints: HealthCheckpoint[] } {
+  if (!raw) return { steps: 0, checkpoints: [] };
+  try {
+    const value = JSON.parse(raw);
+    if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0)
+      return { steps: value, checkpoints: [] };
+    if (value?.version !== 1 || !Number.isSafeInteger(value.steps) || value.steps < 0)
+      throw new Error("Invalid step day");
+    return { steps: value.steps, checkpoints: decodeHealthCheckpoints(JSON.stringify(value.checkpoints), uid, now) };
+  } catch { throw new Error("Invalid stored step day"); }
+}
+
+export function encodeStepDay(steps: number, checkpoints: HealthCheckpoint[]): string {
+  if (!Number.isSafeInteger(steps) || steps < 0) throw new Error("Invalid step count");
+  return JSON.stringify({ version: 1, steps, checkpoints });
+}
