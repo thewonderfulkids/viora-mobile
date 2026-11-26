@@ -310,3 +310,32 @@ test('H01 late native aggregate cannot cross account transition', async () => {
   assert.equal(f.store.get(key('A','daily/'+date)), '1234');
   unsubscribe();
 });
+
+test('H01 delayed aggregate replaces prior total on refresh without double counting', async () => {
+  const f = fixture();
+  let total = 0;
+  f.health.readBackgroundAggregate = async window => ({window,steps:total});
+  f.move('A');
+  const unsubscribe = f.svc.subscribeToStepCounter(() => {});
+  await flush();
+  await f.svc.enableBackgroundSteps('A');
+  f.appState('background'); f.midnight(); f.appState('active');
+  await flush(); await flush();
+  total = 12;
+  await f.svc.refreshStepCounter('A'); await flush(); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,12);
+  assert.equal(f.store.get(key('A','daily/'+date)), '1246');
+  await f.svc.refreshStepCounter('A'); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,12);
+  total = 15;
+  await f.svc.refreshStepCounter('A'); await flush(); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,15);
+  total = 10;
+  await f.svc.refreshStepCounter('A'); await flush(); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,10);
+  f.svc.disableBackgroundSteps('A');
+  total = 99;
+  await f.svc.refreshStepCounter('A'); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,10);
+  unsubscribe();
+});
