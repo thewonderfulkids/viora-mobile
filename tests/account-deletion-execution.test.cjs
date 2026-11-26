@@ -96,3 +96,46 @@ test("auth_pending recovery refuses a replacement account",async()=>{
  assert.equal(f.status(),"auth_pending");
  assert.equal(f.events.filter(e=>e.startsWith("auth ")).length,1);
 });
+
+test("C05 bounded cleanup resumes without erasing Auth before all records are gone",async()=>{
+ let records=Array.from({length:101},(_,i)=>({...record,path:"dailyStats/"+i}));
+ let state=null,authCalls=0,storageCalls=0;
+ const adapter={
+  withExclusiveLease:async(_,run)=>run(),
+  assertAuthorizedAndFrozen:async()=>{},
+  readCheckpoint:async()=>state,
+  inventory:async()=>({complete:true,candidates:records,unresolved:[]}),
+  eraseOwnedRecord:async(_,candidate)=>{records=records.filter(r=>r.path!==candidate.path)},
+  eraseOwnedStorage:async()=>{storageCalls++},
+  verifyStorageEmpty:async()=>true,
+  checkpoint:async(_,next)=>{state=next},
+  eraseAuthIfPresent:async()=>{authCalls++},
+ };
+ assert.equal((await executeDeletion("a",adapter)).complete,false);
+ assert.equal(records.length,1);
+ assert.equal(state,"processing");
+ assert.equal(authCalls,0);
+ assert.equal(storageCalls,0);
+ assert.equal((await executeDeletion("a",adapter)).complete,true);
+ assert.equal(records.length,0);
+ assert.equal(authCalls,1);
+ assert.equal(storageCalls,1);
+ assert.equal(state,"completed");
+});
+test("C05 residual storage blocks Auth erasure and leaves retry checkpoint",async()=>{
+ let state=null,authCalls=0;
+ const adapter={
+  withExclusiveLease:async(_,run)=>run(),
+  assertAuthorizedAndFrozen:async()=>{},
+  readCheckpoint:async()=>state,
+  inventory:async()=>({complete:true,candidates:[],unresolved:[]}),
+  eraseOwnedRecord:async()=>assert.fail("unexpected record"),
+  eraseOwnedStorage:async()=>{},
+  verifyStorageEmpty:async()=>false,
+  checkpoint:async(_,next)=>{state=next},
+  eraseAuthIfPresent:async()=>{authCalls++},
+ };
+ await assert.rejects(executeDeletion("a",adapter),/Cleanup verification failed/);
+ assert.equal(state,"retry_required");
+ assert.equal(authCalls,0);
+});
