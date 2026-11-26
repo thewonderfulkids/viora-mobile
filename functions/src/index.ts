@@ -83,7 +83,8 @@ export const generateWellnessAdviceHttp = onRequest(
     } catch (error: any) {
       // Do not expose OpenAI project identifiers, model entitlements,
       // provider diagnostics or other internal details to mobile clients.
-      console.error("Wellness AI provider request failed", error);
+      // Never log provider error objects: they may contain request bodies, credentials or health data.
+      console.error("Wellness AI provider request failed");
       res.status(503).json({
         error: "AI Coach is temporarily unavailable. Please try again later.",
       });
