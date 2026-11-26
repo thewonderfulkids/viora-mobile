@@ -64,3 +64,34 @@ test("clients cannot forge payment, subscription or deletion state", async () =>
   await assertFails(setDoc(doc(alice, "accountDeletionRequests/alice"), {userId:"alice", status:"completed"}));
   await assertFails(setDoc(doc(alice, "aiRequestLogs/log1"), {userId:"alice"}));
 });
+
+test("concurrent quota transactions enforce the five-request limit", async () => {
+  await env();
+  await environment.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    const quota = doc(db, "aiRateLimits/concurrency-test");
+    await setDoc(quota, {uid:"concurrency-test", minute:1441, day:1, minuteCount:0, dayCount:0});
+    const { runTransaction } = require("firebase/firestore");
+    const outcomes = await Promise.all(Array.from({length: 8}, () =>
+      runTransaction(db, async tx => {
+        const old = (await tx.get(quota)).data();
+        if (old.minuteCount >= 5 || old.dayCount >= 100) return false;
+        tx.update(quota, {minuteCount:old.minuteCount+1, dayCount:old.dayCount+1});
+        return true;
+      }, {maxAttempts: 10})
+    ));
+    const assert = require("node:assert/strict");
+    assert.equal(outcomes.filter(Boolean).length, 5);
+    const final = (await getDoc(quota)).data();
+    assert.equal(final.minuteCount, 5);
+    assert.equal(final.dayCount, 5);
+  });
+});
+
+test("clients cannot reset server-owned AI quota counters", async () => {
+  await env();
+  await seed("aiRateLimits/alice", {uid:"alice", minuteCount:5, dayCount:100});
+  const alice = user("alice");
+  await assertFails(updateDoc(doc(alice, "aiRateLimits/alice"), {minuteCount:0, dayCount:0}));
+  await assertFails(setDoc(doc(alice, "aiRateLimits/alice"), {uid:"alice", minuteCount:0, dayCount:0}));
+});
