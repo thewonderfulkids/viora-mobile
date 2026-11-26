@@ -96,8 +96,12 @@ export const generateWellnessAdviceHttp = onRequest(
     try {
       const db = getFirestore();
       const quota = db.collection("aiRateLimits").doc(uid);
+      const globalQuota = db.collection("aiGlobalBudget").doc("daily");
+      const globalLimit = Number(process.env.VIORA_AI_GLOBAL_DAILY_LIMIT ?? "1000");
+      if (!Number.isSafeInteger(globalLimit) || globalLimit < 1) throw new Error("Invalid AI budget configuration");
       const allowed = await db.runTransaction(async tx => {
         const old = (await tx.get(quota)).data();
+        const global = (await tx.get(globalQuota)).data();
         // Recompute on every transaction attempt, using one clock sample.
         const now = Date.now();
         const minute = Math.floor(now / 60000);
@@ -108,6 +112,9 @@ export const generateWellnessAdviceHttp = onRequest(
         if (!Number.isSafeInteger(minuteCount) || minuteCount < 0 ||
             !Number.isSafeInteger(dayCount) || dayCount < 0 ||
             minuteCount >= 5 || dayCount >= 100) return false;
+        const globalCount = global?.day === day ? global.count : 0;
+        if (!Number.isSafeInteger(globalCount) || globalCount < 0 || globalCount >= globalLimit) return false;
+        tx.set(globalQuota, { day, count: globalCount + 1, updatedAt: FieldValue.serverTimestamp() });
         tx.set(quota, { uid, minute, day, minuteCount: minuteCount + 1, dayCount: dayCount + 1, updatedAt: FieldValue.serverTimestamp() });
         return true;
       });
