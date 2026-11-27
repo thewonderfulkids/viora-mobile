@@ -204,3 +204,17 @@ test("H06 concurrent uploads in one runtime use distinct versioned paths", async
   assert.equal(new Set(keys).size, 20);
   assert.ok(keys.every(key => repository.isOwnedVersionedAvatarPath("a", key)));
 });
+
+
+test("H06 overlapping profile updates are rejected and the lock releases after failure", async () => {
+  const gate = deferred(), started = deferred();
+  let attempts = 0;
+  const f = fixture({ upload: async () => { if (++attempts === 1) { started.resolve(); await gate.promise; throw Error("upload failed"); } } });
+  const pending = f.pickAndUploadProfilePhoto("a");
+  await started.promise;
+  await assert.rejects(f.pickAndUploadProfilePhoto("a"), /already in progress/);
+  gate.resolve();
+  await assert.rejects(pending, /upload failed/);
+  assert.equal(await f.pickAndUploadProfilePhoto("a"), "https://example.invalid/new-avatar");
+  assert.equal(f.writes.length, 1);
+});
