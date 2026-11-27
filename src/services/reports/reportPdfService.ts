@@ -16,20 +16,26 @@ async function printReportOnWeb(html: string): Promise<void> {
   const frame = document.createElement("iframe");
   frame.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;";
   frame.setAttribute("sandbox", "allow-same-origin allow-modals");
+  frame.setAttribute("title", "Viora printable report");
+  frame.setAttribute("aria-hidden", "true");
   await new Promise<void>((resolve, reject) => {
+    let settled = false;
     const cleanup = () => frame.remove();
-    const timeout = window.setTimeout(() => { cleanup(); reject(new Error("Report preview timed out.")); }, 15000);
+    const timeout = window.setTimeout(() => { settled = true; cleanup(); reject(new Error("Report preview timed out.")); }, 15000);
     frame.onload = async () => {
-      window.clearTimeout(timeout);
+      if (settled) return;
       try {
         const target = frame.contentWindow;
         if (!target) throw new Error("Report preview is unavailable.");
         await frame.contentDocument?.fonts?.ready;
+        if (settled) return;
+        window.clearTimeout(timeout);
         target.addEventListener("afterprint", cleanup, { once: true });
         target.focus();
         target.print();
+        settled = true;
         resolve();
-      } catch (error) { cleanup(); reject(error); }
+      } catch (error) { settled = true; window.clearTimeout(timeout); cleanup(); reject(error); }
     };
     frame.srcdoc = html;
     document.body.appendChild(frame);
