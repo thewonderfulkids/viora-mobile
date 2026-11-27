@@ -116,6 +116,7 @@ test("Profile discards a late avatar and toast after switching account", async (
       refreshUserDoc: async () => { refreshes++; },
     }) },
     "../../firebase/firebaseConfig": { auth },
+    "../../repositories/syncQueueRepository": { inspectLegacySyncQueue: async () => ({ unreadable: false }), stageOwnedLegacyActionsForReview: async () => 0 },
     "../../hooks/useDashboard": { useDashboard: () => ({ data: null, refresh: async () => { refreshes++; } }) },
     "../../services/user/profilePhotoService": { pickAndUploadProfilePhoto: () => gate.promise },
     "../../services/user/userService": {},
