@@ -196,7 +196,12 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.equal((await freeze.get()).get('frozen'),true);
   assert.equal((await freeze.get()).get('authCreationTime'),identity);
   assert.equal((await deletionRequest.get()).get('cleanupStatus'),'frozen_fixture');
+  // No pending grant is a harmless no-op; seed a real pending grant to test mutation denial.
+  assert.equal((await claim()).claimed,false);
+  await pending.set(grant);
   await assert.rejects(claim(),/Account deletion is in progress/);
+  assert.equal((await pending.get()).exists,true);
+  assert.equal((await subscription.get()).get('planCode'),'PLUS_YEARLY');
   await assert.rejects(prepare(),/lock already exists/);
   assert.equal((await auth.getUser(other)).uid,other);
 
