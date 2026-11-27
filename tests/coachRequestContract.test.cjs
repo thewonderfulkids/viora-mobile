@@ -28,6 +28,7 @@ function setup({ providerError } = {}) {
     './admin/bootstrapFirstAdmin','./admin/createDefaultAdmin','./admin/premiumAccessGrants',
     './accountDeletion/requestAccountDeletion','./accountDeletion/previewAccountDeletion',
     './accountDeletion/deletionPreflight','./accountDeletion/discoverDeletionDataPaths',
+    './publishProfileAvatar',
   ].map(name => [name, {}]));
   const promptBuilder = load('functions/src/ai/promptBuilder.ts', {});
   const handler = load('functions/src/ai/wellness.ts', {
