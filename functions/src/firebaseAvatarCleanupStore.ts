@@ -22,8 +22,8 @@ export function firebaseAvatarCleanupStore(): AvatarCleanupStore {
       });
       if (!profile) return null;
       const verify = async () => {
-        const snapshot = await ref.get();
-        if (snapshot.get("avatarCleanupToken") !== token || snapshot.get("avatarCleanupLocked") !== true || snapshot.get("avatarServerManaged") !== true) throw new Error("Avatar cleanup lease lost");
+        const [snapshot, deletion] = await Promise.all([ref.get(), freeze.get()]);
+        if (deletion.exists || snapshot.get("avatarCleanupToken") !== token || snapshot.get("avatarCleanupLocked") !== true || snapshot.get("avatarServerManaged") !== true) throw new Error("Avatar cleanup lease lost");
       };
       return {
         profile, bucket: bucket.name,
@@ -49,8 +49,8 @@ export function firebaseAvatarCleanupStore(): AvatarCleanupStore {
         },
         async retireReference(candidate) {
           await db.runTransaction(async tx => {
-            const snapshot = await tx.get(ref);
-            if (snapshot.get("avatarCleanupToken") !== token || snapshot.get("avatarCleanupLocked") !== true || snapshot.get("avatarServerManaged") !== true) throw new Error("Avatar cleanup lease lost");
+            const [snapshot, deletion] = await Promise.all([tx.get(ref), tx.get(freeze)]);
+            if (deletion.exists || snapshot.get("avatarCleanupToken") !== token || snapshot.get("avatarCleanupLocked") !== true || snapshot.get("avatarServerManaged") !== true) throw new Error("Avatar cleanup lease lost");
             // Durable marker, retained even if deletion fails.
             tx.set(ref.collection("retiredAvatars").doc(candidate.name.split("/").pop()!), { generation: candidate.generation, retiredAt: new Date().toISOString() });
           });
