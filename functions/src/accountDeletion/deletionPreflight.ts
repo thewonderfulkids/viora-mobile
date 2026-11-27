@@ -28,6 +28,11 @@ export const prepareAccountDeletion = onCall(
       throw new HttpsError("invalid-argument", "Explicit matching confirmation required.");
     }
 
+    const target = await getAuth().getUser(uid);
+    const creationTime = target.metadata.creationTime;
+    if (!creationTime || !Number.isFinite(Date.parse(creationTime))) {
+      throw new HttpsError("failed-precondition", "Target account identity could not be verified.");
+    }
     const db = getFirestore();
     const requestRef = db.doc(`accountDeletionRequests/${uid}`);
     const result = await db.runTransaction(async tx => {
@@ -38,6 +43,9 @@ export const prepareAccountDeletion = onCall(
       const snap = await tx.get(requestRef);
       if (!snap.exists) throw new HttpsError("failed-precondition", "User has not requested deletion.");
       const data = snap.data() ?? {};
+      if (data.userId !== uid || data.authCreationTime !== creationTime) {
+        throw new HttpsError("failed-precondition", "Deletion request account identity mismatch or legacy request; manual review required.");
+      }
       if (data.status === "preflight") {
         return { status: "preflight", alreadyPrepared: true };
       }
