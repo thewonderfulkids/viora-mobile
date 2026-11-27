@@ -29,7 +29,16 @@ export function firebaseAvatarCleanupStore(): AvatarCleanupStore {
         profile, bucket: bucket.name,
         async listCandidates() {
           await verify();
-          const [files] = await bucket.getFiles({ prefix: "profile-photos/" + uid + "/", autoPaginate: false, maxResults: 100 });
+          const files = [];
+          let pageToken: string | undefined;
+          do {
+            await verify();
+            const [page, next] = await bucket.getFiles({ prefix: "profile-photos/" + uid + "/", autoPaginate: false, maxResults: 100, pageToken });
+            files.push(...page);
+            const nextToken = next?.pageToken;
+            if (nextToken && nextToken === pageToken) throw new Error("Repeated avatar listing cursor");
+            pageToken = nextToken;
+          } while (pageToken);
           return files.map(file => ({
             name: file.name,
             generation: String(file.metadata.generation ?? ""),
