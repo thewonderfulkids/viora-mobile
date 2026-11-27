@@ -124,3 +124,10 @@ test('H04 inventory counts known legacy keys without exposing scoped data', asyn
   const result=await repo.inspectLegacyLocalStorage();
   assert.equal(result.legacyStepDays,1); assert.equal(result.legacyStepGoal,true); assert.equal(result.legacyQueue,true); assert.equal(storage.size,4);
 });
+
+test('H04 queue entry integrates safe cleanup without deleting historical records', async () => {
+  const {repo,storage}=setup(); const k='@viora/sync-queue/v1';
+  storage.set(k,'[]'); await repo.getPendingSyncActions(); assert.equal(storage.has(k),false);
+  const original=JSON.stringify([action('old')]); storage.set(k,original);
+  await repo.getPendingSyncActions(); assert.equal(storage.get(k),original);
+});
