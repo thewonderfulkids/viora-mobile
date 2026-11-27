@@ -14,3 +14,14 @@ test("H06 retirement precedes generation deletion and lock always releases", asy
   assert.deepEqual(calls,["release"]);
   assert.equal((await runAvatarCleanup({acquire:async()=>null},"a",now)).skipped,true);
 });
+
+test("H06 active references never reach retirement and inventory failure releases lease", async () => {
+  const calls = [];
+  const lease = { profile:{avatarUrl:file.name}, bucket:"test", listCandidates:async()=>[file], retireReference:async()=>{calls.push("retire");}, deleteGeneration:async()=>{calls.push("delete");}, release:async()=>{calls.push("release");} };
+  assert.deepEqual(await runAvatarCleanup({acquire:async()=>lease},"a",now),{deleted:0,failed:0,skipped:false});
+  assert.deepEqual(calls,["release"]);
+  calls.length=0;
+  lease.listCandidates=async()=>{throw Error("inventory unavailable");};
+  await assert.rejects(runAvatarCleanup({acquire:async()=>lease},"a",now),/inventory unavailable/);
+  assert.deepEqual(calls,["release"]);
+});
