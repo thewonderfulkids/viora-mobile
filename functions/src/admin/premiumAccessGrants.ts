@@ -19,6 +19,7 @@ const isPlan = (code: unknown): code is PlanCode => typeof code === "string" && 
 async function requireAdmin(uid: string | undefined) {
   if (!uid) throw new HttpsError("unauthenticated", "Sign in as an administrator.");
   const user = await getAuth().getUser(uid);
+  if (user.disabled) throw new HttpsError("permission-denied", "Administrator account disabled.");
   const claims = user.customClaims ?? {};
   if (claims.admin !== true && claims.superAdmin !== true && !["admin","super_admin"].includes(String(claims.role ?? ""))) {
     throw new HttpsError("permission-denied", "Administrator privileges required.");
@@ -35,6 +36,8 @@ async function applyGrant(uid: string, email: string, grant: { planCode: PlanCod
   const subscriptionId = `admin_grant_${uid}`;
   const ref = db.doc(`subscriptions/${subscriptionId}`);
   await db.runTransaction(async tx => {
+    const freeze = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
+    if (freeze.exists) throw new HttpsError("failed-precondition", "Account deletion is in progress.");
     const previous = await tx.get(ref);
     tx.set(ref, {
       id: subscriptionId, userId: uid, planCode: grant.planCode, tier: plan.tier,
