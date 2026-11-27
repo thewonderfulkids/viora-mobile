@@ -16,8 +16,8 @@ export const previewAccountDeletion = onCall(
     if (!adminUid) throw new HttpsError("unauthenticated", "Sign in as an administrator.");
     const admin = await getAuth().getUser(adminUid);
     const claims = admin.customClaims ?? {};
-    if (claims.admin !== true && claims.superAdmin !== true &&
-        !["admin", "super_admin"].includes(String(claims.role ?? ""))) {
+    if (admin.disabled || (claims.admin !== true && claims.superAdmin !== true &&
+        !["admin", "super_admin"].includes(String(claims.role ?? "")))) {
       throw new HttpsError("permission-denied", "Administrator privileges required.");
     }
     const uid = String(request.data?.userId ?? "").trim();
@@ -28,6 +28,15 @@ export const previewAccountDeletion = onCall(
     const deletionRequest = await db.doc(`accountDeletionRequests/${uid}`).get();
     if (!deletionRequest.exists || !["requested", "preflight", "processing"].includes(String(deletionRequest.data()?.status))) {
       throw new HttpsError("failed-precondition", "No active deletion request exists.");
+    }
+    const target = await getAuth().getUser(uid);
+    const identity = target.metadata.creationTime;
+    if (!identity || !Number.isFinite(Date.parse(identity)) ||
+        deletionRequest.data()?.userId !== uid || deletionRequest.data()?.authCreationTime !== identity) {
+      throw new HttpsError("failed-precondition", "Deletion request account identity mismatch or legacy request; manual review required.");
+    }
+    if ((await db.doc(`accountDeletionLocks/${adminUid}`).get()).exists) {
+      throw new HttpsError("failed-precondition", "Acting account deletion is in progress.");
     }
     const directDocs = await Promise.all(USER_UID_DOCUMENT_COLLECTIONS.map(async collection => ({
       collection, exists: (await db.doc(`${collection}/${uid}`).get()).exists,
@@ -40,8 +49,8 @@ export const previewAccountDeletion = onCall(
         try {
           const result = await db.collection(collection).where(field, "==", uid).count().get();
           collectionCounts.push({ collection, field, count: result.data().count });
-        } catch (error) {
-          queryErrors.push({ collection, field, message: error instanceof Error ? error.message : "Query failed" });
+        } catch {
+          queryErrors.push({ collection, field, message: "Query failed" });
         }
       }
     }
@@ -60,11 +69,11 @@ export const previewAccountDeletion = onCall(
           count: Math.min(docs.size, 1000),
           truncated: docs.size > 1000,
         });
-      } catch (error) {
+      } catch {
         queryErrors.push({
           collection,
           field: "documentIdPrefix",
-          message: error instanceof Error ? error.message : "Prefix scan failed",
+          message: "Prefix scan failed",
         });
       }
     }
@@ -78,8 +87,8 @@ export const previewAccountDeletion = onCall(
         pageToken = (response as { nextPageToken?: string } | undefined)?.nextPageToken;
         if (avatarCount >= 10000 && pageToken) { storageTruncated = true; break; }
       } while (pageToken);
-    } catch (error) {
-      queryErrors.push({ collection: "storage:profile-photos", field: "prefix", message: error instanceof Error ? error.message : "Storage query failed" });
+    } catch {
+      queryErrors.push({ collection: "storage:profile-photos", field: "prefix", message: "Storage query failed" });
     }
     return {
       userId: uid, requestStatus: deletionRequest.data()?.status,
