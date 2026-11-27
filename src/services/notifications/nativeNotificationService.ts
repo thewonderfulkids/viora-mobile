@@ -165,7 +165,8 @@ export function syncNativeWellnessReminders(
     const previous = scheduled.filter(job => typeof job.content.data?.vioraReminderId === "string" &&
       job.content.data.userId === uid);
     if (!settings.enabled) {
-      await Promise.all(previous.map(job => Notifications.cancelScheduledNotificationAsync(job.identifier)));
+      const results = await Promise.allSettled(previous.map(job => Notifications.cancelScheduledNotificationAsync(job.identifier)));
+      if (results.some(result => result.status === "rejected")) throw new Error("Could not disable all Smart reminders; retry required.");
       return;
     }
     if (!(await requestWellnessNotificationPermission()) || !active()) return;
