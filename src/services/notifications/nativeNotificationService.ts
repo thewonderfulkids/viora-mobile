@@ -171,6 +171,7 @@ export function syncNativeWellnessReminders(
     if (!(await requestWellnessNotificationPermission()) || !active()) return;
     const nextIds: string[] = [];
     let committed = false;
+    let replacementReady = false;
     try {
       for (const reminder of reminders) {
         if (!active()) return;
@@ -188,10 +189,14 @@ export function syncNativeWellnessReminders(
         nextIds.push(notificationId);
       }
       if (!active()) return;
-      await Promise.all(previous.map(job => Notifications.cancelScheduledNotificationAsync(job.identifier)));
+      // Once the full replacement exists, retain it on partial cancellation failure.
+      // A subsequent sync enumerates both generations and reconciles them.
+      replacementReady = true;
+      const cancellations = await Promise.allSettled(previous.map(job => Notifications.cancelScheduledNotificationAsync(job.identifier)));
       committed = active();
+      if (cancellations.some(result => result.status === "rejected")) throw new Error("Could not replace all Smart reminders; retry required.");
     } finally {
-      if (!committed) await Promise.allSettled(nextIds.map(id => Notifications.cancelScheduledNotificationAsync(id)));
+      if (!committed && (!replacementReady || !active())) await Promise.allSettled(nextIds.map(id => Notifications.cancelScheduledNotificationAsync(id)));
     }
   });
 }
