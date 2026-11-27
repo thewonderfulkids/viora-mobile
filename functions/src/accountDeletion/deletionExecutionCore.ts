@@ -52,12 +52,16 @@ export function planDeletion(uid: string, inventory: Inventory): Candidate[] {
     if (!record.ownerIds.length || record.ownerIds.some(owner => owner !== uid)) {
       throw Error("Unverified ownership");
     }
+    if (segments[0] === "users" && segments[2] === "retiredAvatars" &&
+        (segments.length !== 4 || segments[1] !== uid || !/^avatar-[0-9]+\.jpg$/.test(segments[3]))) {
+      throw Error("Unverified avatar retirement ownership");
+    }
     unique.set(record.path, record);
   }
   for (const path of protectedPaths) {
     if (unique.has(path)) throw Error("Conflicting deletion evidence");
   }
-  return [...unique.values()];
+  return [...unique.values()].sort((a, b) => b.path.split("/").length - a.path.split("/").length);
 }
 export async function executeDeletion(uid: string, adapter: DeletionAdapter) {
   if (!uid) throw Error("Missing deletion user");
