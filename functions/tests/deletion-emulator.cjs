@@ -276,4 +276,16 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
     assert.deepEqual(planDeletion(other,{complete:true,unresolved:[],candidates:[{...record,retained:true}]}),[]);
   }
 
+  const { summarizeAvatarTokenMetadata } = require('../lib/accountDeletion/avatarTokenInventory');
+  assert.deepEqual(summarizeAvatarTokenMetadata({metadata:{firebaseStorageDownloadTokens:'fixture-secret'}}),{tokenPresent:true,metadataReviewRequired:false});
+  assert.deepEqual(summarizeAvatarTokenMetadata({metadata:{firebaseStorageDownloadTokens:42}}),{tokenPresent:false,metadataReviewRequired:true});
+  assert.deepEqual(summarizeAvatarTokenMetadata({}),{tokenPresent:false,metadataReviewRequired:false});
+  const tokenFixture = bucket.file('profile-photos/'+other+'/avatar-123.jpg');
+  await tokenFixture.save(Buffer.from('fixture'),{metadata:{contentType:'image/jpeg',metadata:{firebaseStorageDownloadTokens:'fixture-secret-token'}}});
+  const tokenPreview = await preview();
+  assert.ok(tokenPreview.avatarTokenInventory.inspected >= 1);
+  assert.ok(tokenPreview.avatarTokenInventory.tokenPresentCount >= 1);
+  assert.equal(JSON.stringify(tokenPreview).includes('fixture-secret-token'),false);
+  assert.equal((await tokenFixture.exists())[0],true);
+
 });
