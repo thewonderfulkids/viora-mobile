@@ -69,6 +69,8 @@ const signedOut = emptySnapshot(false);
 const pending = emptySnapshot(true);
 const listeners = new Set<Listener>();
 const writes = new Map<string, Promise<void>>();
+// Retain failed day writes across midnight within this process, scoped to the original owner.
+const dirtyDays = new Map<string, { owner: Session; day: Day }>();
 let session: Session | null = null;
 let unsubscribeAuth: (() => void) | null = null;
 let appSubscription: Subscription | null = null;
@@ -161,12 +163,16 @@ function loadDay(owner: Session, day: Day, storageKey: string) {
 function persistDay(owner: Session, day: Day) {
   const storageKey = keyFor(owner.uid, `daily/${day.key}`);
   day.dirty = true;
+  dirtyDays.set(storageKey, { owner, day });
   return enqueueWrite(storageKey, async () => {
     if (!day.ready) return;
     const value = day.steps;
     try {
       await AsyncStorage.setItem(storageKey, day.checkpoints.length ? encodeStepDay(value, day.checkpoints) : String(value));
-      if (day.steps === value) day.dirty = false;
+      if (day.steps === value) {
+        day.dirty = false;
+        if (dirtyDays.get(storageKey)?.day === day) dirtyDays.delete(storageKey);
+      }
     } catch {
       day.dirty = true;
       if (owner.day === day) update(owner, { error: "Viora could not save today's steps." });
@@ -359,6 +365,12 @@ export async function refreshStepCounter(expectedUid?: string | null) {
     }
   }
   if (current(owner) && owner.day === day && day.ready && day.dirty) await persistDay(owner, day);
+  for (const entry of dirtyDays.values()) {
+    if (!current(owner)) return;
+    if (entry.owner === owner && entry.day !== day && entry.day.ready && entry.day.dirty) {
+      await persistDay(owner, entry.day);
+    }
+  }
   if (foreground) {
     await updatePermission(owner, false);
     if (owner.healthPending?.size) void retryHealthWindows(owner);
