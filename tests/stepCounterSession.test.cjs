@@ -345,3 +345,19 @@ test('H01 delayed aggregate replaces prior total on refresh without double count
   assert.equal(f.svc.getStepCounterSnapshot('A').steps,10);
   unsubscribe();
 });
+
+test('H03 retries failed previous-day write after midnight', async () => {
+  const f = fixture(); f.move('A');
+  const unsubscribe = f.svc.subscribeToStepCounter(() => {});
+  await flush();
+  const old = key('A','daily/'+date), set = f.io.setItem;
+  f.io.setItem = async (k,v) => { if(k===old) throw Error('disk unavailable'); return set(k,v); };
+  f.active()[0].callback({steps:10}); await flush();
+  assert.equal(f.store.get(old),'1234');
+  f.midnight(); f.tick(); await flush();
+  f.io.setItem = set;
+  await f.svc.refreshStepCounter('A'); await flush();
+  assert.equal(f.store.get(old),'1244');
+  await f.svc.refreshStepCounter('A');
+  assert.equal(f.store.get(old),'1244'); unsubscribe();
+});
