@@ -269,4 +269,11 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.equal((await freeze.get()).exists,true);
   assert.equal((await subscription.get()).exists,true);
 
+  const { planDeletion } = require('../lib/accountDeletion/deletionExecutionCore');
+  for (const path of ['payments/p1','subscriptions/s1','familyGroups/g1/members/m1','users/u1/familyInvites/i1','accountDeletionLocks/l1','accountDeletionRequests/r1','aiGlobalBudget/b1']) {
+    const record = {path,ownerIds:[other],shared:false,retained:false};
+    assert.throws(()=>planDeletion(other,{complete:true,unresolved:[],candidates:[record]}),/Retention policy review required/);
+    assert.deepEqual(planDeletion(other,{complete:true,unresolved:[],candidates:[{...record,retained:true}]}),[]);
+  }
+
 });
