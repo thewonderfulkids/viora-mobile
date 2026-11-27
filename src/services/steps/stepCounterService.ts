@@ -227,7 +227,10 @@ function startWatching(owner: Session) {
           try {
             if (day.ready) {
               const value = day.steps;
-              await AsyncStorage.setItem(storageKey, day.checkpoints.length ? encodeStepDay(value, day.checkpoints) : String(value));
+              const payload = day.checkpoints.length ? encodeStepDay(value, day.checkpoints) : String(value);
+              await AsyncStorage.setItem(`${storageKey}/recovery`, payload);
+              await AsyncStorage.setItem(storageKey, payload);
+              await AsyncStorage.removeItem(`${storageKey}/recovery`);
               day.dirty = day.steps !== value;
             }
           } catch {
@@ -247,7 +250,7 @@ function startWatching(owner: Session) {
     return;
   }
   owner.watch = subscription;
-  update(owner, { active: true, error: null });
+  update(owner, { active: true, error: owner.day?.failed || owner.day?.dirty ? owner.snapshot.error : null });
 }
 
 async function updatePermission(owner: Session, ask: boolean) {
@@ -272,8 +275,7 @@ async function updatePermission(owner: Session, ask: boolean) {
   return permission === "granted";
 }
 
-async function initialize(owner: Session) {
-  try {
+async function recoverJournals(owner: Session) {
     // Recover older day journals before starting the sensor; never scan another UID.
     const prefix = keyFor(owner.uid, "daily/");
     const keys = await AsyncStorage.getAllKeys();
@@ -289,6 +291,12 @@ async function initialize(owner: Session) {
         await AsyncStorage.removeItem(journalKey);
       });
     }
+    if (!current(owner)) return;
+}
+
+async function initialize(owner: Session) {
+  try {
+    await recoverJournals(owner);
     if (!current(owner)) return;
     const goalVersion = owner.goalVersion;
     const [storedGoal, supported] = await Promise.all([
@@ -377,6 +385,7 @@ export async function refreshStepCounter(expectedUid?: string | null) {
   if (!owner || owner.uid !== expectedUid || !current(owner)) return;
   await owner.initialized;
   if (!current(owner)) return;
+  if (owner.snapshot.supported === null) { await initialize(owner); if (!current(owner)) return; }
   const day = selectDay(owner);
   await day.loaded;
   if (!current(owner)) return;
