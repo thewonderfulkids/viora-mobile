@@ -134,4 +134,34 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.equal((await claim()).claimed,true);
   assert.equal((await subscription.get()).get('planCode'),'PLUS_YEARLY');
   assert.equal((await pending.get()).exists,false);
+  // Exercise production request/preflight handlers against synthetic accounts only.
+  const { requestAccountDeletion } = require('../lib/accountDeletion/requestAccountDeletion');
+  const { prepareAccountDeletion, resetAccountDeletionPreflight } = require('../lib/accountDeletion/deletionPreflight');
+  await auth.setCustomUserClaims(adminUid,{superAdmin:true});
+  const deletionRequest = db.doc('accountDeletionRequests/'+other);
+  const requestDeletion = authTime => requestAccountDeletion.run({auth:{uid:other,token:{auth_time:authTime}},data:{}});
+  const prepare = () => prepareAccountDeletion.run({auth:{uid:adminUid,token:{}},data:{userId:other,confirmation:'PREPARE:'+other}});
+  const now = Math.floor(Date.now()/1000);
+  await assert.rejects(requestDeletion(now+600),/Recent sign-in required/);
+  await assert.rejects(requestDeletion(now-600),/Recent sign-in required/);
+  assert.equal((await deletionRequest.get()).exists,false);
+  await deletionRequest.set({userId:other,status:'requested'});
+  await assert.rejects(prepare(),/identity mismatch or legacy request/);
+  assert.equal((await deletionRequest.get()).get('status'),'requested');
+  await deletionRequest.update({authCreationTime:'Thu, 01 Jan 1970 00:00:00 GMT'});
+  await assert.rejects(prepare(),/identity mismatch or legacy request/);
+  await deletionRequest.delete();
+  assert.equal((await requestDeletion(now)).status,'requested');
+  assert.equal((await deletionRequest.get()).get('authCreationTime'),(await auth.getUser(other)).metadata.creationTime);
+  assert.equal((await requestDeletion(now)).alreadyRequested,true);
+  await freeze.set({frozen:true});
+  await assert.rejects(prepare(),/lock already exists/);
+  await freeze.delete();
+  assert.equal((await prepare()).deletionPerformed,false);
+  assert.equal((await prepare()).alreadyPrepared,true);
+  assert.equal((await freeze.get()).exists,false);
+  assert.equal((await auth.getUser(other)).uid,other);
+  assert.equal((await resetAccountDeletionPreflight.run({auth:{uid:adminUid,token:{}},data:{userId:other}})).status,'requested');
+  assert.equal((await deletionRequest.get()).get('status'),'requested');
+
 });
