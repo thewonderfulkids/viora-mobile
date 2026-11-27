@@ -42,6 +42,7 @@ function fixture({ upload, update, picker } = {}) {
     "expo-image-manipulator": { manipulateAsync: async () => ({ base64: "/9j/2Q==" }), SaveFormat: { JPEG: "jpeg" } },
     "../../repositories": {
       uploadProfilePhoto: repository.uploadProfilePhoto,
+      readUserPhotoBaseline: async () => null,
       updateUserPhoto: async (uid, value) => { writes.push({ uid, value }); await update?.(); },
     },
   });
@@ -229,4 +230,27 @@ test("H06 independent runtime avatar paths retain numeric compatibility and exte
     load("src/repositories/profilePhotoRepository.ts", deps).uploadProfilePhoto("a", "/9j/2Q==")));
   assert.equal(new Set(keys).size, keys.length);
   assert.ok(keys.every(key => /^profile-photos\/a\/avatar-[0-9]{36,}\.jpg$/.test(key)));
+});
+
+
+test("H06 transaction refuses stale avatar reference and preserves current photo", async () => {
+  let current = "newer", writes = 0;
+  const repo = load("src/repositories/userPhotoRepository.ts", {
+    "../firebase/firebaseConfig": { db: {} },
+    "../firebase/firestoreCollections": { COLLECTIONS: { users: "users" } },
+    "firebase/firestore": {
+      doc: () => "user", getDocFromServer: async () => ({ data: () => ({ photoURL: current }) }),
+      runTransaction: async (_, callback) => callback({
+        get: async () => ({ data: () => ({ photoURL: current }) }),
+        set: (_, value) => { writes++; current = value.photoURL; },
+      }),
+    },
+  });
+  await assert.rejects(repo.updateUserPhoto("a", "stale", "older"), /another device/);
+  assert.equal(writes, 0);
+  assert.equal(current, "newer");
+  const baseline = await repo.readUserPhotoBaseline("a");
+  await repo.updateUserPhoto("a", "replacement", baseline);
+  assert.equal(current, "replacement");
+  assert.equal(writes, 1);
 });
