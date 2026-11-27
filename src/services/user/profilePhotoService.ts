@@ -4,6 +4,7 @@ import { auth } from "../../firebase/firebaseConfig";
 
 import {
   updateUserPhoto,
+  readUserPhotoBaseline,
   uploadProfilePhoto,
 } from "../../repositories";
 
@@ -55,6 +56,8 @@ export async function pickAndUploadProfilePhoto(
   assertCurrent();
   if (result.canceled || result.assets.length === 0) return null;
 
+  const baseline = await readUserPhotoBaseline(uid);
+  assertCurrent();
   const asset = result.assets[0];
 
   const image = await ImageManipulator.manipulateAsync(
@@ -86,7 +89,7 @@ export async function pickAndUploadProfilePhoto(
   }
 
   assertCurrent();
-  await updateUserPhoto(uid, url);
+  await updateUserPhoto(uid, url, baseline, assertCurrent);
   assertCurrent();
   return url;
   } finally {
