@@ -9,6 +9,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
  */
 import { ADDITIONAL_INVENTORY_SOURCES, PROFILE_PHOTO_PREFIX, REVIEW_REQUIRED_COLLECTIONS, USER_OWNERSHIP_FIELDS, USER_QUERY_COLLECTIONS, USER_UID_DOCUMENT_COLLECTIONS } from "./inventoryManifest";
 
+import { summarizeAvatarTokenMetadata } from "./avatarTokenInventory";
 import { classifyRetention } from "./retentionPolicy";
 
 export const previewAccountDeletion = onCall(
@@ -80,12 +81,27 @@ export const previewAccountDeletion = onCall(
       }
     }
     let avatarCount = 0;
+    let tokenMetadataInspected = 0;
+    let tokenPresentCount = 0;
+    let tokenMetadataReviewCount = 0;
+    const MAX_TOKEN_INSPECTIONS = 100;
     let storageTruncated = false;
     try {
       let pageToken: string | undefined;
       do {
         const [files, , response] = await getStorage().bucket().getFiles({ prefix: PROFILE_PHOTO_PREFIX(uid), autoPaginate: false, maxResults: 1000, pageToken });
         avatarCount += files.length;
+        for (const file of files.slice(0, Math.max(0, MAX_TOKEN_INSPECTIONS - tokenMetadataInspected))) {
+          tokenMetadataInspected++;
+          try {
+            const [metadata] = await file.getMetadata();
+            const summary = summarizeAvatarTokenMetadata(metadata);
+            if (summary.tokenPresent) tokenPresentCount++;
+            if (summary.metadataReviewRequired) tokenMetadataReviewCount++;
+          } catch {
+            tokenMetadataReviewCount++;
+          }
+        }
         pageToken = (response as { nextPageToken?: string } | undefined)?.nextPageToken;
         if (avatarCount >= 10000 && pageToken) { storageTruncated = true; break; }
       } while (pageToken);
@@ -95,6 +111,13 @@ export const previewAccountDeletion = onCall(
     return {
       userId: uid, requestStatus: deletionRequest.data()?.status,
       directDocs, collectionCounts, idPrefixMatches, avatarFileCount: avatarCount, storageTruncated, queryErrors,
+      avatarTokenInventory: {
+        inspected: tokenMetadataInspected,
+        tokenPresentCount,
+        metadataReviewCount: tokenMetadataReviewCount,
+        incomplete: storageTruncated || tokenMetadataInspected !== avatarCount || tokenMetadataReviewCount > 0 ||
+          queryErrors.some(error => error.collection === "storage:profile-photos"),
+      },
       reviewRequiredCollections: REVIEW_REQUIRED_COLLECTIONS,
       additionalInventorySources: ADDITIONAL_INVENTORY_SOURCES,
       retentionReview: [...new Set<string>([...USER_QUERY_COLLECTIONS, ...USER_UID_DOCUMENT_COLLECTIONS, "accountDeletionLocks", "accountDeletionRequests", "aiGlobalBudget"])].map(collection => ({
