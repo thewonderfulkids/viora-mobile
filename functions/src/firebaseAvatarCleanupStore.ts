@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { AvatarCleanupStore, AvatarCleanupLease } from "./avatarCleanupWorker";
+import { selectOrphanAvatars } from "./avatarCleanupCandidates";
 
 // Deliberately not wired to a trigger. Only profiles migrated to a trusted
 // reference writer may be cleaned. Crash recovery must not steal a live lock.
@@ -54,6 +55,8 @@ export function firebaseAvatarCleanupStore(): AvatarCleanupStore {
           await db.runTransaction(async tx => {
             const [snapshot, deletion] = await Promise.all([tx.get(ref), tx.get(freeze)]);
             if (deletion.exists || snapshot.get("avatarCleanupToken") !== token || snapshot.get("avatarCleanupLocked") !== true || snapshot.get("avatarServerManaged") !== true) throw new Error("Avatar cleanup lease lost");
+            // Recheck current aliases inside the retirement transaction, even if a trusted writer bypassed the lease.
+            if (selectOrphanAvatars(uid, bucket.name, snapshot.data() ?? {}, [candidate], Date.now()).length !== 1) throw new Error("Avatar no longer eligible for retirement");
             // Durable marker, retained even if deletion fails.
             tx.set(ref.collection("retiredAvatars").doc(candidate.name.split("/").pop()!), { generation: candidate.generation, retiredAt: new Date().toISOString() });
           });
