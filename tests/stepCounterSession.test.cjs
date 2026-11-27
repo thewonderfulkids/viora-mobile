@@ -381,3 +381,26 @@ test('H03 restart recovers historical journal only for signed-in owner', async (
   assert.equal(f.store.get(a),'120'); assert.equal(f.store.has(a+'/recovery'),false);
   assert.equal(f.store.get(b+'/recovery'),'999'); assert.equal(f.store.has(b),false); off();
 });
+
+test('H03 failed journal recovery retries initialization and preserves snapshot', async () => {
+ const f=fixture(), k=key('A','daily/'+date), set=f.io.setItem;
+ f.store.set(k+'/recovery','1250'); f.io.setItem=async()=>{throw Error('disk');};
+ f.move('A'); const off=f.svc.subscribeToStepCounter(()=>{}); await flush();
+ assert.ok(f.svc.getStepCounterSnapshot('A').error); assert.equal(f.store.get(k+'/recovery'),'1250');
+ f.io.setItem=set; await f.svc.refreshStepCounter('A'); await flush();
+ assert.equal(f.svc.getStepCounterSnapshot('A').steps,1250); assert.equal(f.active().length,1); off();
+});
+test('H03 sensor restart does not hide unsaved storage error', async()=>{
+ const f=fixture(); f.move('A'); const off=f.svc.subscribeToStepCounter(()=>{}); await flush();
+ f.io.setItem=async()=>{throw Error('disk');}; f.active()[0].callback({steps:10}); await flush();
+ f.appState('background'); f.appState('active'); await flush();
+ assert.match(f.svc.getStepCounterSnapshot('A').error,/save/); off();
+});
+test('H03 buffered midnight write retains journal on interrupted commit', async()=>{
+ const f=fixture(), k=key('A','daily/2026-11-25'), set=f.io.setItem;
+ f.move('A'); const off=f.svc.subscribeToStepCounter(()=>{}); await flush();
+ f.io.setItem=async(n,v)=>{if(n===k)throw Error('disk');return set(n,v);};
+ f.midnight(); f.active()[0].callback({steps:8}); await flush();
+ assert.equal(f.store.get(k+'/recovery'),'8'); f.io.setItem=set;
+ await f.svc.refreshStepCounter('A'); assert.equal(f.store.get(k),'8'); off();
+});
