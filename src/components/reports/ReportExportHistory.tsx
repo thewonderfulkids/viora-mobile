@@ -25,11 +25,11 @@ export function ReportExportHistory({ exports, onOpenExport }: ReportExportHisto
           <View style={styles.cardHeader}>
             <View style={styles.copyBlock}>
               <Text style={styles.title}>{item.reportTitle}</Text>
-              <Text style={styles.meta}>{item.fileName} • {item.status}</Text>
+              <Text style={styles.meta}>{item.status === "ready" && item.htmlSnapshot ? "Printable report available" : item.status === "failed" ? "Export failed" : "Report not ready"}</Text>
             </View>
-            <Pressable disabled={!onOpenExport} style={styles.openButton} onPress={() => onOpenExport?.(item.id)}>
+            <Pressable disabled={!onOpenExport || !item.htmlSnapshot || item.status !== "ready"} style={styles.openButton} onPress={() => onOpenExport?.(item.id)}>
               <Download size={15} color={colors.primaryDark} />
-              <Text style={styles.openText}>Open</Text>
+              <Text style={styles.openText}>Open PDF options</Text>
             </Pressable>
           </View>
         </View>
