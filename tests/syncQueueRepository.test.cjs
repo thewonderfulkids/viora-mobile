@@ -131,3 +131,19 @@ test('H04 queue entry integrates safe cleanup without deleting historical record
   const original=JSON.stringify([action('old')]); storage.set(k,original);
   await repo.getPendingSyncActions(); assert.equal(storage.get(k),original);
 });
+
+test('H04 owned legacy review staging is idempotent and never replays foreign or ownerless records', async()=>{
+ const {repo,storage,auth}=setup(), k='@viora/sync-queue/v1';
+ const raw=JSON.stringify([action('a'),action('a'),action('b','bob'),{id:'unknown'}]); storage.set(k,raw);
+ assert.equal(await repo.stageOwnedLegacyActionsForReview(),1); assert.equal(await repo.stageOwnedLegacyActionsForReview(),1);
+ assert.equal(storage.get(k),raw); assert.equal((await repo.getPendingSyncActions()).length,0);
+ assert.equal(JSON.parse(storage.get('@viora/sync-queue/legacy-review/alice'))[0].id,'a');
+ auth.currentUser={uid:'bob'}; assert.equal(await repo.stageOwnedLegacyActionsForReview(),1);
+ assert.equal(JSON.parse(storage.get('@viora/sync-queue/legacy-review/bob'))[0].id,'b');
+});
+test('H04 interrupted review staging retries without touching original', async()=>{
+ let fail=true; const {repo,storage}=setup({onSetItem:async()=>{if(fail)throw Error('disk');}});
+ const k='@viora/sync-queue/v1',raw=JSON.stringify([action('a')]); storage.set(k,raw);
+ await assert.rejects(repo.stageOwnedLegacyActionsForReview(),/disk/); assert.equal(storage.get(k),raw);
+ fail=false; assert.equal(await repo.stageOwnedLegacyActionsForReview(),1); assert.equal(storage.get(k),raw);
+});
