@@ -2,6 +2,8 @@
  * Conservative deletion execution core. Not exported as a production callable.
  * Adapter must provide a durable exclusive lease, write freeze and exhaustive inventory.
  */
+import { classifyRetention } from "./retentionPolicy";
+
 export type Candidate = { path: string; ownerIds: string[]; shared: boolean; retained: boolean };
 export type Inventory = { complete: boolean; candidates: Candidate[]; unresolved: string[] };
 export type DeletionCheckpoint = "processing" | "retry_required" | "auth_pending" | "completed";
@@ -33,6 +35,13 @@ export function planDeletion(uid: string, inventory: Inventory): Candidate[] {
   const protectedPaths = new Set<string>();
   for (const record of inventory.candidates) {
     if (!record.path) throw Error("Unverified record path");
+    const segments = record.path.split("/");
+    // Check every collection segment, including descendants of protected records.
+    const policyProtected = segments.some((segment, index) =>
+      index % 2 === 0 && classifyRetention(segment) !== "unclassified");
+    if (policyProtected && !record.shared && !record.retained) {
+      throw Error("Retention policy review required");
+    }
     if (record.shared || record.retained) {
       protectedPaths.add(record.path);
       continue;
