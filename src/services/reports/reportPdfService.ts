@@ -9,21 +9,31 @@ function sanitizeFileName(value: string) {
   return value.replace(/[^a-z0-9._-]/gi, "-").replace(/-+/g, "-").toLowerCase();
 }
 
-function downloadHtmlSnapshotOnWeb(fileName: string, html: string) {
-  if (typeof window === "undefined" || typeof document === "undefined") return false;
-
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-
-  anchor.href = url;
-  anchor.download = fileName.replace(/\.pdf$/i, ".html");
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-
-  return true;
+async function printReportOnWeb(html: string): Promise<void> {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    throw new Error("Printing is not available on this device.");
+  }
+  const frame = document.createElement("iframe");
+  frame.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;";
+  frame.setAttribute("sandbox", "allow-same-origin allow-modals");
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => frame.remove();
+    const timeout = window.setTimeout(() => { cleanup(); reject(new Error("Report preview timed out.")); }, 15000);
+    frame.onload = async () => {
+      window.clearTimeout(timeout);
+      try {
+        const target = frame.contentWindow;
+        if (!target) throw new Error("Report preview is unavailable.");
+        await frame.contentDocument?.fonts?.ready;
+        target.addEventListener("afterprint", cleanup, { once: true });
+        target.focus();
+        target.print();
+        resolve();
+      } catch (error) { cleanup(); reject(error); }
+    };
+    frame.srcdoc = html;
+    document.body.appendChild(frame);
+  });
 }
 
 export async function createAndShareReportPdf(report: HealthReportDoc): Promise<string> {
@@ -31,8 +41,7 @@ export async function createAndShareReportPdf(report: HealthReportDoc): Promise<
   const fileName = sanitizeFileName(`viora-${report.range}-report-${report.endDate}.pdf`);
 
   if (Platform.OS === "web") {
-    const downloaded = downloadHtmlSnapshotOnWeb(fileName, html);
-    if (!downloaded) throw new Error("Report download is not available on this device.");
+    await printReportOnWeb(html);
     return fileName;
   }
 
@@ -61,8 +70,7 @@ export async function shareSavedReportExport(record: ReportExportRecord): Promis
   }
 
   if (Platform.OS === "web") {
-    const downloaded = downloadHtmlSnapshotOnWeb(record.fileName, record.htmlSnapshot);
-    if (!downloaded) throw new Error("Report download is not available on this device.");
+    await printReportOnWeb(record.htmlSnapshot);
     return;
   }
 
