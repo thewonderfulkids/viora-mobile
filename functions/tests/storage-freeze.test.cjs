@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { initializeApp, deleteApp } = require('firebase/app');
 const { getAuth, connectAuthEmulator, createUserWithEmailAndPassword } = require('firebase/auth');
-const { getStorage, connectStorageEmulator, ref, uploadBytes } = require('firebase/storage');
+const { getStorage, connectStorageEmulator, ref, uploadBytes, getMetadata } = require('firebase/storage');
 const { initializeApp: initializeAdmin, deleteApp: deleteAdmin } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
@@ -35,6 +35,14 @@ test('C02 client profile uploads stop after the account freeze', async t => {
     Uint8Array.from([137, 80, 78, 71]), { contentType: 'image/png' },
   );
   await upload(owner, 'before.png');
+  const ownerPath = 'profile-photos/' + owner.uid + '/before.png';
+  assert.equal((await getMetadata(ref(owner.storage, ownerPath))).contentType, 'image/png');
+  await assert.rejects(getMetadata(ref(control.storage, ownerPath)), { code: 'storage/unauthorized' });
+  const guest = initializeApp({ projectId, apiKey: 'demo-key', storageBucket: bucket }, 'storage-guest');
+  t.after(() => deleteApp(guest));
+  const guestStorage = getStorage(guest);
+  connectStorageEmulator(guestStorage, '127.0.0.1', Number(process.env.FIREBASE_STORAGE_EMULATOR_HOST.split(':')[1]));
+  await assert.rejects(getMetadata(ref(guestStorage, ownerPath)), { code: 'storage/unauthorized' });
   await db.doc('accountDeletionLocks/' + owner.uid).set({ frozen: true });
   await assert.rejects(upload(owner, 'after.png'), { code: 'storage/unauthorized' });
   await assert.rejects(upload(owner, 'before.png'), { code: 'storage/unauthorized' });
