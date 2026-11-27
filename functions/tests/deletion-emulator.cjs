@@ -164,4 +164,21 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.equal((await resetAccountDeletionPreflight.run({auth:{uid:adminUid,token:{}},data:{userId:other}})).status,'requested');
   assert.equal((await deletionRequest.get()).get('status'),'requested');
 
+  const { assertLockCandidate, assertProductionLockActivationDisabled } = require('../lib/accountDeletion/productionLockPolicy');
+  const identity = (await auth.getUser(other)).metadata.creationTime;
+  const candidate = {uid:other,authCreationTime:identity,request:{userId:other,authCreationTime:identity,status:'preflight'},existingLock:false,actorLocked:false};
+  assert.doesNotThrow(()=>assertLockCandidate(candidate));
+  for (const invalid of [
+    {...candidate,existingLock:true},
+    {...candidate,actorLocked:true},
+    {...candidate,authCreationTime:'invalid'},
+    {...candidate,uid:'bad/path'},
+    {...candidate,request:{...candidate.request,status:'requested'}},
+    {...candidate,request:{...candidate.request,userId:adminUid}},
+    {...candidate,request:{...candidate.request,authCreationTime:undefined}},
+    {...candidate,request:{...candidate.request,authCreationTime:'Thu, 01 Jan 1970 00:00:00 GMT'}}
+  ]) assert.throws(()=>assertLockCandidate(invalid));
+  assert.throws(()=>assertProductionLockActivationDisabled(),/activation disabled/);
+  assert.equal((await freeze.get()).exists,false);
+
 });
