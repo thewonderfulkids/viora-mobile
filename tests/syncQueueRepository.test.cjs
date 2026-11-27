@@ -10,6 +10,7 @@ function setup({ onGetItem, onSetItem } = {}) {
   const storage = new Map();
   const auth = { currentUser: { uid: 'alice' } };
   const asyncStorage = {
+    async getAllKeys() { return [...storage.keys()]; },
     async getItem(key) { await Promise.resolve(); if (onGetItem) await onGetItem(key); return storage.get(key) ?? null; },
     async setItem(key, value) { await Promise.resolve(); if (onSetItem) await onSetItem(key, value); storage.set(key, value); },
     async removeItem(key) { await Promise.resolve(); storage.delete(key); },
@@ -115,4 +116,11 @@ test('H04 cleanup aborts on account change', async () => {
   let actor; const {repo,storage,auth}=setup({onGetItem:async()=>{actor.currentUser={uid:'bob'};}}); actor=auth;
   const k='@viora/sync-queue/v1'; storage.set(k,'[]');
   await assert.rejects(repo.cleanupEmptyLegacySyncQueue(),/Account changed/); assert.equal(storage.get(k),'[]');
+});
+
+test('H04 inventory counts known legacy keys without exposing scoped data', async () => {
+  const {repo,storage}=setup();
+  for(const k of ['@viora/steps/daily/2026-11-24','@viora/steps/goal','@viora/sync-queue/v1','@viora/steps/by-user/bob/daily/2026-11-24']) storage.set(k,'private');
+  const result=await repo.inspectLegacyLocalStorage();
+  assert.equal(result.legacyStepDays,1); assert.equal(result.legacyStepGoal,true); assert.equal(result.legacyQueue,true); assert.equal(storage.size,4);
 });
