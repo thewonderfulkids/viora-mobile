@@ -9,6 +9,8 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
  */
 import { ADDITIONAL_INVENTORY_SOURCES, PROFILE_PHOTO_PREFIX, REVIEW_REQUIRED_COLLECTIONS, USER_OWNERSHIP_FIELDS, USER_QUERY_COLLECTIONS, USER_UID_DOCUMENT_COLLECTIONS } from "./inventoryManifest";
 
+import { classifyRetention } from "./retentionPolicy";
+
 export const previewAccountDeletion = onCall(
   { region: "asia-south1", enforceAppCheck: false },
   async (request) => {
@@ -95,6 +97,9 @@ export const previewAccountDeletion = onCall(
       directDocs, collectionCounts, idPrefixMatches, avatarFileCount: avatarCount, storageTruncated, queryErrors,
       reviewRequiredCollections: REVIEW_REQUIRED_COLLECTIONS,
       additionalInventorySources: ADDITIONAL_INVENTORY_SOURCES,
+      retentionReview: [...new Set<string>([...USER_QUERY_COLLECTIONS, ...USER_UID_DOCUMENT_COLLECTIONS, "accountDeletionLocks", "accountDeletionRequests", "aiGlobalBudget"])].map(collection => ({
+        collection, decision: classifyRetention(collection), automaticErasureAuthorized: false,
+      })),
       incomplete: true,
       warning: "Read-only inventory. Counts across fields overlap and must not be added. Document-ID-prefix records, unknown collections, nested subcollections, retention obligations, and other Storage paths may exist. Do not use this inventory as authorization to delete.",
     };
