@@ -27,7 +27,7 @@ async function requireAdmin(uid: string | undefined) {
   return user;
 }
 
-async function applyGrant(uid: string, email: string, grant: { planCode: PlanCode; note: string; grantedByUid: string; grantedByEmail: string; createdAt: string }, actorUid: string) {
+async function applyGrant(uid: string, email: string, grant: { planCode: PlanCode; note: string; grantedByUid: string; grantedByEmail: string; createdAt: string }, actorUid: string, expectedPending?: FirebaseFirestore.DocumentSnapshot) {
   const plan = PLANS[grant.planCode];
   const now = new Date();
   const nowIso = now.toISOString();
@@ -35,11 +35,14 @@ async function applyGrant(uid: string, email: string, grant: { planCode: PlanCod
   const db = getFirestore();
   const subscriptionId = `admin_grant_${uid}`;
   const ref = db.doc(`subscriptions/${subscriptionId}`);
-  await db.runTransaction(async tx => {
+  return db.runTransaction(async tx => {
     const freeze = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
     if (freeze.exists) throw new HttpsError("failed-precondition", "Account deletion is in progress.");
     const actorFreeze = await tx.get(db.doc(`accountDeletionLocks/${actorUid}`));
     if (actorFreeze.exists) throw new HttpsError("failed-precondition", "Acting account deletion is in progress.");
+    const pendingRef = db.doc(`pendingPremiumGrants/${emailKey(email)}`);
+    const pending = await tx.get(pendingRef);
+    if (expectedPending && (!pending.exists || !pending.updateTime?.isEqual(expectedPending.updateTime!))) return null;
     const previous = await tx.get(ref);
     tx.set(ref, {
       id: subscriptionId, userId: uid, planCode: grant.planCode, tier: plan.tier,
@@ -56,8 +59,9 @@ async function applyGrant(uid: string, email: string, grant: { planCode: PlanCod
       targetEmail: email, note: grant.note,
       serverUpdatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
+    if (pending.exists) tx.delete(pendingRef);
+    return { subscriptionId, planCode: grant.planCode, expiresAt };
   });
-  return { subscriptionId, planCode: grant.planCode, expiresAt };
 }
 
 export const adminGrantPremiumByEmail = onCall({ region: "asia-south1", enforceAppCheck: false }, async request => {
@@ -76,12 +80,6 @@ export const adminGrantPremiumByEmail = onCall({ region: "asia-south1", enforceA
   if (target) {
     if (target.disabled) throw new HttpsError("failed-precondition", "Target account disabled.");
     await applyGrant(target.uid, email, grant, admin.uid);
-    await getFirestore().runTransaction(async tx => {
-      const actorLock = await tx.get(getFirestore().doc(`accountDeletionLocks/${admin.uid}`));
-      const targetLock = await tx.get(getFirestore().doc(`accountDeletionLocks/${target.uid}`));
-      if (actorLock.exists || targetLock.exists) throw new HttpsError("failed-precondition", "Account deletion is in progress.");
-      tx.delete(pendingRef);
-    });
     return { status: "active", email, planCode };
   }
   // New users are NOT created or granted access until they sign in with this email.
@@ -106,13 +104,7 @@ export const claimPendingPremiumGrant = onCall({ region: "asia-south1", enforceA
   const data = snap.data()!;
   if (!isPlan(data.planCode)) throw new HttpsError("failed-precondition", "Invalid pending plan.");
   const grant = { planCode: data.planCode, note: String(data.note ?? ""), grantedByUid: String(data.grantedByUid ?? ""), grantedByEmail: String(data.grantedByEmail ?? ""), createdAt: String(data.createdAt ?? "") };
-  const result = await applyGrant(uid, email, grant, uid);
-  // Only delete if the grant was not changed during application.
-  await getFirestore().runTransaction(async tx => {
-    const freeze = await tx.get(getFirestore().doc(`accountDeletionLocks/${uid}`));
-    if (freeze.exists) throw new HttpsError("failed-precondition", "Account deletion is in progress.");
-    const latest = await tx.get(ref);
-    if (latest.exists && latest.data()?.createdAt === grant.createdAt && latest.data()?.planCode === grant.planCode) tx.delete(ref);
-  });
+  const result = await applyGrant(uid, email, grant, uid, snap);
+  if (!result) return { claimed: false };
   return { claimed: true, ...result };
 });
