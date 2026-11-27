@@ -64,7 +64,7 @@ export const generateWellnessAdviceHttp = onRequest(
     // Older APKs place the generated Coach context and question in one field.
     const questionLimit = hasCoachContext ? 2000 : 8000;
     if (
-      !body || typeof body.question !== "string" || !body.question.trim() ||
+      !body || Array.isArray(body) || typeof body !== "object" || typeof body.question !== "string" || !body.question.trim() ||
       body.question.length > questionLimit || !body.dashboard?.todayStats ||
       (hasCoachContext && (typeof body.coachContext !== "string" || body.coachContext.length > 3500))
     ) {
