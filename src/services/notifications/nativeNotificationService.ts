@@ -170,12 +170,15 @@ export function syncNativeWellnessReminders(
     }
     if (!(await requestWellnessNotificationPermission()) || !active()) return;
     const nextIds: string[] = [];
+    const seenReminderIds = new Set<string>();
     let committed = false;
     let replacementReady = false;
     try {
       for (const reminder of reminders) {
         if (!active()) return;
         if (reminder.userId !== uid || reminder.status !== "scheduled" || !isFutureDate(reminder.scheduledFor)) continue;
+        if (seenReminderIds.has(reminder.id)) continue;
+        seenReminderIds.add(reminder.id);
         const notificationId = await Notifications.scheduleNotificationAsync({
           content: {
             title: reminder.title,
