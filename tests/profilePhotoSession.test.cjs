@@ -260,7 +260,7 @@ test("H06 transaction refuses stale avatar reference and preserves current photo
 test("H06 cleanup lock guards all avatar aliases and cannot be edited by clients", () => {
   const rules = fs.readFileSync(path.join(__dirname, "..", "firestore.rules"), "utf8");
   const guard = rules.split("function avatarCleanupAllowsUpdate()")[1].split("match /users/")[0];
-  assert.match(guard, /affectedKeys\(\)\.hasAny\(\["avatarCleanupLocked", "avatarServerManaged", "avatarCleanupToken"\]\)/);
+  assert.match(guard, /affectedKeys\(\)\.hasAny\(\["avatarCleanupLocked", "avatarServerManaged", "avatarCleanupToken", "avatarCleanupStartedAt"\]\)/);
   assert.match(guard, /resource\.data\.get\("avatarServerManaged", false\)/);
   assert.match(guard, /resource\.data\.get\("avatarCleanupLocked", false\)/);
   for (const field of ["photoURL", "photoUrl", "avatarUrl"]) assert.ok(guard.includes('"' + field + '"'));
