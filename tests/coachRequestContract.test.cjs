@@ -19,7 +19,7 @@ function load(file, imports, globals = {}) {
   return module.exports;
 }
 
-function setup({ providerError } = {}) {
+function setup({ providerError, appCheckRequired = false, allowedApps = "" } = {}) {
   const outgoing = [], prompts = [], providerRequests = [], errorLogs = [];
   const quotas = new Map();
   const user = { uid: 'synthetic-member', getIdToken: async () => 'fixture-token' };
@@ -47,7 +47,7 @@ function setup({ providerError } = {}) {
     ...admin,
     './ai': handler,
     'firebase-admin/app': { initializeApp() {} },
-    'firebase-admin/app-check': {},
+    'firebase-admin/app-check': { getAppCheck: () => ({ verifyToken: async token => { if (token !== 'valid-app-token') throw Error('invalid'); return {appId:'fixture-app'}; } }) },
     'firebase-admin/auth': { getAuth: () => ({ verifyIdToken: async (token) => {
       assert.equal(token, 'fixture-token');
       return { uid: user.uid };
@@ -64,10 +64,10 @@ function setup({ providerError } = {}) {
     },
     'firebase-functions': { setGlobalOptions() {} },
     'firebase-functions/https': { onRequest: (_options, fn) => fn },
-  }, { process: {env: {}}, console: { error: (...args) => errorLogs.push(args) } }).generateWellnessAdviceHttp;
-  async function post(body, headers = { authorization: 'Bearer fixture-token' }) {
+  }, { process: {env: {VIORA_ENFORCE_APP_CHECK: appCheckRequired ? "true" : "false", VIORA_APP_CHECK_ALLOWED_APP_IDS: allowedApps}}, console: { error: (...args) => errorLogs.push(args) } }).generateWellnessAdviceHttp;
+  async function post(body, headers = { authorization: 'Bearer fixture-token' }, rawBody) {
     let status, result;
-    await endpoint({ method: 'POST', headers, body }, {
+    await endpoint({ method: 'POST', headers, body, rawBody, get: name => headers[name.toLowerCase()] }, {
       status(code) { status = code; return this; },
       json(value) { result = value; },
     });
@@ -214,4 +214,24 @@ test('provider failure sends a generic 503 and logs only a fixed message', async
   assert.deepEqual(Object.keys(result), ['error']);
   assert.equal(result.error, 'AI Coach is temporarily unavailable. Please try again later.');
   assert.deepEqual(f.errorLogs, [['Wellness AI provider request failed']]);
+});
+
+test('H07 rejects non-object bodies and oversized raw payloads before quota', async () => {
+  const f=setup();
+  for(const body of [null, [], "hello", 42]) assert.equal((await f.post(body)).status,400);
+  assert.equal((await f.post({question:'hello',dashboard},undefined,Buffer.alloc(262145))).status,413);
+  assert.equal(f.providerRequests.length,0);
+});
+test('H08 verifies supplied tokens and fails closed when enforcement is enabled',async()=>{
+  const body={question:'hello',dashboard};
+  const headers=token=>({authorization:'Bearer fixture-token','x-firebase-appcheck':token});
+  const f=setup({appCheckRequired:true,allowedApps:'fixture-app'});
+  assert.equal((await f.post(body)).status,401);
+  assert.equal((await f.post(body,headers('invalid'))).status,401);
+  assert.equal((await f.post(body,headers('valid-app-token'))).status,200);
+  const other=setup({appCheckRequired:true,allowedApps:'other-app'});
+  assert.equal((await other.post(body,headers('valid-app-token'))).status,401);
+  const legacy=setup();
+  assert.equal((await legacy.post(body,headers('invalid'))).status,401);
+  assert.equal((await legacy.post(body)).status,200);
 });

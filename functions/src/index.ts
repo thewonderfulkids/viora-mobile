@@ -45,20 +45,26 @@ export const generateWellnessAdviceHttp = onRequest(
     }
 
     // Enforcement is opt-in until supported mobile clients can supply App Check tokens.
-    if (process.env.VIORA_ENFORCE_APP_CHECK === "true") {
-      const appCheckToken = req.get("X-Firebase-AppCheck");
-      if (!appCheckToken) {
+    const appCheckToken = req.get?.("X-Firebase-AppCheck");
+    if (process.env.VIORA_ENFORCE_APP_CHECK === "true" || appCheckToken !== undefined) {
+      if (typeof appCheckToken !== "string" || !appCheckToken.trim() || appCheckToken.length > 8192) {
         res.status(401).json({ error: "App verification required" });
         return;
       }
       try {
-        await getAppCheck().verifyToken(appCheckToken);
+        const verified = await getAppCheck().verifyToken(appCheckToken);
+        const allowedApps = (process.env.VIORA_APP_CHECK_ALLOWED_APP_IDS ?? "").split(",").map(id => id.trim()).filter(Boolean);
+        if (allowedApps.length && !allowedApps.includes(verified.appId)) throw new Error("App not allowed");
       } catch {
         res.status(401).json({ error: "App verification failed" });
         return;
       }
     }
 
+    if (req.rawBody && req.rawBody.length > 262144) {
+      res.status(413).json({ error: "Invalid wellness request" });
+      return;
+    }
     const body = req.body;
     const hasCoachContext = body?.coachContext !== undefined;
     // Older APKs place the generated Coach context and question in one field.
