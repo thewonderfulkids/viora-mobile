@@ -196,7 +196,14 @@ export function syncNativeWellnessReminders(
       // Once the full replacement exists, retain it on partial cancellation failure.
       // A subsequent sync enumerates both generations and reconciles them.
       replacementReady = true;
-      const cancellations = await Promise.allSettled(previous.map(job => Notifications.cancelScheduledNotificationAsync(job.identifier)));
+      const cancellations = await Promise.allSettled(previous.map(async job => {
+        try {
+          await Notifications.cancelScheduledNotificationAsync(job.identifier);
+        } catch {
+          // Retry only the old identifier; never cancel the replacement generation.
+          await Notifications.cancelScheduledNotificationAsync(job.identifier);
+        }
+      }));
       committed = active();
       if (cancellations.some(result => result.status === "rejected")) throw new Error("Could not replace all Smart reminders; retry required.");
     } finally {
