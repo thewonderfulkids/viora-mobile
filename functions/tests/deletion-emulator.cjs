@@ -211,4 +211,19 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   await assert.rejects(prepare(),/lock already exists/);
   assert.equal((await auth.getUser(other)).uid,other);
 
+  const { discoverDeletionDataPaths } = require('../lib/accountDeletion/discoverDeletionDataPaths');
+  const discover = () => discoverDeletionDataPaths.run({auth:{uid:adminUid,token:{}},data:{userId:other}});
+  const orphanParent = db.doc('fixtureInventory/'+other);
+  await orphanParent.collection('messages').doc('sample').set({userId:other});
+  assert.equal((await orphanParent.get()).exists,false);
+  const discovery = await discover();
+  assert.equal(discovery.complete,false);
+  assert.ok(discovery.nestedCollectionPaths.includes(orphanParent.path+'/messages'));
+  await adminFreeze.set({frozen:true});
+  await assert.rejects(discover(),/Acting account deletion is in progress/);
+  await adminFreeze.delete();
+  await deletionRequest.update({authCreationTime:'Thu, 01 Jan 1970 00:00:00 GMT'});
+  await assert.rejects(discover(),/identity mismatch or legacy request/);
+  await deletionRequest.update({authCreationTime:identity});
+
 });
