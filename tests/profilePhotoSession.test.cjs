@@ -236,6 +236,7 @@ test("H06 independent runtime avatar paths retain numeric compatibility and exte
 test("H06 transaction refuses stale avatar reference and preserves current photo", async () => {
   let current = "newer", writes = 0;
   const repo = load("src/repositories/userPhotoRepository.ts", {
+    "firebase/functions": {},
     "../firebase/firebaseConfig": { db: {} },
     "../firebase/firestoreCollections": { COLLECTIONS: { users: "users" } },
     "firebase/firestore": {
@@ -264,4 +265,18 @@ test("H06 cleanup lock guards all avatar aliases and cannot be edited by clients
   assert.match(guard, /resource\.data\.get\("avatarCleanupLocked", false\)/);
   for (const field of ["photoURL", "photoUrl", "avatarUrl"]) assert.ok(guard.includes('"' + field + '"'));
   assert.match(rules, /allow update: if accountWritable\(\) && avatarCleanupAllowsUpdate\(\) && \(isVioraAdmin\(\)/);
+});
+
+
+test("H06 managed mobile writes use callable rather than direct Firestore", async () => {
+  let payload;
+  const repo = load("src/repositories/userPhotoRepository.ts", {
+    "../firebase/firebaseConfig": { db: {}, functions: {} },
+    "../firebase/firestoreCollections": { COLLECTIONS: { users: "users" } },
+    "firebase/firestore": { doc: () => "user", getDocFromServer: async () => ({ data: () => ({ avatarServerManaged: true, photoURL: "old" }) }), runTransaction: () => { throw Error("direct write"); } },
+    "firebase/functions": { httpsCallable: (_, name) => { assert.equal(name, "publishProfileAvatar"); return async data => { payload = data; }; } },
+  });
+  await repo.updateUserPhoto("a", "profile-photos/a/avatar-123.jpg", "old");
+  assert.equal(payload.path, "profile-photos/a/avatar-123.jpg");
+  assert.equal(payload.expectedPhoto, "old");
 });
