@@ -139,3 +139,42 @@ test("Profile discards a late avatar and toast after switching account", async (
   assert.deepEqual(alerts, []);
   assert.equal(find(render(), "ProfileHero").photoURL, "fixture:/old-avatar");
 });
+
+test("private avatar references accept only configured bucket and owner paths", () => {
+  const { resolvePrivateAvatarPath: resolve } = load("src/repositories/privateAvatarReference.ts", {});
+  const key = "profile-photos/a/avatar-123.jpg";
+  const prefix = "https://firebasestorage.googleapis.com/v0/b/test-bucket/o/";
+  assert.equal(resolve("a", key, "test-bucket"), key);
+  assert.equal(resolve("a", prefix + encodeURIComponent(key) + "?alt=media&token=secret", "test-bucket"), key);
+  for (const value of ["profile-photos/b/avatar-123.jpg", "https://example.invalid/" + key, prefix + "%ZZ", "profile-photos/a/../avatar-123.jpg", prefix.replace("test-bucket", "other") + encodeURIComponent(key)]) {
+    assert.equal(resolve("a", value, "test-bucket"), null);
+  }
+});
+
+test("private avatar reader retrieves bounded bytes and rejects stale sessions", async () => {
+  const owner = account("a"), auth = { currentUser: owner }, storage = {};
+  const parser = load("src/repositories/privateAvatarReference.ts", {});
+  let gate = null, reads = 0;
+  const { readPrivateAvatar } = load("src/repositories/privateAvatarReader.ts", {
+    "../firebase/firebaseConfig": { auth, storage },
+    "./privateAvatarReference": parser,
+    "firebase/storage": {
+      ref: (_, key) => ({ bucket: "test-bucket", key }),
+      getBytes: async (reference, max) => {
+        reads++;
+        assert.equal(reference.key, "profile-photos/a/avatar-123.jpg");
+        assert.equal(max, 5 * 1024 * 1024);
+        return gate ? gate.promise : Uint8Array.from([255,216,255,217]).buffer;
+      },
+    },
+  });
+  const key = "profile-photos/a/avatar-123.jpg";
+  assert.equal(await readPrivateAvatar(key), "data:image/jpeg;base64,/9j/2Q==");
+  await assert.rejects(readPrivateAvatar("profile-photos/b/avatar-123.jpg"), /Invalid avatar reference/);
+  assert.equal(reads, 1);
+  gate = deferred();
+  const pending = readPrivateAvatar(key);
+  auth.currentUser = account("a");
+  gate.resolve(Uint8Array.from([255,216,255,217]).buffer);
+  await assert.rejects(pending, /session changed/);
+});
