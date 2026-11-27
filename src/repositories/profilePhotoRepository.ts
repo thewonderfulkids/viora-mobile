@@ -2,8 +2,12 @@ import { getDownloadURL, ref, uploadString } from "firebase/storage";
 
 import { storage } from "../firebase/firebaseConfig";
 
+let lastAvatarVersion = 0;
+
 function buildAvatarPath(uid: string) {
-  const version = Date.now();
+  // Avoid overwriting an earlier upload when two requests share a clock tick.
+  const version = Math.max(Date.now(), lastAvatarVersion + 1);
+  lastAvatarVersion = version;
   return `profile-photos/${uid}/avatar-${version}.jpg`;
 }
 
