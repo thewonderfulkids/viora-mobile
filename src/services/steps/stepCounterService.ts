@@ -274,6 +274,22 @@ async function updatePermission(owner: Session, ask: boolean) {
 
 async function initialize(owner: Session) {
   try {
+    // Recover older day journals before starting the sensor; never scan another UID.
+    const prefix = keyFor(owner.uid, "daily/");
+    const keys = await AsyncStorage.getAllKeys();
+    for (const journalKey of keys) {
+      if (!current(owner)) return;
+      if (!journalKey.startsWith(prefix) || !/^\d{4}-\d{2}-\d{2}\/recovery$/.test(journalKey.slice(prefix.length))) continue;
+      const target = journalKey.slice(0, -"/recovery".length);
+      await enqueueWrite(target, async () => {
+        if (!current(owner)) return;
+        const payload = await AsyncStorage.getItem(journalKey);
+        if (payload == null || !current(owner)) return;
+        await AsyncStorage.setItem(target, payload);
+        await AsyncStorage.removeItem(journalKey);
+      });
+    }
+    if (!current(owner)) return;
     const goalVersion = owner.goalVersion;
     const [storedGoal, supported] = await Promise.all([
       read(keyFor(owner.uid, "goal")),
