@@ -215,10 +215,14 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   const discover = () => discoverDeletionDataPaths.run({auth:{uid:adminUid,token:{}},data:{userId:other}});
   const orphanParent = db.doc('fixtureInventory/'+other);
   await orphanParent.collection('messages').doc('sample').set({userId:other});
+  await orphanParent.collection('messages').doc('missing-parent').collection('attachments').doc('sample').set({userId:other});
   assert.equal((await orphanParent.get()).exists,false);
   const discovery = await discover();
   assert.equal(discovery.complete,false);
   assert.ok(discovery.nestedCollectionPaths.includes(orphanParent.path+'/messages'));
+  assert.ok(discovery.nestedCollectionPaths.includes(orphanParent.path+'/messages/missing-parent/attachments'));
+  assert.ok(discovery.inspectedNestedDocuments >= 2);
+  assert.equal(discovery.deletionPerformed,false);
   await adminFreeze.set({frozen:true});
   await assert.rejects(discover(),/Acting account deletion is in progress/);
   await adminFreeze.delete();
