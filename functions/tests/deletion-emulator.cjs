@@ -111,4 +111,27 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   await freeze.delete();
   assert.equal((await grantByAdmin(email)).status,'active');
   assert.equal((await subscription.get()).get('planCode'),'PRO_YEARLY');
+  // Interpose a replacement after the callable reads its pending snapshot,
+  // but before the real Firestore transaction starts.
+  await pending.set(grant);
+  const originalTransaction = db.runTransaction;
+  let replaced = false;
+  db.runTransaction = async function (...args) {
+    if (!replaced) {
+      replaced = true;
+      await pending.set({...grant,planCode:'PLUS_YEARLY'});
+    }
+    return originalTransaction.apply(this,args);
+  };
+  try {
+    assert.equal((await claim()).claimed,false);
+    assert.equal(replaced,true);
+    assert.equal((await pending.get()).get('planCode'),'PLUS_YEARLY');
+    assert.equal((await subscription.get()).get('planCode'),'PRO_YEARLY');
+  } finally {
+    db.runTransaction = originalTransaction;
+  }
+  assert.equal((await claim()).claimed,true);
+  assert.equal((await subscription.get()).get('planCode'),'PLUS_YEARLY');
+  assert.equal((await pending.get()).exists,false);
 });
