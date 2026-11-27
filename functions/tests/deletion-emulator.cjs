@@ -32,6 +32,22 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   });
   assert.equal((await lock.get()).get('leased'),false);
   assert.equal((await lock.get()).get('leaseToken'),null);
+  // Simulate a crashed worker leaving a durable lease behind.
+  const abandonedToken = 'abandoned-fixture-worker';
+  await lock.update({leased:true,leaseToken:abandonedToken,leaseAcquiredAt:new Date(0)});
+  await assert.rejects(executeDeletion(uid,createEmulatorDeletionAdapter(uid)),/Fixture unavailable/);
+  assert.equal((await lock.get()).get('leaseToken'),abandonedToken);
+  assert.equal((await owned.get()).exists,true);
+  assert.equal((await file.exists())[0],true);
+  assert.equal((await auth.getUser(uid)).disabled,true);
+  // Test harness alone confirms no worker was launched for this synthetic lease.
+  // This is not an automatic timeout or a production recovery endpoint.
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(lock);
+    assert.equal(snap.get('leaseToken'),abandonedToken);
+    assert.equal(snap.get('leased'),true);
+    tx.update(lock,{leased:false,leaseToken:null});
+  });
   const failing = {...adapter, eraseOwnedStorage: async () => {throw Error('injected interruption');}};
   await assert.rejects(executeDeletion(uid,failing),/injected interruption/);
   assert.equal((await lock.get()).get('state'),'retry_required');
