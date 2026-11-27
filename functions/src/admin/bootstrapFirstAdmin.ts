@@ -175,6 +175,9 @@ export const bootstrapFirstAdmin = onCall(
           );
         }
 
+        const deletionLock = await transaction.get(db.doc(`accountDeletionLocks/${userRecord.uid}`));
+        if (deletionLock.exists) throw new HttpsError("failed-precondition", "Account deletion lock exists.");
+
         transaction.set(
           db.doc(`users/${userRecord.uid}`),
           {
