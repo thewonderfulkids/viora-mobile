@@ -1,4 +1,6 @@
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text } from "react-native";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../firebase/firebaseConfig";
 
 import { CommonBackButton, ErrorState, LoadingState, Screen } from "../components/common";
 import { SettingsInfoCard, SettingsSection } from "../components/settings";
@@ -15,10 +17,18 @@ export default function DeleteAccountScreen() {
   function requestDeleteAccount() {
     Alert.alert(
       "Request account deletion",
-      "This will mark your account for deletion review. Permanent deletion will be handled through the production safety flow.",
+      "This submits a verified deletion request for review. It does not immediately delete your account or data. You must have signed in within the last five minutes.",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Request deletion", style: "destructive", onPress: () => updatePreferences({ deleteAccountRequestedAt: new Date().toISOString() }) },
+        { text: "Request deletion", style: "destructive", onPress: async () => {
+          try {
+            await httpsCallable(functions, "requestAccountDeletion")({});
+            await updatePreferences({ deleteAccountRequestedAt: new Date().toISOString() });
+            Alert.alert("Request received", "Your account deletion request has been securely recorded for review. Your account and data have not been deleted yet.");
+          } catch (error: any) {
+            Alert.alert("Request not submitted", error?.message || "Please sign in again and retry.");
+          }
+        } },
       ]
     );
   }
@@ -33,7 +43,7 @@ export default function DeleteAccountScreen() {
 
         <SettingsSection
           title="Delete Account"
-          subtitle="Account deletion is intentionally handled as a safe request flow before production hard deletion."
+          subtitle="Submit a secure deletion request. Actual account and data removal is not yet available."
         >
           <SettingsInfoCard
             title="Deletion status"
@@ -41,7 +51,7 @@ export default function DeleteAccountScreen() {
           />
           <SettingsInfoCard
             title="Safety note"
-            subtitle="Viora will never use this flow for accidental deletion. Final production hard-delete will be added during launch hardening."
+            subtitle="Requests require recent authentication and are stored for review. This does not permanently delete your data yet."
           >
             <Text style={styles.deleteText} onPress={requestDeleteAccount}>Request account deletion →</Text>
           </SettingsInfoCard>

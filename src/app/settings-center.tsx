@@ -28,6 +28,7 @@ import {
   Screen,
 } from "../components/common";
 import { PremiumEntryHero } from "../components/firstImpression";
+import { LegacyQueueRecoveryCard } from "../components/sync/LegacyQueueRecoveryCard";
 import {
   AccountSummaryCard,
   SettingsSection,
@@ -159,6 +160,8 @@ export default function SettingsCenterScreen() {
         />
 
         <AccountSummaryCard dashboard={dashboard} />
+
+        <LegacyQueueRecoveryCard />
 
         <SettingsSection
           title="Membership & experience"

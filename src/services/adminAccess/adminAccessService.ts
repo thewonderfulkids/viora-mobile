@@ -1,78 +1,19 @@
-import { findAdminAccessUserByEmail, setAdminSubscriptionGrant } from "../../repositories/adminAccessRepository";
-import { AdminAccessGrantInput, AdminAccessGrantResult, AdminAccessUser, PremiumFeatureKey, PremiumPlanCode, UserSubscription } from "../../types";
-import { getPlanByCode } from "../premium";
-import { isVioraAccessAdmin, normalizeAdminEmail } from "./adminAccessConfig";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../firebase/firebaseConfig";
+import { AdminAccessGrantInput, AdminAccessGrantResult, AdminAccessUser } from "../../types";
 
-function nowIso() {
-  return new Date().toISOString();
+export async function searchAccessUserByEmail(_adminEmail: string, targetEmail: string): Promise<AdminAccessUser | null> {
+  const email = targetEmail.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid user email.");
+  // Do not expose the full user directory through client-side Firestore queries.
+  // The server securely resolves registered and future users during grant.
+  return { uid: "", fullName: "Email recipient", email };
 }
 
-function normalizeEmail(email: string) {
-  return String(email || "").trim().toLowerCase();
+export async function grantPremiumAccess(input: AdminAccessGrantInput): Promise<AdminAccessGrantResult & { status: string }> {
+  const call = httpsCallable<{ email: string; planCode: string; note: string }, { status: string; email: string; planCode: string }>(functions, "adminGrantPremiumByEmail");
+  const response = await call({ email: input.targetEmail, planCode: input.planCode, note: input.note || "" });
+  return { subscriptionId: "", planCode: input.planCode, expiresAt: null, status: response.data.status };
 }
 
-function entitlementsFromPlan(planCode: PremiumPlanCode): PremiumFeatureKey[] {
-  return getPlanByCode(planCode).features.filter((feature) => feature.included).map((feature) => feature.key);
-}
-
-export async function searchAccessUserByEmail(adminEmail: string, targetEmail: string): Promise<AdminAccessUser | null> {
-  if (!isVioraAccessAdmin(adminEmail)) throw new Error("Admin access is required.");
-
-  const email = normalizeEmail(targetEmail);
-  if (!email || !email.includes("@")) throw new Error("Enter a valid user email.");
-
-  return findAdminAccessUserByEmail(email);
-}
-
-export async function grantPremiumAccess(input: AdminAccessGrantInput): Promise<AdminAccessGrantResult> {
-  if (!isVioraAccessAdmin(input.adminEmail)) throw new Error("Admin access is required.");
-  if (!input.targetUserId) throw new Error("Select a user first.");
-
-  const plan = getPlanByCode(input.planCode);
-  if (!plan.active) throw new Error("Selected plan is not active.");
-
-  const timestamp = nowIso();
-  const expiresAt = input.expiresAt === undefined ? null : input.expiresAt;
-  const payload: UserSubscription & {
-    source: "admin_access_grant";
-    grantedByUserId: string;
-    grantedByEmail: string;
-    targetEmail: string;
-    targetName: string;
-    note: string;
-  } = {
-    id: `admin_grant_${input.targetUserId}`,
-    userId: input.targetUserId,
-    planCode: plan.code,
-    tier: plan.tier,
-    status: plan.code === "FREE" ? "free" : "active",
-    provider: "manual",
-    startedAt: timestamp,
-    currentPeriodStart: timestamp,
-    currentPeriodEnd: expiresAt,
-    renewalDate: expiresAt,
-    cancelledAt: null,
-    expiresAt,
-    maxMembers: plan.maxMembers,
-    familyOwnerUserId: plan.tier === "elite_family" ? input.targetUserId : null,
-    invoiceOwnerUserId: input.targetUserId,
-    entitlements: entitlementsFromPlan(plan.code),
-    purchasedProgramIds: [],
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    source: "admin_access_grant",
-    grantedByUserId: input.adminUserId,
-    grantedByEmail: normalizeAdminEmail(input.adminEmail),
-    targetEmail: normalizeEmail(input.targetEmail),
-    targetName: input.targetName,
-    note: String(input.note || "").trim(),
-  };
-
-  return setAdminSubscriptionGrant(payload);
-}
-
-export function getAdminGrantExpiry(planCode: PremiumPlanCode) {
-  const plan = getPlanByCode(planCode);
-  if (!plan.durationDays) return null;
-  return new Date(Date.now() + plan.durationDays * 24 * 60 * 60 * 1000).toISOString();
-}
+export function getAdminGrantExpiry(_planCode: string): null { return null; }

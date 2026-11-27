@@ -1,28 +1,42 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { PendingSyncAction } from "../types";
+import { auth } from "../firebase/firebaseConfig";
 
-const SYNC_QUEUE_KEY = "@viora/sync-queue/v1";
-const LAST_SYNCED_AT_KEY = "@viora/sync-queue/last-synced-at";
+// Legacy device-wide queue is intentionally quarantined: never replay or auto-migrate it.
+const LEGACY_SYNC_QUEUE_KEY = "@viora/sync-queue/v1";
+const SYNC_QUEUE_KEY_PREFIX = "@viora/sync-queue/v2";
+const LAST_SYNCED_AT_KEY_PREFIX = "@viora/sync-queue/v2/last-synced-at";
+
+function currentUid(): string {
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error("Sign in to access your offline sync queue.");
+  return uid;
+}
+
+function queueKey(uid: string) { return `${SYNC_QUEUE_KEY_PREFIX}/${uid}`; }
+function syncedKey(uid: string) { return `${LAST_SYNCED_AT_KEY_PREFIX}/${uid}`; }
 
 function sortByNewest(items: PendingSyncAction[]) {
   return [...items].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
-async function readQueue(): Promise<PendingSyncAction[]> {
-  const raw = await AsyncStorage.getItem(SYNC_QUEUE_KEY);
+async function readQueue(uid = currentUid()): Promise<PendingSyncAction[]> {
+  const raw = await AsyncStorage.getItem(queueKey(uid));
   if (!raw) return [];
 
   try {
     const parsed = JSON.parse(raw) as PendingSyncAction[];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.filter(item => item?.userId === uid) : [];
   } catch {
     return [];
   }
 }
 
-async function writeQueue(queue: PendingSyncAction[]) {
-  await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(sortByNewest(queue)));
+async function writeQueue(queue: PendingSyncAction[], uid = currentUid()) {
+  if (currentUid() !== uid) throw new Error("Account changed during sync queue update.");
+  if (queue.some(item => item.userId !== uid)) throw new Error("Cannot save another user\'s sync actions.");
+  await AsyncStorage.setItem(queueKey(uid), JSON.stringify(sortByNewest(queue)));
 }
 
 export async function getPendingSyncActions(): Promise<PendingSyncAction[]> {
@@ -30,41 +44,79 @@ export async function getPendingSyncActions(): Promise<PendingSyncAction[]> {
 }
 
 export async function savePendingSyncAction(action: PendingSyncAction): Promise<PendingSyncAction[]> {
-  const queue = await readQueue();
+  if (action.userId !== currentUid()) throw new Error("Sync action owner does not match signed-in user.");
+  const uid = currentUid();
+  const queue = await readQueue(uid);
   const nextQueue = [action, ...queue.filter((item) => item.id !== action.id)];
-  await writeQueue(nextQueue);
+  await writeQueue(nextQueue, uid);
   return nextQueue;
 }
 
 export async function updatePendingSyncAction(actionId: string, patch: Partial<PendingSyncAction>): Promise<PendingSyncAction[]> {
-  const queue = await readQueue();
+  if (patch.userId !== undefined) throw new Error("Sync action owner cannot be changed.");
+  const uid = currentUid();
+  const queue = await readQueue(uid);
   const nextQueue = queue.map((item) => (item.id === actionId ? { ...item, ...patch, updatedAt: new Date().toISOString() } : item));
-  await writeQueue(nextQueue);
+  await writeQueue(nextQueue, uid);
   return nextQueue;
 }
 
 export async function removePendingSyncAction(actionId: string): Promise<PendingSyncAction[]> {
-  const queue = await readQueue();
+  const uid = currentUid();
+  const queue = await readQueue(uid);
   const nextQueue = queue.filter((item) => item.id !== actionId);
-  await writeQueue(nextQueue);
+  await writeQueue(nextQueue, uid);
   return nextQueue;
 }
 
 export async function clearSyncedSyncActions(): Promise<PendingSyncAction[]> {
-  const queue = await readQueue();
+  const uid = currentUid();
+  const queue = await readQueue(uid);
   const nextQueue = queue.filter((item) => item.status !== "synced");
-  await writeQueue(nextQueue);
+  await writeQueue(nextQueue, uid);
   return nextQueue;
 }
 
 export async function clearAllSyncActions(): Promise<void> {
-  await AsyncStorage.removeItem(SYNC_QUEUE_KEY);
+  await AsyncStorage.removeItem(queueKey(currentUid()));
 }
 
 export async function setLastSyncedAt(value: string): Promise<void> {
-  await AsyncStorage.setItem(LAST_SYNCED_AT_KEY, value);
+  await AsyncStorage.setItem(syncedKey(currentUid()), value);
 }
 
 export async function getLastSyncedAt(): Promise<string | null> {
-  return AsyncStorage.getItem(LAST_SYNCED_AT_KEY);
+  return AsyncStorage.getItem(syncedKey(currentUid()));
+}
+
+/** Read-only legacy inventory; never migrates, replays or deletes device-wide data. */
+export async function inspectLegacySyncQueue(): Promise<{
+  total: number;
+  currentUserCount: number;
+  otherUserCount: number;
+  missingOwnerCount: number;
+  unreadable: boolean;
+}> {
+  const uid = currentUid();
+  const raw = await AsyncStorage.getItem(LEGACY_SYNC_QUEUE_KEY);
+  if (!raw) return { total: 0, currentUserCount: 0, otherUserCount: 0, missingOwnerCount: 0, unreadable: false };
+  try {
+    const items: unknown = JSON.parse(raw);
+    if (!Array.isArray(items)) throw new Error("Invalid legacy queue");
+    let currentUserCount = 0;
+    let otherUserCount = 0;
+    let missingOwnerCount = 0;
+    for (const item of items) {
+      const owner = item && typeof item === "object" && "userId" in item
+        ? (item as { userId?: unknown }).userId : undefined;
+      if (owner === uid) currentUserCount++;
+      else if (typeof owner === "string" && owner.length > 0) otherUserCount++;
+      else missingOwnerCount++;
+    }
+    if (uid !== currentUid()) throw new Error("Account changed during legacy inventory.");
+    return { total: items.length, currentUserCount, otherUserCount, missingOwnerCount, unreadable: false };
+  } catch (error) {
+    if (uid !== auth.currentUser?.uid) throw error;
+    return { total: 0, currentUserCount: 0, otherUserCount: 0, missingOwnerCount: 0, unreadable: true };
+  }
 }

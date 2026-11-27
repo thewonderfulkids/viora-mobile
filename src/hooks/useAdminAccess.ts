@@ -26,11 +26,11 @@ export function useAdminAccess() {
       setTargetUser(null);
       const result = await searchAccessUserByEmail(adminEmail, email);
       if (!result) {
-        setError("No Viora user found with this email.");
+        setError("Enter a valid email address.");
         return;
       }
       setTargetUser(result);
-      setMessage("User found. Select a plan and grant access.");
+      setMessage("Email ready. Access will activate now for an existing account, or after a new user signs up and verifies this email.");
     } catch (err: any) {
       setError(err?.message || "Unable to search user.");
     } finally {
@@ -55,7 +55,7 @@ export function useAdminAccess() {
         expiresAt: getAdminGrantExpiry(selectedPlanCode),
         note,
       });
-      setMessage(`Access updated to ${result.planCode}. Ask user to reopen the app or pull-refresh Premium.`);
+      setMessage(result.status === "pending" ? `Grant saved for ${targetUser.email}. It will activate after signup and email verification.` : `Access updated to ${result.planCode}. Ask user to refresh Premium.`);
     } catch (err: any) {
       setError(err?.message || "Unable to grant access.");
     } finally {

@@ -1,3 +1,4 @@
+import { auth } from "../../firebase/firebaseConfig";
 import { AIProvider, AIProviderRequest, AIProviderResponse } from "./AIProvider";
 
 type GenerateAIResponse = {
@@ -27,10 +28,14 @@ export class VioraCloudAIProvider implements AIProvider {
     const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
 
     try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("Please sign in to use Viora AI.");
+      const idToken = await user.getIdToken();
       const response = await fetch(AI_FUNCTION_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({
           question: request.question,
