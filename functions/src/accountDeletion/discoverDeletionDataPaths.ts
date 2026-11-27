@@ -1,6 +1,7 @@
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { inventoryRetiredAvatars } from "./avatarRetirementInventory";
 
 /**
  * Bounded read-only discovery of collection names and nested collections
@@ -85,14 +86,26 @@ export const discoverDeletionDataPaths = onCall(
       }
     }
 
+    let retiredAvatarCount: number | null = null;
+    let retiredAvatarInventoryComplete = false;
+    try {
+      const inventory = await inventoryRetiredAvatars(uid);
+      retiredAvatarCount = inventory.candidates.length;
+      retiredAvatarInventoryComplete = inventory.complete;
+    } catch {
+      errors.push("retiredAvatars: Discovery failed");
+    }
+
     return {
+      retiredAvatarCount,
+      retiredAvatarInventoryComplete,
       userId: uid,
       collectionNames,
       uidDocumentPaths,
       nestedCollectionPaths,
       inspectedTopLevelCollections: inspected.length,
       inspectedNestedDocuments,
-      truncated: nestedTruncated || topLevel.length > MAX_COLLECTIONS || nestedCollectionPaths.length >= MAX_NESTED,
+      truncated: !retiredAvatarInventoryComplete || nestedTruncated || topLevel.length > MAX_COLLECTIONS || nestedCollectionPaths.length >= MAX_NESTED,
       errors,
       complete: false,
       deletionPerformed: false,
