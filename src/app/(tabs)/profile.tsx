@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { auth } from "../../firebase/firebaseConfig";
 import { Gender, UserDoc, WellnessGoal } from "../../firebase/firestoreTypes";
+import { inspectLegacySyncQueue, stageOwnedLegacyActionsForReview } from "../../repositories/syncQueueRepository";
 import { useDashboard } from "../../hooks/useDashboard";
 import { pickAndUploadProfilePhoto } from "../../services/user/profilePhotoService";
 import { saveUserProfile } from "../../services/user/userService";
@@ -97,6 +98,20 @@ function AccountProfile() {
     }
   }
 
+  async function handleLegacyReview() {
+    if (!isCurrent()) return;
+    try {
+      const inventory = await inspectLegacySyncQueue();
+      const count = await stageOwnedLegacyActionsForReview();
+      if (!isCurrent()) return;
+      Alert.alert("Older offline data", inventory.unreadable
+        ? "Older offline data could not be read. It has been preserved."
+        : `${count} unique records associated with your account were found. Older records remain preserved and are not automatically synced.`);
+    } catch {
+      if (isCurrent()) Alert.alert("Review unavailable", "Please try again. No older records were changed.");
+    }
+  }
+
   async function handleLogout() {
     if (!isCurrent()) return;
     try { await signOut(auth); if (!auth.currentUser) router.replace("/login"); }
@@ -141,6 +156,10 @@ function AccountProfile() {
           <Text style={styles.sectionEyebrow}>Account control</Text>
           <Text style={styles.sectionTitle}>Settings & privacy</Text>
         </View>
+        <Pressable accessibilityRole="button" style={{ padding: spacing.md, backgroundColor: colors.white, borderRadius: radius.xxl }} onPress={handleLegacyReview}>
+          <Text style={{ color: colors.text, fontWeight: "700" }}>Review older offline data</Text>
+          <Text style={{ color: colors.mutedText }}>Check records associated with your account without syncing them.</Text>
+        </Pressable>
         <ProfileSettingsList onLogout={handleLogout} onNotificationsPress={() => router.push("/smart-notifications" as never)} />
       </ScrollView>
     </Screen>
