@@ -218,3 +218,15 @@ test("H06 overlapping profile updates are rejected and the lock releases after f
   assert.equal(await f.pickAndUploadProfilePhoto("a"), "https://example.invalid/new-avatar");
   assert.equal(f.writes.length, 1);
 });
+
+
+test("H06 independent runtime avatar paths retain numeric compatibility and extended entropy", async () => {
+  const deps = {
+    "../firebase/firebaseConfig": { storage: {} },
+    "firebase/storage": { ref: (_, key) => key, uploadString: async () => {}, getDownloadURL: async key => key },
+  };
+  const keys = await Promise.all(Array.from({ length: 20 }, () =>
+    load("src/repositories/profilePhotoRepository.ts", deps).uploadProfilePhoto("a", "/9j/2Q==")));
+  assert.equal(new Set(keys).size, keys.length);
+  assert.ok(keys.every(key => /^profile-photos\/a\/avatar-[0-9]{36,}\.jpg$/.test(key)));
+});
