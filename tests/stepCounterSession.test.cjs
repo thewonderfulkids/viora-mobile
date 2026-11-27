@@ -31,6 +31,7 @@ function fixture() {
   const io = {
     getItem: async name => { reads.push(name); return store.get(name); },
     setItem: async (name, value) => { writes.push([name, value]); store.set(name, value); },
+    removeItem: async name => { store.delete(name); },
   };
   let now = new Date(2026, 10, 24, 23, 59, 40);
   const timers = new Map();
@@ -360,4 +361,14 @@ test('H03 retries failed previous-day write after midnight', async () => {
   assert.equal(f.store.get(old),'1244');
   await f.svc.refreshStepCounter('A');
   assert.equal(f.store.get(old),'1244'); unsubscribe();
+});
+
+test('H03 replays durable snapshot once after interrupted write', async () => {
+  const f=fixture(), k=key('A','daily/'+date);
+  f.store.set(k+'/recovery','1250'); f.move('A');
+  const off=f.svc.subscribeToStepCounter(()=>{}); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,1250);
+  assert.equal(f.store.get(k),'1250'); assert.equal(f.store.has(k+'/recovery'),false);
+  off(); f.move('A'); const off2=f.svc.subscribeToStepCounter(()=>{}); await flush();
+  assert.equal(f.svc.getStepCounterSnapshot('A').steps,1250); off2();
 });
