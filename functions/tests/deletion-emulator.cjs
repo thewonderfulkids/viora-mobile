@@ -4,7 +4,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
-const { createEmulatorDeletionAdapter } = require('../lib/accountDeletion/emulatorDeletionAdapter');
+const { createEmulatorDeletionAdapter, recoverStoppedFixtureLease } = require('../lib/accountDeletion/emulatorDeletionAdapter');
 const { executeDeletion } = require('../lib/accountDeletion/deletionExecutionCore');
 test('C01 synthetic deletion, protected records, retry and idempotency', async () => {
   for (const key of ['FIRESTORE_EMULATOR_HOST','FIREBASE_AUTH_EMULATOR_HOST','FIREBASE_STORAGE_EMULATOR_HOST']) assert.match(process.env[key] || '', /^(localhost|127\.0\.0\.1):\d+$/);
@@ -42,12 +42,20 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.equal((await auth.getUser(uid)).disabled,true);
   // Test harness alone confirms no worker was launched for this synthetic lease.
   // This is not an automatic timeout or a production recovery endpoint.
-  await db.runTransaction(async tx => {
-    const snap = await tx.get(lock);
-    assert.equal(snap.get('leaseToken'),abandonedToken);
-    assert.equal(snap.get('leased'),true);
-    tx.update(lock,{leased:false,leaseToken:null});
-  });
+  await assert.rejects(recoverStoppedFixtureLease(uid,abandonedToken,''),/Recovery evidence required/);
+  await assert.rejects(recoverStoppedFixtureLease(uid,'wrong-token','synthetic worker never launched'),/Recovery lease mismatch/);
+  assert.equal((await lock.get()).get('leaseToken'),abandonedToken);
+  assert.equal((await lock.collection('recoveryAudit').get()).size,0);
+  const evidence = 'synthetic worker never launched';
+  await recoverStoppedFixtureLease(uid,abandonedToken,evidence);
+  assert.equal((await lock.get()).get('leased'),false);
+  assert.equal((await lock.get()).get('frozen'),true);
+  await assert.rejects(recoverStoppedFixtureLease(uid,abandonedToken,evidence),/Recovery lease mismatch/);
+  const audit = await lock.collection('recoveryAudit').get();
+  assert.equal(audit.size,1);
+  assert.equal(audit.docs[0].get('previousToken'),abandonedToken);
+  assert.equal(audit.docs[0].get('evidence'),evidence);
+  assert.ok(audit.docs[0].get('recoveredAt'));
   const failing = {...adapter, eraseOwnedStorage: async () => {throw Error('injected interruption');}};
   await assert.rejects(executeDeletion(uid,failing),/injected interruption/);
   assert.equal((await lock.get()).get('state'),'retry_required');
