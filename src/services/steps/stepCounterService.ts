@@ -148,7 +148,14 @@ function selectDay(owner: Session, date = getDateKey()): Day {
 
 function loadDay(owner: Session, day: Day, storageKey: string) {
   day.failed = false;
-  day.loaded = read(storageKey).then((stored) => {
+  day.loaded = read(storageKey).then(async (stored) => {
+    // A journal is an absolute snapshot, not a delta; replay is idempotent.
+    const journal = await AsyncStorage.getItem(`${storageKey}/recovery`);
+    if (journal != null) {
+      await AsyncStorage.setItem(storageKey, journal);
+      await AsyncStorage.removeItem(`${storageKey}/recovery`);
+      stored = journal;
+    }
     const decoded = decodeStepDay(stored, owner.uid, Date.now());
     day.steps += decoded.steps;
     day.checkpoints = decoded.checkpoints;
@@ -168,7 +175,10 @@ function persistDay(owner: Session, day: Day) {
     if (!day.ready) return;
     const value = day.steps;
     try {
-      await AsyncStorage.setItem(storageKey, day.checkpoints.length ? encodeStepDay(value, day.checkpoints) : String(value));
+      const payload = day.checkpoints.length ? encodeStepDay(value, day.checkpoints) : String(value);
+      await AsyncStorage.setItem(`${storageKey}/recovery`, payload);
+      await AsyncStorage.setItem(storageKey, payload);
+      await AsyncStorage.removeItem(`${storageKey}/recovery`);
       if (day.steps === value) {
         day.dirty = false;
         if (dirtyDays.get(storageKey)?.day === day) dirtyDays.delete(storageKey);
