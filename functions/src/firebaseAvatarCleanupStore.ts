@@ -17,7 +17,7 @@ export function firebaseAvatarCleanupStore(): AvatarCleanupStore {
         const [user, deletion] = await Promise.all([tx.get(ref), tx.get(freeze)]);
         const data = user.data();
         if (!data || deletion.exists || data.avatarServerManaged !== true || data.avatarCleanupLocked === true) return null;
-        tx.update(ref, { avatarCleanupLocked: true, avatarCleanupToken: token });
+        tx.update(ref, { avatarCleanupLocked: true, avatarCleanupToken: token, avatarCleanupStartedAt: new Date().toISOString() });
         return data;
       });
       if (!profile) return null;
@@ -63,7 +63,7 @@ export function firebaseAvatarCleanupStore(): AvatarCleanupStore {
         async release() {
           await db.runTransaction(async tx => {
             const snapshot = await tx.get(ref);
-            if (snapshot.get("avatarCleanupToken") === token) tx.update(ref, { avatarCleanupLocked: false, avatarCleanupToken: null });
+            if (snapshot.get("avatarCleanupToken") === token) tx.update(ref, { avatarCleanupLocked: false, avatarCleanupToken: null, avatarCleanupStartedAt: null });
           });
         },
       };
