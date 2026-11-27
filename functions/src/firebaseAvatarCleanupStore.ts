@@ -63,6 +63,8 @@ export function firebaseAvatarCleanupStore(): AvatarCleanupStore {
         },
         async deleteGeneration(candidate) {
           await verify();
+          const [live, marker] = await Promise.all([ref.get(), ref.collection("retiredAvatars").doc(candidate.name.split("/").pop()!).get()]);
+          if (live.get("avatarCleanupToken") !== token || live.get("avatarCleanupLocked") !== true || live.get("avatarServerManaged") !== true || marker.get("generation") !== candidate.generation || selectOrphanAvatars(uid, bucket.name, live.data() ?? {}, [candidate], Date.now()).length !== 1) throw new Error("Avatar deletion precondition lost");
           if (!Number.isSafeInteger(Number(candidate.generation)) || Number(candidate.generation) <= 0) throw new Error("Missing object generation");
           await bucket.file(candidate.name).delete({ ifGenerationMatch: Number(candidate.generation), ignoreNotFound: true });
         },
