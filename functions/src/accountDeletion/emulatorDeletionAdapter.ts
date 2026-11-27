@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import type { Candidate, DeletionAdapter, DeletionCheckpoint } from "./deletionExecutionCore";
 
@@ -39,7 +39,7 @@ export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
       await db.runTransaction(async tx => {
         const doc = await tx.get(lock);
         if (!doc.exists || doc.get("frozen") !== true || doc.get("leased") === true) throw Error("Fixture unavailable");
-        tx.update(lock, { leased: true, leaseToken: token });
+        tx.update(lock, { leased: true, leaseToken: token, leaseAcquiredAt: FieldValue.serverTimestamp(), leaseReleasedAt: null });
       });
       leased = true;
       leaseToken = token;
@@ -49,7 +49,7 @@ export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
         leaseToken = null;
         await db.runTransaction(async tx => {
           const doc = await tx.get(lock);
-          if (doc.get("leaseToken") === token) tx.update(lock, { leased: false, leaseToken: null });
+          if (doc.get("leaseToken") === token && doc.get("leased") === true) tx.update(lock, { leased: false, leaseToken: null, leaseReleasedAt: FieldValue.serverTimestamp() });
         });
       }
     },
@@ -60,7 +60,7 @@ export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
       const account = await user();
       if (doc.get("frozen") !== true || doc.get("leased") !== true ||
           (account && (!account.disabled || account.metadata.creationTime !== doc.get("creationTime"))) ||
-          (!account && phase === "cleanup")) throw Error("Fixture authorization failed");
+          (!account && phase === "cleanup") || (account && phase === "completed")) throw Error("Fixture authorization failed");
     },
     async readCheckpoint(target) {
       guard(target);
