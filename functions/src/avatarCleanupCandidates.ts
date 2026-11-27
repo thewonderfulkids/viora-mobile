@@ -35,7 +35,8 @@ export function selectOrphanAvatars(
     const created = Date.parse(file.timeCreated ?? "");
     return file.name.startsWith(prefix)
       && /^avatar-[0-9]+\.jpg$/.test(file.name.slice(prefix.length))
-      && typeof file.generation === "string" && /^[0-9]+$/.test(file.generation)
+      && typeof file.generation === "string" && /^[1-9][0-9]*$/.test(file.generation)
+      && Number.isSafeInteger(Number(file.generation))
       && file.contentType === "image/jpeg"
       && file.metadata?.uid === uid
       && file.metadata?.source === "viora-mobile-profile-avatar"
