@@ -68,4 +68,25 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.equal((await auth.getUser(other)).uid,other);
   await assert.rejects(auth.getUser(uid),{code:'auth/user-not-found'});
   assert.equal((await executeDeletion(uid,adapter)).complete,true);
+  // Exercise the real callable handler with synthetic verified Auth identity.
+  const { claimPendingPremiumGrant } = require('../lib/admin/premiumAccessGrants');
+  const email = other + '@example.test';
+  await auth.updateUser(other,{email,emailVerified:true});
+  const key = require('node:crypto').createHash('sha256').update(email).digest('hex');
+  const pending = db.doc('pendingPremiumGrants/'+key);
+  const subscription = db.doc('subscriptions/admin_grant_'+other);
+  const grant = {email,status:'pending',planCode:'PLUS_MONTHLY',createdAt:new Date().toISOString()};
+  await pending.set(grant);
+  const freeze = db.doc('accountDeletionLocks/'+other);
+  await freeze.set({frozen:true});
+  const claim = () => claimPendingPremiumGrant.run({auth:{uid:other,token:{}},data:{}});
+  await assert.rejects(claim(),/Account deletion is in progress/);
+  assert.equal((await pending.get()).exists,true);
+  assert.equal((await subscription.get()).exists,false);
+  await freeze.delete();
+  const results = await Promise.all([claim(),claim()]);
+  assert.equal(results.filter(x=>x.claimed===true).length,1);
+  assert.equal((await pending.get()).exists,false);
+  assert.equal((await subscription.get()).get('planCode'),'PLUS_MONTHLY');
+  assert.equal((await claim()).claimed,false);
 });
