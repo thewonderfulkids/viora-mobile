@@ -8,7 +8,12 @@ function buildAvatarPath(uid: string) {
   // Avoid overwriting an earlier upload when two requests share a clock tick.
   const version = Math.max(Date.now() * 1000 + Math.floor(Math.random() * 1000), lastAvatarVersion + 1);
   lastAvatarVersion = version;
-  return `profile-photos/${uid}/avatar-${version}.jpg`;
+  // Independent devices can share the same clock and three-digit suffix.
+  // Add independent random digits without converting the identifier to a number.
+  const entropy = Array.from({ length: 4 }, () =>
+    Math.floor(Math.random() * 1000000000).toString().padStart(9, "0"),
+  ).join("");
+  return `profile-photos/${uid}/avatar-${version}${entropy}.jpg`;
 }
 
 export async function uploadProfilePhoto(
