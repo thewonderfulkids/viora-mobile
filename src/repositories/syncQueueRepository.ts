@@ -183,3 +183,26 @@ export async function inspectLegacySyncQueue(): Promise<{
     return { total: 0, currentUserCount: 0, otherUserCount: 0, missingOwnerCount: 0, unreadable: true };
   }
 }
+
+/** Remove only a provably empty legacy queue. Preserve all historical actions,
+ * including ownerless or malformed records, until an explicit migration policy exists.
+ * Call only after old writers have been retired; never use for active queues.
+ */
+export async function cleanupEmptyLegacySyncQueue(): Promise<boolean> {
+  const actor = auth.currentUser;
+  currentUid();
+  return serializeMutation(async () => {
+    if (auth.currentUser !== actor) throw new Error("Account changed during legacy cleanup.");
+    const raw = await AsyncStorage.getItem(LEGACY_SYNC_QUEUE_KEY);
+    if (auth.currentUser !== actor) throw new Error("Account changed during legacy cleanup.");
+    if (raw === null) return false;
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw); } catch { return false; }
+    if (!Array.isArray(parsed) || parsed.length !== 0) return false;
+    if (await AsyncStorage.getItem(LEGACY_SYNC_QUEUE_KEY) !== raw) return false;
+    if (auth.currentUser !== actor) throw new Error("Account changed during legacy cleanup.");
+    await AsyncStorage.removeItem(LEGACY_SYNC_QUEUE_KEY);
+    if (auth.currentUser !== actor) throw new Error("Account changed during legacy cleanup.");
+    return true;
+  });
+}
