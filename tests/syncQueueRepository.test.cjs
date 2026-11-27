@@ -102,3 +102,17 @@ test('account switch during queue write rejects success and preserves owner isol
   assert.equal(JSON.parse(storage.get('@viora/sync-queue/v2/alice'))[0].id, 'alice-pending');
   assert.deepEqual(Array.from((await repo.getPendingSyncActions()).map(x => x.id)), ['bob-existing']);
 });
+
+test('H04 cleanup removes only empty legacy queue', async () => {
+  const {repo,storage} = setup(); const k='@viora/sync-queue/v1';
+  for(const raw of ['{bad', JSON.stringify([action('old')]), '[{}]']) {
+    storage.set(k,raw); assert.equal(await repo.cleanupEmptyLegacySyncQueue(),false); assert.equal(storage.get(k),raw);
+  }
+  storage.set(k,'[]'); assert.equal(await repo.cleanupEmptyLegacySyncQueue(),true);
+  assert.equal(storage.has(k),false); assert.equal(await repo.cleanupEmptyLegacySyncQueue(),false);
+});
+test('H04 cleanup aborts on account change', async () => {
+  let actor; const {repo,storage,auth}=setup({onGetItem:async()=>{actor.currentUser={uid:'bob'};}}); actor=auth;
+  const k='@viora/sync-queue/v1'; storage.set(k,'[]');
+  await assert.rejects(repo.cleanupEmptyLegacySyncQueue(),/Account changed/); assert.equal(storage.get(k),'[]');
+});
