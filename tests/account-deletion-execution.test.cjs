@@ -168,3 +168,13 @@ test("C05 protected record blocks every destructive operation",async()=>{
  await assert.rejects(executeDeletion("a",adapter),/Retention policy review required/);
  assert.deepEqual(events,[]);
 });
+
+test("C05 rejects malformed document paths before retention classification",()=>{
+ for(const path of ["/payments/p1","payments/p1/","payments//p1","payments","users/u1/../x","users/u1/./x"]){
+  assert.throws(()=>planDeletion("a",{complete:true,unresolved:[],candidates:[{...record,path}]}),/Unverified record path/);
+ }
+});
+test("C05 unknown durable checkpoint cannot restart cleanup",async()=>{
+ const adapter={withExclusiveLease:async(_,run)=>run(),readCheckpoint:async()=>"corrupt",assertAuthorizedAndFrozen:async()=>assert.fail("must not advance"),inventory:async()=>assert.fail("must not inventory"),eraseOwnedRecord:async()=>assert.fail("must not erase"),eraseOwnedStorage:async()=>assert.fail("must not erase storage"),eraseAuthIfPresent:async()=>assert.fail("must not erase Auth"),checkpoint:async()=>assert.fail("must preserve checkpoint")};
+ await assert.rejects(executeDeletion("a",adapter),/Unknown deletion checkpoint/);
+});
