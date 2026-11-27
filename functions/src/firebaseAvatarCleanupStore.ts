@@ -29,14 +29,17 @@ export function firebaseAvatarCleanupStore(): AvatarCleanupStore {
         profile, bucket: bucket.name,
         async listCandidates() {
           await verify();
-          const files = [];
+          const files: import("@google-cloud/storage").File[] = [];
           let pageToken: string | undefined;
+          const seen = new Set<string>();
           do {
             await verify();
             const [page, next] = await bucket.getFiles({ prefix: "profile-photos/" + uid + "/", autoPaginate: false, maxResults: 100, pageToken });
             files.push(...page);
             const nextToken = next?.pageToken;
-            if (nextToken && nextToken === pageToken) throw new Error("Repeated avatar listing cursor");
+            if (nextToken && seen.has(nextToken)) throw new Error("Repeated avatar listing cursor");
+            if (nextToken) seen.add(nextToken);
+            if (seen.size >= 100) throw new Error("Avatar inventory exceeds safe bound");
             pageToken = nextToken;
           } while (pageToken);
           return files.map(file => ({
@@ -57,8 +60,8 @@ export function firebaseAvatarCleanupStore(): AvatarCleanupStore {
         },
         async deleteGeneration(candidate) {
           await verify();
-          if (!candidate.generation) throw new Error("Missing object generation");
-          await bucket.file(candidate.name).delete({ ifGenerationMatch: candidate.generation, ignoreNotFound: true });
+          if (!Number.isSafeInteger(Number(candidate.generation)) || Number(candidate.generation) <= 0) throw new Error("Missing object generation");
+          await bucket.file(candidate.name).delete({ ifGenerationMatch: Number(candidate.generation), ignoreNotFound: true });
         },
         async release() {
           await db.runTransaction(async tx => {
