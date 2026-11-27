@@ -41,5 +41,5 @@ export async function uploadProfilePhoto(
 export function isOwnedVersionedAvatarPath(uid: string, path: string): boolean {
   if (!uid || uid.includes("/")) return false;
   const prefix = `profile-photos/${uid}/`;
-  return path.startsWith(prefix) && /^avatar-[0-9]+\\.jpg$/.test(path.slice(prefix.length));
+  return path.startsWith(prefix) && /^avatar-[0-9]+\.jpg$/.test(path.slice(prefix.length));
 }
