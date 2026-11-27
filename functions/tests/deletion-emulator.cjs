@@ -161,6 +161,12 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.equal((await prepare()).alreadyPrepared,true);
   assert.equal((await freeze.get()).exists,false);
   assert.equal((await auth.getUser(other)).uid,other);
+  const resetPrepared = () => resetAccountDeletionPreflight.run({auth:{uid:adminUid,token:{}},data:{userId:other}});
+  const originalCreationTime = (await auth.getUser(other)).metadata.creationTime;
+  await deletionRequest.update({authCreationTime:'Thu, 01 Jan 1970 00:00:00 GMT'});
+  await assert.rejects(resetPrepared(),/identity mismatch or legacy request/);
+  assert.equal((await deletionRequest.get()).get('status'),'preflight');
+  await deletionRequest.update({authCreationTime:originalCreationTime});
   assert.equal((await resetAccountDeletionPreflight.run({auth:{uid:adminUid,token:{}},data:{userId:other}})).status,'requested');
   assert.equal((await deletionRequest.get()).get('status'),'requested');
 
