@@ -16,7 +16,7 @@ export const prepareAccountDeletion = onCall(
     if (!adminUid) throw new HttpsError("unauthenticated", "Administrator sign-in required.");
     const admin = await getAuth().getUser(adminUid);
     const claims = admin.customClaims ?? {};
-    if (claims.superAdmin !== true && claims.role !== "super_admin") {
+    if (admin.disabled || (claims.superAdmin !== true && claims.role !== "super_admin")) {
       throw new HttpsError("permission-denied", "Super Admin authorization required.");
     }
 
@@ -28,12 +28,24 @@ export const prepareAccountDeletion = onCall(
       throw new HttpsError("invalid-argument", "Explicit matching confirmation required.");
     }
 
+    const target = await getAuth().getUser(uid);
+    const creationTime = target.metadata.creationTime;
+    if (!creationTime || !Number.isFinite(Date.parse(creationTime))) {
+      throw new HttpsError("failed-precondition", "Target account identity could not be verified.");
+    }
     const db = getFirestore();
     const requestRef = db.doc(`accountDeletionRequests/${uid}`);
     const result = await db.runTransaction(async tx => {
+      const actorLock = await tx.get(db.doc(`accountDeletionLocks/${adminUid}`));
+      if (actorLock.exists) throw new HttpsError("failed-precondition", "Acting account deletion is in progress.");
+      const lock = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
+      if (lock.exists) throw new HttpsError("failed-precondition", "Account deletion lock already exists.");
       const snap = await tx.get(requestRef);
       if (!snap.exists) throw new HttpsError("failed-precondition", "User has not requested deletion.");
       const data = snap.data() ?? {};
+      if (data.userId !== uid || data.authCreationTime !== creationTime) {
+        throw new HttpsError("failed-precondition", "Deletion request account identity mismatch or legacy request; manual review required.");
+      }
       if (data.status === "preflight") {
         return { status: "preflight", alreadyPrepared: true };
       }
@@ -67,18 +79,31 @@ export const resetAccountDeletionPreflight = onCall(
     if (!adminUid) throw new HttpsError("unauthenticated", "Administrator sign-in required.");
     const admin = await getAuth().getUser(adminUid);
     const claims = admin.customClaims ?? {};
-    if (claims.superAdmin !== true && claims.role !== "super_admin") {
+    if (admin.disabled || (claims.superAdmin !== true && claims.role !== "super_admin")) {
       throw new HttpsError("permission-denied", "Super Admin authorization required.");
     }
     const uid = String(request.data?.userId ?? "").trim();
     if (!uid || uid.length > 128 || uid.includes("/") || uid === adminUid) {
       throw new HttpsError("invalid-argument", "Valid target user ID required.");
     }
-    const ref = getFirestore().doc(`accountDeletionRequests/${uid}`);
-    await getFirestore().runTransaction(async tx => {
+    const target = await getAuth().getUser(uid);
+    const creationTime = target.metadata.creationTime;
+    if (!creationTime || !Number.isFinite(Date.parse(creationTime))) {
+      throw new HttpsError("failed-precondition", "Target account identity could not be verified.");
+    }
+    const db = getFirestore();
+    const ref = db.doc(`accountDeletionRequests/${uid}`);
+    await db.runTransaction(async tx => {
+      const actorLock = await tx.get(db.doc(`accountDeletionLocks/${adminUid}`));
+      if (actorLock.exists) throw new HttpsError("failed-precondition", "Acting account deletion is in progress.");
+      const lock = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
+      if (lock.exists) throw new HttpsError("failed-precondition", "Active deletion lock requires recovery review.");
       const snap = await tx.get(ref);
       if (!snap.exists || snap.data()?.status !== "preflight") {
         throw new HttpsError("failed-precondition", "No deletion preflight to reset.");
+      }
+      if (snap.data()?.userId !== uid || snap.data()?.authCreationTime !== creationTime) {
+        throw new HttpsError("failed-precondition", "Deletion request account identity mismatch or legacy request; manual review required.");
       }
       tx.update(ref, {
         status: "requested",

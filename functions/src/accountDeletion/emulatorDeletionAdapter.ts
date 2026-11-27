@@ -1,0 +1,142 @@
+import { randomUUID } from "node:crypto";
+import { getApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+import type { Candidate, DeletionAdapter, DeletionCheckpoint } from "./deletionExecutionCore";
+
+// Deliberately not exported from the Functions entrypoint. Synthetic fixture
+// namespace only; no production inventory or retention assumptions.
+function assertFixtureEnvironment(uid: string) {
+  const loopback = (value: string | undefined) => !!value && /^(localhost|127\.0\.0\.1):[0-9]+$/.test(value);
+  if (!loopback(process.env.FIRESTORE_EMULATOR_HOST) ||
+      !loopback(process.env.FIREBASE_AUTH_EMULATOR_HOST) ||
+      !loopback(process.env.FIREBASE_STORAGE_EMULATOR_HOST) ||
+      process.env.GCLOUD_PROJECT !== "demo-viora-deletion" ||
+      !/^fixture-[a-zA-Z0-9-]+$/.test(uid)) throw Error("Emulator fixture required");
+  const app = getApp();
+  if (app.options.projectId !== "demo-viora-deletion") throw Error("Wrong Firebase project");
+  return app;
+}
+
+// Test harness only: caller must have independently stopped and drained the old worker.
+// Never infer quiescence from elapsed time. Not a callable or production recovery API.
+export async function recoverStoppedFixtureLease(uid: string, expectedToken: string, evidence: string) {
+  const app = assertFixtureEnvironment(uid);
+  if (!expectedToken || !evidence.trim() || evidence.length > 256) throw Error("Recovery evidence required");
+  const db = getFirestore(app);
+  const lock = db.doc("deletionFixtures/" + uid);
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(lock);
+    if (snap.get("frozen") !== true || snap.get("leased") !== true || snap.get("leaseToken") !== expectedToken) throw Error("Recovery lease mismatch");
+    tx.create(lock.collection("recoveryAudit").doc(), { previousToken: expectedToken, evidence, recoveredAt: FieldValue.serverTimestamp() });
+    tx.update(lock, { leased: false, leaseToken: null, leaseReleasedAt: FieldValue.serverTimestamp() });
+  });
+}
+
+export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
+  const app = assertFixtureEnvironment(uid);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  const bucket = getStorage(app).bucket("demo-viora-deletion.appspot.com");
+  const lock = db.doc("deletionFixtures/" + uid);
+  const records = lock.collection("records");
+  const prefix = "deletion-fixtures/" + uid + "/";
+  let leased = false;
+  let leaseToken: string | null = null;
+  const assertLease = (doc: FirebaseFirestore.DocumentSnapshot) => {
+    if (!leaseToken || doc.get("leaseToken") !== leaseToken || doc.get("leased") !== true || doc.get("frozen") !== true) throw Error("Fixture lease lost");
+  };
+  const guard = (target: string) => { if (target !== uid || !leased) throw Error("Fixture lease required"); };
+  async function user() {
+    try { return await auth.getUser(uid); }
+    catch (e) { if ((e as {code?: string}).code === "auth/user-not-found") return null; throw e; }
+  }
+  return {
+    async withExclusiveLease(target, run) {
+      if (target !== uid || leased) throw Error("Invalid lease");
+      const token = randomUUID();
+      await db.runTransaction(async tx => {
+        const doc = await tx.get(lock);
+        if (!doc.exists || doc.get("frozen") !== true || doc.get("leased") === true) throw Error("Fixture unavailable");
+        tx.update(lock, { leased: true, leaseToken: token, leaseAcquiredAt: FieldValue.serverTimestamp(), leaseReleasedAt: null });
+      });
+      leased = true;
+      leaseToken = token;
+      try { return await run(); }
+      finally {
+        leased = false;
+        leaseToken = null;
+        await db.runTransaction(async tx => {
+          const doc = await tx.get(lock);
+          if (doc.get("leaseToken") === token && doc.get("leased") === true) tx.update(lock, { leased: false, leaseToken: null, leaseReleasedAt: FieldValue.serverTimestamp() });
+        });
+      }
+    },
+    async assertAuthorizedAndFrozen(target, phase) {
+      guard(target);
+      const doc = await lock.get();
+      assertLease(doc);
+      const account = await user();
+      if (doc.get("frozen") !== true || doc.get("leased") !== true ||
+          (account && (!account.disabled || account.metadata.creationTime !== doc.get("creationTime"))) ||
+          (!account && phase === "cleanup") || (account && phase === "completed")) throw Error("Fixture authorization failed");
+    },
+    async readCheckpoint(target) {
+      guard(target);
+      return ((await lock.get()).get("state") ?? null) as DeletionCheckpoint | null;
+    },
+    async inventory(target) {
+      guard(target);
+      const docs = await records.get();
+      const candidates: Candidate[] = docs.docs.map(doc => ({
+        path: doc.ref.path, ownerIds: Array.isArray(doc.get("ownerIds")) ? doc.get("ownerIds") : [],
+        shared: doc.get("shared") === true, retained: doc.get("retained") === true
+      }));
+      return { complete: true, candidates, unresolved: [] };
+    },
+    async eraseOwnedRecord(target, candidate) {
+      guard(target);
+      if (!candidate.path.startsWith(records.path + "/") || candidate.path.slice(records.path.length + 1).includes("/")) throw Error("Invalid fixture path");
+      await db.runTransaction(async tx => {
+        assertLease(await tx.get(lock));
+        const ref = db.doc(candidate.path);
+        const doc = await tx.get(ref);
+        if (!doc.exists) return;
+        const owners = doc.get("ownerIds");
+        if (!Array.isArray(owners) || !owners.length || owners.some(x => x !== uid) || doc.get("shared") || doc.get("retained")) throw Error("Ownership changed");
+        tx.delete(ref);
+      });
+    },
+    async eraseOwnedStorage(target) {
+      guard(target);
+      assertLease(await lock.get());
+      const [files] = await bucket.getFiles({ prefix });
+      for (const file of files) {
+        assertLease(await lock.get());
+        await file.delete({ ignoreNotFound: true });
+      }
+    },
+    async verifyStorageEmpty(target) {
+      guard(target);
+      const [files] = await bucket.getFiles({ prefix, maxResults: 1 });
+      return files.length === 0;
+    },
+    async checkpoint(target, state) {
+      guard(target);
+      await db.runTransaction(async tx => {
+        assertLease(await tx.get(lock));
+        tx.update(lock, { state });
+      });
+    },
+    async eraseAuthIfPresent(target) {
+      guard(target);
+      const account = await user();
+      if (!account) return;
+      const doc = await lock.get();
+      assertLease(doc);
+      if (!account.disabled || account.metadata.creationTime !== doc.get("creationTime") || doc.get("state") !== "auth_pending") throw Error("Auth generation changed");
+      await auth.deleteUser(uid);
+    }
+  };
+}

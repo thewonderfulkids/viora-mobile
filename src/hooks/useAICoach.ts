@@ -1,3 +1,4 @@
+import { onAuthStateChanged } from "firebase/auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useDashboard } from "./useDashboard";
@@ -51,7 +52,12 @@ function mapMessages(items: any[]): AICoachMessage[] {
 
 export function useAICoach() {
   const { data } = useDashboard();
-  const didLoadInitialHistory = useRef(false);
+  const sessionVersion = useRef(0);
+  const sessionUid = useRef(auth.currentUser?.uid ?? null);
+
+  const pendingSend = useRef(false);
+  const failedAttempt = useRef<{ uid: string; conversationId: string; question: string; questionSaved: boolean } | null>(null);
+  const [retryAvailable, setRetryAvailable] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [contextLoading, setContextLoading] = useState(false);
@@ -67,6 +73,7 @@ export function useAICoach() {
   const refreshCoachContext = useCallback(
     async (conversationId = activeConversationId) => {
       const currentUser = auth.currentUser;
+    const version = sessionVersion.current;
       if (!currentUser || !data) return;
 
       setContextLoading(true);
@@ -78,11 +85,12 @@ export function useAICoach() {
           conversationId,
         });
 
+        if ((version !== sessionVersion.current || auth.currentUser?.uid !== currentUser.uid)) return;
         setContextSnapshot(context.contextSnapshot);
         setQuickActions(context.quickActions);
         setFollowUps(context.followUps);
       } finally {
-        setContextLoading(false);
+        if (version === sessionVersion.current && auth.currentUser?.uid === currentUser.uid) setContextLoading(false);
       }
     },
     [activeConversationId, data]
@@ -90,25 +98,30 @@ export function useAICoach() {
 
   const loadThreads = useCallback(async () => {
     const currentUser = auth.currentUser;
+    const version = sessionVersion.current;
     if (!currentUser) return;
 
     const conversationThreads = await getAICoachThreads({ uid: currentUser.uid });
-    setThreads(conversationThreads);
+    if (version === sessionVersion.current && auth.currentUser?.uid === currentUser.uid) setThreads(conversationThreads);
   }, []);
 
   const loadLatestHistory = useCallback(async () => {
     const currentUser = auth.currentUser;
+    const version = sessionVersion.current;
 
     if (!currentUser) {
       setHistoryLoading(false);
       return;
     }
 
+    failedAttempt.current = null;
+    setRetryAvailable(false);
     setHistoryLoading(true);
     setHistoryError(null);
 
     try {
       const latestHistory = await getAICoachLatestHistory({ uid: currentUser.uid });
+      if ((version !== sessionVersion.current || auth.currentUser?.uid !== currentUser.uid)) return;
       const mappedMessages = mapMessages(latestHistory.messages);
       const nextConversationId =
         latestHistory.messages.length > 0
@@ -119,16 +132,19 @@ export function useAICoach() {
       setThreads(latestHistory.threads);
       setActiveConversationId(nextConversationId);
     } catch (error: any) {
-      setHistoryError(error?.message || "Unable to load AI conversation history.");
+      if (version === sessionVersion.current && auth.currentUser?.uid === currentUser.uid) setHistoryError(error?.message || "Unable to load AI conversation history.");
     } finally {
-      setHistoryLoading(false);
+      if (version === sessionVersion.current && auth.currentUser?.uid === currentUser.uid) setHistoryLoading(false);
     }
   }, []);
 
   const openConversation = useCallback(
     async (conversationId: string) => {
       const currentUser = auth.currentUser;
-      if (!currentUser || !conversationId) return;
+    const version = sessionVersion.current;
+      if (!currentUser || !conversationId || pendingSend.current) return;
+      failedAttempt.current = null;
+      setRetryAvailable(false);
 
       setHistoryLoading(true);
       setHistoryError(null);
@@ -139,19 +155,23 @@ export function useAICoach() {
           conversationId,
         });
 
+        if ((version !== sessionVersion.current || auth.currentUser?.uid !== currentUser.uid)) return;
         setActiveConversationId(conversationId);
         setMessages(mapMessages(conversationMessages));
         await refreshCoachContext(conversationId);
       } catch (error: any) {
-        setHistoryError(error?.message || "Unable to open this conversation.");
+        if (version === sessionVersion.current && auth.currentUser?.uid === currentUser.uid) setHistoryError(error?.message || "Unable to open this conversation.");
       } finally {
-        setHistoryLoading(false);
+        if (version === sessionVersion.current && auth.currentUser?.uid === currentUser.uid) setHistoryLoading(false);
       }
     },
     [refreshCoachContext]
   );
 
   const startNewConversation = useCallback(() => {
+    if (pendingSend.current) return;
+    failedAttempt.current = null;
+    setRetryAvailable(false);
     const conversationId = createConversationId();
 
     setActiveConversationId(conversationId);
@@ -163,10 +183,30 @@ export function useAICoach() {
   }, [refreshCoachContext]);
 
   useEffect(() => {
-    if (didLoadInitialHistory.current) return;
-
-    didLoadInitialHistory.current = true;
-    void loadLatestHistory();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      const uid = user?.uid ?? null;
+      if (uid !== sessionUid.current) {
+        sessionUid.current = uid;
+        sessionVersion.current += 1;
+        pendingSend.current = false;
+        failedAttempt.current = null;
+        setRetryAvailable(false);
+        setLoading(false);
+        setContextLoading(false);
+        setHistoryError(null);
+        setMessages([]);
+        setThreads([]);
+        setActiveConversationId(createConversationId());
+        setContextSnapshot(null);
+        setQuickActions([]);
+        setFollowUps([]);
+      }
+      void loadLatestHistory();
+    });
+    return () => {
+      sessionVersion.current += 1;
+      unsubscribe();
+    };
   }, [loadLatestHistory]);
 
   useEffect(() => {
@@ -175,48 +215,60 @@ export function useAICoach() {
     }
   }, [activeConversationId, data, refreshCoachContext]);
 
-  async function askWellnessCoach(userQuestion?: string) {
+  async function askWellnessCoach(userQuestion?: string, options?: { retry?: boolean }) {
     const currentUser = auth.currentUser;
+    const version = sessionVersion.current;
+    if (!currentUser) throw new Error("Please login again");
+    if (!data) throw new Error("Dashboard not loaded");
+    if (pendingSend.current) return;
 
-    if (!currentUser) {
-      throw new Error("Please login again");
+    const retry = options?.retry === true;
+    const attempt = retry
+      ? failedAttempt.current
+      : { uid: currentUser.uid, conversationId: activeConversationId, question: userQuestion?.trim() ?? "", questionSaved: false };
+    if (retry && (!attempt || attempt.uid !== currentUser.uid || attempt.conversationId !== activeConversationId)) return;
+    if (!attempt?.question) throw new Error("Please enter a wellness question.");
+
+    pendingSend.current = true;
+    failedAttempt.current = null;
+    setRetryAvailable(false);
+    if (!retry) {
+      const userMessage = createLocalMessage("user", attempt.question);
+      setMessages((prev) => [...prev, userMessage]);
     }
-
-    if (!data) {
-      throw new Error("Dashboard not loaded");
-    }
-
-    const question = userQuestion?.trim();
-
-    if (!question) {
-      throw new Error("Please enter a wellness question.");
-    }
-
-    const userMessage = createLocalMessage("user", question);
-
-    setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
 
     try {
       const result = await askContextAwareWellnessCoach({
-        uid: currentUser.uid,
-        question,
-        conversationId: activeConversationId,
+        uid: attempt.uid,
+        question: attempt.question,
+        conversationId: attempt.conversationId,
         dashboard: data,
+        questionSaved: attempt.questionSaved,
+        onQuestionSaved: () => { attempt.questionSaved = true; },
       });
 
+      if ((version !== sessionVersion.current || auth.currentUser?.uid !== attempt.uid)) return;
       const assistantMessage = createLocalMessage("assistant", result.reply);
-
       setMessages((prev) => [...prev, assistantMessage]);
       setContextSnapshot(result.contextSnapshot);
       setQuickActions(result.quickActions);
       setFollowUps(result.followUps);
 
-      await loadThreads();
-
+      // A failed refresh must not turn an answered question into a retry.
+      void loadThreads().catch(() => undefined);
       return result.reply;
+    } catch (error) {
+      if (version === sessionVersion.current && auth.currentUser?.uid === attempt.uid) {
+        failedAttempt.current = attempt;
+        setRetryAvailable(true);
+      }
+      if (version === sessionVersion.current && auth.currentUser?.uid === attempt.uid) throw error;
     } finally {
-      setLoading(false);
+      if (version === sessionVersion.current && auth.currentUser?.uid === attempt.uid) {
+        pendingSend.current = false;
+        setLoading(false);
+      }
     }
   }
 
@@ -236,5 +288,6 @@ export function useAICoach() {
     openConversation,
     startNewConversation,
     askWellnessCoach,
+    retryAvailable,
   };
 }

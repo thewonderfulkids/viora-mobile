@@ -9,8 +9,10 @@ function buildAvatarPath(uid: string) {
 
 export async function uploadProfilePhoto(
   uid: string,
-  base64Image: string
+  base64Image: string,
+  assertCurrent: () => void = () => {},
 ): Promise<string> {
+  assertCurrent();
   if (!base64Image) {
     throw new Error("Selected image could not be prepared for upload.");
   }
@@ -29,5 +31,15 @@ export async function uploadProfilePhoto(
     },
   });
 
+  assertCurrent();
   return getDownloadURL(storageRef);
+}
+
+/** Read-only candidate check for a future trusted cleanup worker.
+ * Never delete based solely on a client-supplied download URL.
+ */
+export function isOwnedVersionedAvatarPath(uid: string, path: string): boolean {
+  if (!uid || uid.includes("/")) return false;
+  const prefix = `profile-photos/${uid}/`;
+  return path.startsWith(prefix) && /^avatar-[0-9]+\\.jpg$/.test(path.slice(prefix.length));
 }

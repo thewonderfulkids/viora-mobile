@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { signOut } from "firebase/auth";
 import { Crown, Settings2, Sparkles, UserRound } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Screen } from "../../components/common";
@@ -22,7 +22,20 @@ import { saveUserProfile } from "../../services/user/userService";
 import { colors, radius, spacing } from "../../theme";
 
 export default function ProfileScreen() {
-  const { user, refreshUserDoc } = useAuth();
+  const { user, authSessionId } = useAuth();
+  return user ? <AccountProfile key={authSessionId} /> : null;
+}
+
+function AccountProfile() {
+  const { user, userDoc, refreshUserDoc } = useAuth();
+  const mounted = useRef(false);
+  const uploading = useRef(false);
+  const isCurrent = () => mounted.current && Boolean(user && auth.currentUser === user);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const { data, refresh } = useDashboard();
   const [saving, setSaving] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -36,50 +49,58 @@ export default function ProfileScreen() {
   const email = user?.email || "No email";
 
   useEffect(() => {
-    setFullName(data?.user?.fullName || user?.email?.split("@")[0] || "");
-    setMobile(data?.user?.mobile || "");
-    setGender(data?.user?.gender || "");
-    setAge(data?.user?.age ? String(data.user.age) : "");
-    setPhotoURL(data?.user?.photoURL || "");
-    setGoal(data?.user?.goal || "Healthy Lifestyle");
-    setStressLevel(data?.user?.stressLevel || "Moderate");
-  }, [data?.user, user?.email]);
+    setFullName(userDoc?.fullName || user?.email?.split("@")[0] || "");
+    setMobile(userDoc?.mobile || "");
+    setGender(userDoc?.gender || "");
+    setAge(userDoc?.age ? String(userDoc.age) : "");
+    setPhotoURL(userDoc?.photoURL || "");
+    setGoal(userDoc?.goal || "Healthy Lifestyle");
+    setStressLevel(userDoc?.stressLevel || "Moderate");
+  }, [userDoc, user?.email]);
 
   async function handleSaveProfile() {
-    if (!user) return Alert.alert("Login required", "Please login again.");
+    if (!user || !isCurrent()) return;
     const numericAge = Number(age);
     if (mobile && mobile.length !== 10) return Alert.alert("Invalid mobile", "Please enter a valid 10 digit mobile number.");
     if (age && (!numericAge || numericAge < 13 || numericAge > 100)) return Alert.alert("Invalid age", "Please enter a valid age between 13 and 100.");
     try {
       setSaving(true);
       await saveUserProfile({ uid: user.uid, fullName, mobile, gender: gender || undefined, age: age ? numericAge : undefined, goal, stressLevel });
+      if (!isCurrent()) return;
       await refreshUserDoc();
+      if (!isCurrent()) return;
       await refresh();
-      Alert.alert("Profile updated", "Your profile has been saved.");
+      if (isCurrent()) Alert.alert("Profile updated", "Your profile has been saved.");
     } catch (error: any) {
-      Alert.alert("Unable to save profile", error?.message || "Please try again.");
-    } finally { setSaving(false); }
+      if (isCurrent()) Alert.alert("Unable to save profile", error?.message || "Please try again.");
+    } finally { if (isCurrent()) setSaving(false); }
   }
 
   async function handlePhotoUpload() {
-    if (!user) return Alert.alert("Login required", "Please login again.");
-    if (uploadingPhoto) return;
+    if (!user || !isCurrent()) return;
+    if (uploading.current) return;
+    uploading.current = true;
     try {
       setUploadingPhoto(true);
-      const url = await pickAndUploadProfilePhoto(user.uid);
-      if (!url) return;
+      const url = await pickAndUploadProfilePhoto(user.uid, user);
+      if (!url || !isCurrent()) return;
       setPhotoURL(url);
       await refreshUserDoc();
+      if (!isCurrent()) return;
       await refresh();
-      Alert.alert("Success", "Profile photo updated.");
+      if (isCurrent()) Alert.alert("Success", "Profile photo updated.");
     } catch (error: any) {
-      Alert.alert("Upload failed", error?.message || "Please try again.");
-    } finally { setUploadingPhoto(false); }
+      if (isCurrent()) Alert.alert("Upload failed", error?.message || "Please try again.");
+    } finally {
+      uploading.current = false;
+      if (isCurrent()) setUploadingPhoto(false);
+    }
   }
 
   async function handleLogout() {
-    try { await signOut(auth); router.replace("/login"); }
-    catch (error: any) { Alert.alert("Logout failed", error?.message || "Please try again."); }
+    if (!isCurrent()) return;
+    try { await signOut(auth); if (!auth.currentUser) router.replace("/login"); }
+    catch (error: any) { if (isCurrent()) Alert.alert("Logout failed", error?.message || "Please try again."); }
   }
 
   return (

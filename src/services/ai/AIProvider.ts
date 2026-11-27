@@ -11,6 +11,8 @@ export type AIProviderName =
 
 export type AIProviderRequest = {
   question: string;
+  coachContext?: string;
+  expectedUid?: string;
   dashboard: DashboardData;
   mode?: AICoachMode;
   conversationId?: string;

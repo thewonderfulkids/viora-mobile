@@ -26,6 +26,7 @@ export default function YogaScreen() {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [running, setRunning] = useState(false);
+  const [videoDismissed, setVideoDismissed] = useState(false);
 
   const activeSession = useMemo(
     () => catalog.find((item) => item.id === activeSessionId) || null,
@@ -36,6 +37,10 @@ export default function YogaScreen() {
     if (!activeSession) return null;
     return activeSession.steps[currentStepIndex] ?? null;
   }, [activeSession, currentStepIndex]);
+
+  // Prefer an individually mapped pose; fall back to the session video.
+  const poseVideoUrl = currentStep?.videoUrl?.trim();
+  const videoUrl = poseVideoUrl || activeSession?.videoUrl?.trim();
 
   const totalSteps = activeSession?.steps.length ?? 0;
 
@@ -87,12 +92,14 @@ export default function YogaScreen() {
   function handleStart(sessionId: string) {
     const session = catalog.find((item) => item.id === sessionId);
 
-    if (!session) return;
+    const firstStep = session?.steps[0];
+    if (!session || !firstStep) return;
 
     setPreviewSessionId(null);
     setActiveSessionId(session.id);
+    setVideoDismissed(false);
     setCurrentStepIndex(0);
-    setSecondsLeft(session.steps[0].durationSeconds);
+    setSecondsLeft(firstStep.durationSeconds);
     setRunning(true);
   }
 
@@ -146,23 +153,12 @@ export default function YogaScreen() {
           sessions={data?.todayStats.yogaSessions || 0}
         />
 
-        {activeSession?.videoUrl ? (
+        {activeSession && videoUrl && !videoDismissed ? (
           <WorkoutVideoPlayer
-            title={activeSession.title}
-            url={activeSession.videoUrl}
-            onClose={() => {
-              setRunning(false);
-              setActiveSessionId(null);
-            }}
-          />
-        ) : null}
-
-        {activeSession && (currentStep?.videoUrl || activeSession.videoUrl) ? (
-          <WorkoutVideoPlayer
-            key={currentStep?.videoUrl || activeSession.videoUrl}
-            title={currentStep?.title || activeSession.title}
-            url={(currentStep?.videoUrl || activeSession.videoUrl) as string}
-            onClose={() => setRunning(false)}
+            key={JSON.stringify([activeSession.id, poseVideoUrl ? currentStepIndex : "session", videoUrl])}
+            title={poseVideoUrl ? currentStep?.title || activeSession.title : activeSession.title}
+            url={videoUrl}
+            onClose={() => setVideoDismissed(true)}
           />
         ) : null}
 

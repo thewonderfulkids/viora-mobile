@@ -23,7 +23,8 @@
                                  "permissions":  [
                                                      "POST_NOTIFICATIONS",
                                                      "RECORD_AUDIO",
-                                                     "ACTIVITY_RECOGNITION"
+                                                     "ACTIVITY_RECOGNITION",
+                                                     "android.permission.health.READ_STEPS"
                                                  ],
                                  "versionCode":  1
                              },
@@ -65,7 +66,8 @@
                                      }
                                  ],
                                  "expo-web-browser",
-                                 "expo-video"
+                                 "expo-video",
+                                 "react-native-health-connect"
                              ],
                  "experiments":  {
                                      "typedRoutes":  true,

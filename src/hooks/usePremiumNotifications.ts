@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { auth } from "../firebase/firebaseConfig";
 
 import {
   deletePremiumReminder,
@@ -13,6 +15,9 @@ import {
 } from "../services/notifications2";
 
 export function usePremiumNotifications() {
+  const { user } = useAuth();
+  const mounted = useRef(true);
+  const isCurrent = useCallback(() => mounted.current && Boolean(user && auth.currentUser === user), [user]);
   const [reminders, setReminders] = useState<PremiumReminder[]>([]);
   const [settings, setSettings] = useState<PremiumNotificationSettings>({
     quietHoursEnabled: true,
@@ -23,47 +28,58 @@ export function usePremiumNotifications() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!isCurrent()) return;
     setLoading(true);
     setError(null);
 
     try {
-      await seedRecommendedReminders();
+      await seedRecommendedReminders(user);
       const [items, nextSettings] = await Promise.all([
-        getPremiumReminders(),
-        getPremiumNotificationSettings(),
+        getPremiumReminders(user),
+        getPremiumNotificationSettings(user),
       ]);
+      if (!isCurrent()) return;
       setReminders(items);
       setSettings(nextSettings);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not load reminders.");
+      if (isCurrent()) setError(reason instanceof Error ? reason.message : "Could not load reminders.");
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, []);
+  }, [isCurrent, user]);
 
   useEffect(() => {
+    mounted.current = true;
     void refresh();
-  }, [refresh]);
+    return () => { mounted.current = false; };
+  }, [isCurrent, refresh, user]);
 
   const toggle = useCallback(async (id: string, enabled: boolean) => {
+    if (!isCurrent()) return;
     setError(null);
     try {
-      await togglePremiumReminder(id, enabled);
+      await togglePremiumReminder(id, enabled, user);
       await refresh();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not update reminder.");
+      if (isCurrent()) setError(reason instanceof Error ? reason.message : "Could not update reminder.");
     }
-  }, [refresh]);
+  }, [isCurrent, refresh, user]);
 
   const remove = useCallback(async (id: string) => {
-    await deletePremiumReminder(id);
+    if (!isCurrent()) return;
+    await deletePremiumReminder(id, user);
     await refresh();
-  }, [refresh]);
+  }, [isCurrent, refresh, user]);
 
   const saveSettings = useCallback(async (next: PremiumNotificationSettings) => {
-    await savePremiumNotificationSettings(next);
-    setSettings(next);
-  }, []);
+    if (!isCurrent()) return;
+    try {
+      await savePremiumNotificationSettings(next, user);
+      if (isCurrent()) setSettings(next);
+    } catch (reason) {
+      if (isCurrent()) setError(reason instanceof Error ? reason.message : "Could not update quiet hours.");
+    }
+  }, [isCurrent, user]);
 
   return {
     reminders,
@@ -74,6 +90,6 @@ export function usePremiumNotifications() {
     toggle,
     remove,
     saveSettings,
-    upsertPremiumReminder,
+    upsertPremiumReminder: (input: Parameters<typeof upsertPremiumReminder>[0]) => upsertPremiumReminder(input, user),
   };
 }

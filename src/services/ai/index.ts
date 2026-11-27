@@ -62,7 +62,7 @@ export type {
 
 export { getAICoachConversation, getAICoachLatestHistory, getAICoachThreads, saveAICoachMessage } from "../../repositories";
 export { buildAICoachContextBundle, buildAICoachFollowUps, buildAICoachQuickActions } from "./coachContextService";
-export { buildContextAwareCoachPrompt } from "./coachPromptBuilder";
+export { buildContextAwareCoachContext } from "./coachPromptBuilder";
 export { describeAICoachTone, resolveAICoachTone } from "./coachToneService";
 export { askContextAwareWellnessCoach, getCurrentAICoachContext } from "./contextAwareCoachService";
 

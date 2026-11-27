@@ -1,8 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { onAuthStateChanged } from "firebase/auth";
 import { Pedometer } from "expo-sensors";
 import { AppState, AppStateStatus, Platform } from "react-native";
 
-const STORAGE_PREFIX = "@viora/steps";
+import { auth } from "../../firebase/firebaseConfig";
+
+import { decodeStepDay, encodeStepDay, type HealthCheckpoint } from "./healthCheckpoint";
+
+const STORAGE_PREFIX = "@viora/steps/by-user";
 const DEFAULT_GOAL = 8000;
 
 export type StepPermissionState =
@@ -31,208 +36,478 @@ function getDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function stepKey(dateKey: string) {
-  return `${STORAGE_PREFIX}/daily/${dateKey}`;
-}
-
-const GOAL_KEY = `${STORAGE_PREFIX}/goal`;
-
-let snapshot: StepCounterSnapshot = {
-  dateKey: getDateKey(),
-  steps: 0,
-  goal: DEFAULT_GOAL,
-  supported: null,
-  permission: "undetermined",
-  active: false,
-  loading: true,
-  error: null,
+type Subscription = { remove: () => void };
+type Day = { checkpoints: HealthCheckpoint[]; key: string; steps: number; ready: boolean; pendingWrite: boolean; loaded: Promise<void>; failed: boolean; dirty: boolean };
+type HealthWindow = import("./backgroundStepWindow").BackgroundWindow;
+type HealthAggregate = import("./backgroundStepWindow").BackgroundAggregate;
+type Session = {
+  healthPending?: Map<string, { window: HealthWindow; previous: HealthAggregate | null; expires: number }>;
+  healthBusy?: boolean;
+  healthConsent?: boolean;
+  healthSessionId?: string;
+  backgroundStart?: number;
+  healthVersion?: number;
+  uid: string;
+  actor: NonNullable<typeof auth.currentUser>;
+  snapshot: StepCounterSnapshot;
+  day: Day | null;
+  initialized: Promise<void>;
+  watch: Subscription | null;
+  watchVersion: number;
+  permissionVersion: number;
+  prompting: boolean;
+  goalVersion: number;
 };
 
+function emptySnapshot(loading: boolean): StepCounterSnapshot {
+  return { dateKey: getDateKey(), steps: 0, goal: DEFAULT_GOAL, supported: null,
+    permission: "undetermined", active: false, loading, error: null };
+}
+
+// Ownerless device-wide totals are intentionally not read or reassigned.
+const signedOut = emptySnapshot(false);
+const pending = emptySnapshot(true);
 const listeners = new Set<Listener>();
-let pedometerSubscription: { remove: () => void } | null = null;
-let lastSensorSteps = 0;
-let initialized = false;
-let appStateSubscription: { remove: () => void } | null = null;
+const writes = new Map<string, Promise<void>>();
+// Retain failed day writes across midnight within this process, scoped to the original owner.
+const dirtyDays = new Map<string, { owner: Session; day: Day }>();
+let session: Session | null = null;
+let unsubscribeAuth: (() => void) | null = null;
+let appSubscription: Subscription | null = null;
+let foreground = false;
+let observerVersion = 0;
+let healthSequence = 0;
+let midnightTimer: ReturnType<typeof setTimeout> | null = null;
 
-function emit(next: Partial<StepCounterSnapshot> = {}) {
-  snapshot = { ...snapshot, ...next };
-  listeners.forEach((listener) => listener(snapshot));
+function scheduleMidnight() {
+  if (midnightTimer !== null) clearTimeout(midnightTimer);
+  midnightTimer = null;
+  if (!foreground || !session || !current(session)) return;
+  const owner = session;
+  const next = new Date();
+  next.setHours(24, 0, 0, 0);
+  midnightTimer = setTimeout(() => {
+    midnightTimer = null;
+    if (!foreground || !current(owner)) return;
+    selectDay(owner);
+    scheduleMidnight();
+  }, Math.max(1, next.getTime() - Date.now()));
 }
 
-async function persistSteps() {
-  await AsyncStorage.setItem(stepKey(snapshot.dateKey), String(snapshot.steps));
+function keyFor(uid: string, suffix: string) {
+  return `${STORAGE_PREFIX}/${encodeURIComponent(uid)}/${suffix}`;
 }
 
-async function ensureCurrentDate() {
-  const currentDateKey = getDateKey();
-  if (snapshot.dateKey === currentDateKey) return;
+function current(owner: Session) {
+  return session === owner && auth.currentUser === owner.actor;
+}
 
-  stopWatching();
-  lastSensorSteps = 0;
-  const stored = await AsyncStorage.getItem(stepKey(currentDateKey));
-  emit({
-    dateKey: currentDateKey,
-    steps: Math.max(0, Number(stored) || 0),
-    error: null,
+function notify() {
+  const value = getStepCounterSnapshot();
+  listeners.forEach((listener) => listener(value));
+}
+
+function update(owner: Session, value: Partial<StepCounterSnapshot>) {
+  if (!current(owner)) return;
+  owner.snapshot = { ...owner.snapshot, ...value };
+  notify();
+}
+
+function enqueueWrite(key: string, apply: () => Promise<void>) {
+  const next = (writes.get(key) ?? Promise.resolve()).catch(() => undefined).then(apply);
+  writes.set(key, next);
+  void next.finally(() => {
+    if (writes.get(key) === next) writes.delete(key);
+  }).catch(() => undefined);
+  return next;
+}
+
+function write(key: string, value: number) {
+  return enqueueWrite(key, () => AsyncStorage.setItem(key, String(value)));
+}
+
+async function read(key: string) {
+  await writes.get(key)?.catch(() => undefined);
+  return AsyncStorage.getItem(key);
+}
+
+function count(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+}
+
+function selectDay(owner: Session, date = getDateKey()): Day {
+  if (owner.day?.key === date) return owner.day;
+  const storageKey = keyFor(owner.uid, `daily/${date}`);
+  const day: Day = { checkpoints: [], key: date, steps: 0, ready: false, pendingWrite: false, loaded: Promise.resolve(), failed: false, dirty: false };
+  owner.day = day;
+  loadDay(owner, day, storageKey);
+  update(owner, { dateKey: date, steps: 0, loading: true });
+  return day;
+}
+
+function loadDay(owner: Session, day: Day, storageKey: string) {
+  day.failed = false;
+  day.loaded = read(storageKey).then(async (stored) => {
+    // A journal is an absolute snapshot, not a delta; replay is idempotent.
+    const journal = await AsyncStorage.getItem(`${storageKey}/recovery`);
+    if (journal != null) {
+      await AsyncStorage.setItem(storageKey, journal);
+      await AsyncStorage.removeItem(`${storageKey}/recovery`);
+      stored = journal;
+    }
+    const decoded = decodeStepDay(stored, owner.uid, Date.now());
+    day.steps += decoded.steps;
+    day.checkpoints = decoded.checkpoints;
+    day.ready = true;
+    if (owner.day === day) update(owner, { dateKey: day.key, steps: day.steps, loading: false, error: null });
+  }).catch(() => {
+    day.failed = true;
+    if (owner.day === day) update(owner, { loading: false, error: "Viora could not load today's steps." });
   });
 }
 
-async function loadStoredState() {
-  const dateKey = getDateKey();
-  const [storedSteps, storedGoal] = await Promise.all([
-    AsyncStorage.getItem(stepKey(dateKey)),
-    AsyncStorage.getItem(GOAL_KEY),
-  ]);
-
-  emit({
-    dateKey,
-    steps: Math.max(0, Number(storedSteps) || 0),
-    goal: Math.max(1000, Number(storedGoal) || DEFAULT_GOAL),
+function persistDay(owner: Session, day: Day) {
+  const storageKey = keyFor(owner.uid, `daily/${day.key}`);
+  day.dirty = true;
+  dirtyDays.set(storageKey, { owner, day });
+  return enqueueWrite(storageKey, async () => {
+    if (!day.ready) return;
+    const value = day.steps;
+    try {
+      const payload = day.checkpoints.length ? encodeStepDay(value, day.checkpoints) : String(value);
+      await AsyncStorage.setItem(`${storageKey}/recovery`, payload);
+      await AsyncStorage.setItem(storageKey, payload);
+      await AsyncStorage.removeItem(`${storageKey}/recovery`);
+      if (day.steps === value) {
+        day.dirty = false;
+        if (dirtyDays.get(storageKey)?.day === day) dirtyDays.delete(storageKey);
+      }
+    } catch {
+      day.dirty = true;
+      if (owner.day === day) update(owner, { error: "Viora could not save today's steps." });
+    }
   });
 }
 
-async function readPermission(): Promise<StepPermissionState> {
-  if (Platform.OS === "web") return "unavailable";
+function stopWatching(owner: Session) {
+  owner.watchVersion += 1;
+  const watch = owner.watch;
+  owner.watch = null;
+  watch?.remove();
+  if (owner.snapshot.active) update(owner, { active: false });
+}
 
+function startWatching(owner: Session) {
+  if (!current(owner) || !foreground || owner.snapshot.supported !== true ||
+      owner.snapshot.permission !== "granted" || owner.watch) return;
+  let lastSensorSteps = 0;
+  const version = ++owner.watchVersion;
+  let subscription: Subscription;
   try {
-    const result = await Pedometer.getPermissionsAsync();
-    if (result.granted) return "granted";
-    if (result.status === "denied") return "denied";
-    return "undetermined";
+    subscription = Pedometer.watchStepCount((result) => {
+      if (!current(owner) || !foreground || owner.watchVersion !== version) return;
+      const sensorSteps = count(result.steps);
+      const delta = Math.max(0, sensorSteps - lastSensorSteps);
+      lastSensorSteps = sensorSteps;
+      // Expo gives a cumulative count, not event timestamps. Attribute the
+      // received foreground delta to the local date on receipt.
+      const day = selectDay(owner);
+      if (!delta) return;
+      day.steps += delta;
+      const storageKey = keyFor(owner.uid, `daily/${day.key}`);
+      if (day.ready) {
+        void persistDay(owner, day);
+      } else if (!day.pendingWrite) {
+        day.pendingWrite = true;
+        // Preserve already-received deltas under their original account/day
+        // during a slow midnight read, even if the UI's session changes.
+        void enqueueWrite(storageKey, async () => {
+          await day.loaded;
+          try {
+            if (day.ready) {
+              const value = day.steps;
+              const payload = day.checkpoints.length ? encodeStepDay(value, day.checkpoints) : String(value);
+              await AsyncStorage.setItem(`${storageKey}/recovery`, payload);
+              await AsyncStorage.setItem(storageKey, payload);
+              await AsyncStorage.removeItem(`${storageKey}/recovery`);
+              day.dirty = day.steps !== value;
+            }
+          } catch {
+            day.dirty = true;
+            if (owner.day === day) update(owner, { error: "Viora could not save today's steps." });
+          } finally { day.pendingWrite = false; }
+        }).catch(() => undefined);
+      }
+      update(owner, { steps: day.steps, active: true });
+    });
   } catch {
-    return "undetermined";
-  }
-}
-
-function stopWatching() {
-  pedometerSubscription?.remove();
-  pedometerSubscription = null;
-  lastSensorSteps = 0;
-  emit({ active: false });
-}
-
-async function startWatching() {
-  await ensureCurrentDate();
-
-  if (snapshot.supported !== true || snapshot.permission !== "granted") {
-    stopWatching();
+    update(owner, { active: false, error: "Viora could not start the step counter." });
     return;
   }
-
-  if (pedometerSubscription) return;
-
-  lastSensorSteps = 0;
-  pedometerSubscription = Pedometer.watchStepCount((result) => {
-    const sensorSteps = Math.max(0, result.steps || 0);
-    const delta = Math.max(0, sensorSteps - lastSensorSteps);
-    lastSensorSteps = sensorSteps;
-
-    if (delta <= 0) return;
-
-    emit({ steps: snapshot.steps + delta, active: true, error: null });
-    void persistSteps();
-  });
-
-  emit({ active: true, error: null });
+  if (!current(owner) || !foreground || owner.watchVersion !== version) {
+    subscription.remove();
+    return;
+  }
+  owner.watch = subscription;
+  update(owner, { active: true, error: owner.day?.failed || owner.day?.dirty ? owner.snapshot.error : null });
 }
 
-async function initialize() {
-  if (initialized) return;
-  initialized = true;
-
+async function updatePermission(owner: Session, ask: boolean) {
+  if (!current(owner)) return false;
+  if (Platform.OS === "web" || owner.snapshot.supported !== true) return false;
+  if (owner.prompting) return false;
+  const version = ++owner.permissionVersion;
+  if (ask) owner.prompting = true;
+  let permission: StepPermissionState = "undetermined";
   try {
-    await loadStoredState();
-    const supported = Platform.OS !== "web" && (await Pedometer.isAvailableAsync());
-    const permission = supported ? await readPermission() : "unavailable";
-
-    emit({
-      supported,
-      permission,
-      loading: false,
-      error: supported ? null : "Step sensor is not available on this device.",
-    });
-
-    if (supported && permission === "granted") {
-      await startWatching();
-    }
-
-    appStateSubscription = AppState.addEventListener(
-      "change",
-      (state: AppStateStatus) => {
-        if (state === "active") {
-          void ensureCurrentDate().then(startWatching);
-        } else {
-          stopWatching();
-        }
-      },
-    );
+    const result = await (ask ? Pedometer.requestPermissionsAsync() : Pedometer.getPermissionsAsync());
+    permission = result.granted ? "granted" : result.status === "denied" ? "denied" : "undetermined";
   } catch {
-    emit({
-      loading: false,
-      active: false,
-      error: "Viora could not start the step counter.",
-    });
+    if (ask) permission = "denied";
+  } finally {
+    if (ask) owner.prompting = false;
   }
+  if (!current(owner) || owner.permissionVersion !== version) return false;
+  if (permission !== "granted") stopWatching(owner);
+  update(owner, { permission, error: ask && permission !== "granted" ? "Activity permission was not granted." : owner.day?.failed || owner.day?.dirty ? owner.snapshot.error : null });
+  if (permission === "granted") startWatching(owner);
+  return permission === "granted";
+}
+
+async function recoverJournals(owner: Session) {
+    // Recover older day journals before starting the sensor; never scan another UID.
+    const prefix = keyFor(owner.uid, "daily/");
+    const keys = await AsyncStorage.getAllKeys();
+    for (const journalKey of keys) {
+      if (!current(owner)) return;
+      if (!journalKey.startsWith(prefix) || !/^\d{4}-\d{2}-\d{2}\/recovery$/.test(journalKey.slice(prefix.length))) continue;
+      const target = journalKey.slice(0, -"/recovery".length);
+      await enqueueWrite(target, async () => {
+        if (!current(owner)) return;
+        const payload = await AsyncStorage.getItem(journalKey);
+        if (payload == null || !current(owner)) return;
+        await AsyncStorage.setItem(target, payload);
+        await AsyncStorage.removeItem(journalKey);
+      });
+    }
+    if (!current(owner)) return;
+}
+
+async function initialize(owner: Session) {
+  try {
+    await recoverJournals(owner);
+    if (!current(owner)) return;
+    const goalVersion = owner.goalVersion;
+    const [storedGoal, supported] = await Promise.all([
+      read(keyFor(owner.uid, "goal")),
+      Platform.OS !== "web" ? Pedometer.isAvailableAsync() : Promise.resolve(false),
+      selectDay(owner).loaded,
+    ]);
+    if (!current(owner)) return;
+    update(owner, { supported, permission: supported ? "undetermined" : "unavailable",
+      ...(owner.goalVersion === goalVersion ? { goal: Math.max(1000, count(storedGoal) || DEFAULT_GOAL) } : {}),
+      ...(supported ? {} : { error: "Step sensor is not available on this device." }),
+    });
+    if (supported) await updatePermission(owner, false);
+  } catch {
+    update(owner, { loading: false, active: false, error: "Viora could not start the step counter." });
+  }
+}
+
+function replaceSession(actor: typeof auth.currentUser) {
+  if ((session?.actor ?? null) === actor) return;
+  const previous = session;
+  session = null;
+  if (previous) stopWatching(previous);
+  if (actor) {
+    const owner: Session = { uid: actor.uid, actor, snapshot: emptySnapshot(true), day: null,
+      initialized: Promise.resolve(), watch: null, watchVersion: 0, permissionVersion: 0, prompting: false, goalVersion: 0 };
+    session = owner;
+    owner.initialized = Promise.resolve().then(() => current(owner) ? initialize(owner) : undefined);
+  }
+  scheduleMidnight();
+  notify();
 }
 
 export function subscribeToStepCounter(listener: Listener) {
   listeners.add(listener);
-  listener(snapshot);
-  void initialize();
-
+  if (!unsubscribeAuth) {
+    foreground = AppState.currentState === "active" || AppState.currentState == null;
+    const version = ++observerVersion;
+    unsubscribeAuth = onAuthStateChanged(auth, () => {
+      if (listeners.size > 0 && version === observerVersion) replaceSession(auth.currentUser);
+    });
+    appSubscription = AppState.addEventListener("change", (state: AppStateStatus) => {
+      const wasForeground = foreground;
+      foreground = state === "active";
+      const owner = session;
+      if (foreground) {
+        if (!wasForeground && owner) void importBackground(owner);
+        void refreshStepCounter(auth.currentUser?.uid);
+      } else if (owner) {
+        stopWatching(owner);
+        if (wasForeground && owner.healthConsent && current(owner)) owner.backgroundStart = Date.now();
+      }
+      scheduleMidnight();
+    });
+  }
+  listener(getStepCounterSnapshot());
   return () => {
     listeners.delete(listener);
+    if (!listeners.size) disposeStepCounter();
   };
 }
 
-export function getStepCounterSnapshot() {
-  return snapshot;
+export function getStepCounterSnapshot(expectedUid: string | null = auth.currentUser?.uid ?? null) {
+  if (!expectedUid || auth.currentUser?.uid !== expectedUid) return signedOut;
+  return session?.uid === expectedUid && current(session) ? session.snapshot : pending;
 }
 
-export async function requestStepPermission() {
-  if (Platform.OS === "web" || snapshot.supported === false) {
-    emit({ permission: "unavailable" });
-    return false;
-  }
-
-  try {
-    const result = await Pedometer.requestPermissionsAsync();
-    const permission: StepPermissionState = result.granted
-      ? "granted"
-      : result.status === "denied"
-        ? "denied"
-        : "undetermined";
-
-    emit({ permission, error: result.granted ? null : "Activity permission was not granted." });
-
-    if (result.granted) {
-      await startWatching();
-      return true;
-    }
-
-    return false;
-  } catch {
-    emit({
-      permission: "denied",
-      error: "Viora could not request activity permission.",
-    });
-    return false;
-  }
+export async function requestStepPermission(expectedUid: string | null) {
+  const owner = session;
+  if (!owner || owner.uid !== expectedUid || !current(owner)) return false;
+  await owner.initialized;
+  return updatePermission(owner, true);
 }
 
-export async function setDailyStepGoal(goal: number) {
+export async function setDailyStepGoal(goal: number, expectedUid: string | null) {
+  const owner = session;
+  if (!owner || owner.uid !== expectedUid || !current(owner) || !Number.isFinite(goal)) return;
   const normalized = Math.min(50000, Math.max(1000, Math.round(goal / 500) * 500));
-  await AsyncStorage.setItem(GOAL_KEY, String(normalized));
-  emit({ goal: normalized });
+  const version = ++owner.goalVersion;
+  await write(keyFor(owner.uid, "goal"), normalized);
+  if (owner.goalVersion === version) update(owner, { goal: normalized });
 }
 
-export function refreshStepCounter() {
-  return ensureCurrentDate().then(startWatching);
+export async function refreshStepCounter(expectedUid?: string | null) {
+  const owner = session;
+  if (!owner || owner.uid !== expectedUid || !current(owner)) return;
+  await owner.initialized;
+  if (!current(owner)) return;
+  if (owner.snapshot.supported === null) { await initialize(owner); if (!current(owner)) return; }
+  const day = selectDay(owner);
+  await day.loaded;
+  if (!current(owner)) return;
+  if (day.failed) {
+    const storageKey = keyFor(owner.uid, `daily/${day.key}`);
+    await writes.get(storageKey)?.catch(() => undefined);
+    if (!current(owner) || owner.day !== day) return;
+    if (day.failed) loadDay(owner, day, storageKey);
+    await day.loaded;
+    if (day.ready) {
+      await persistDay(owner, day);
+    }
+  }
+  if (current(owner) && owner.day === day && day.ready && day.dirty) await persistDay(owner, day);
+  for (const entry of dirtyDays.values()) {
+    if (!current(owner)) return;
+    if (entry.owner === owner && entry.day !== day && entry.day.ready && entry.day.dirty) {
+      await persistDay(owner, entry.day);
+    }
+  }
+  if (foreground) {
+    await updatePermission(owner, false);
+    if (owner.healthPending?.size) void retryHealthWindows(owner);
+  }
 }
 
 export function disposeStepCounter() {
-  stopWatching();
-  appStateSubscription?.remove();
-  appStateSubscription = null;
-  initialized = false;
+  observerVersion += 1;
+  unsubscribeAuth?.();
+  unsubscribeAuth = null;
+  appSubscription?.remove();
+  appSubscription = null;
+  foreground = false;
+  scheduleMidnight();
+  replaceSession(null);
+}
+
+/** Consent is deliberately session-only; no device history is imported on login. */
+export async function enableBackgroundSteps(expectedUid: string | null) {
+  const owner = session;
+  if (!owner || owner.uid !== expectedUid || !current(owner) || !foreground) return false;
+  const version = owner.healthVersion = (owner.healthVersion ?? 0) + 1;
+  const reader = await import("./healthConnectReader");
+  const granted = await reader.requestHealthStepAccess();
+  if (!current(owner) || owner.healthVersion !== version) return false;
+  owner.healthConsent = granted;
+  owner.healthPending = new Map();
+  owner.healthSessionId = String(++healthSequence);
+  owner.backgroundStart = undefined;
+  return granted;
+}
+
+export function disableBackgroundSteps(expectedUid: string | null) {
+  const owner = session;
+  if (!owner || owner.uid !== expectedUid || !current(owner)) return;
+  owner.healthVersion = (owner.healthVersion ?? 0) + 1;
+  owner.healthConsent = false;
+  owner.healthPending?.clear();
+  owner.backgroundStart = undefined;
+}
+
+async function importBackground(owner: Session) {
+  const start = owner.backgroundStart;
+  owner.backgroundStart = undefined;
+  const end = Date.now();
+  const sessionId = owner.healthSessionId;
+  if (start === undefined || !sessionId || !owner.healthConsent || !current(owner) || end <= start) return;
+  const pending = owner.healthPending ??= new Map();
+  let cursor = Math.max(start, end - 7 * 86400000);
+  while (cursor < end) {
+    const dayStart = new Date(cursor);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const window = { uid: owner.uid, sessionId, startMs: cursor,
+      endMs: Math.min(end, dayEnd.getTime()), dayStartMs: dayStart.getTime(), dayEndMs: dayEnd.getTime() };
+    cursor = window.endMs;
+    pending.set(String(window.startMs), { window, previous: null, expires: end + 86400000 });
+  }
+  await retryHealthWindows(owner);
+}
+
+async function retryHealthWindows(owner: Session) {
+  const sessionId = owner.healthSessionId;
+  const pending = owner.healthPending;
+  if (!sessionId || !pending || owner.healthBusy || !foreground) return;
+  const active = () => current(owner) && owner.healthSessionId === sessionId
+    ? { uid: owner.uid, sessionId, consent: !!owner.healthConsent } : null;
+  owner.healthBusy = true;
+  try {
+    const reader = await import("./healthConnectReader");
+    const { reconcileBackgroundSteps } = await import("./backgroundStepWindow");
+    for (const [id, entry] of pending) {
+      if (!active()?.consent || !foreground) break;
+      if (Date.now() > entry.expires) { pending.delete(id); continue; }
+      const { window } = entry;
+      const aggregate = await reader.readBackgroundAggregate(window, active);
+      const a = active();
+      if (!aggregate || !a) continue;
+      const delta = reconcileBackgroundSteps(window, aggregate, a, entry.previous);
+      if (delta === null) continue;
+      if (delta === 0) { entry.previous = aggregate; continue; }
+      const date = getDateKey(new Date(window.dayStartMs));
+      if (date === getDateKey()) {
+        const day = selectDay(owner);
+        await day.loaded;
+        if (!active()?.consent || owner.day !== day || !day.ready) continue;
+        day.steps = Math.max(0, day.steps + delta);
+        entry.previous = aggregate;
+        await persistDay(owner, day);
+        update(owner, { steps: day.steps });
+      } else {
+        const storageKey = keyFor(owner.uid, `daily/${date}`);
+        await enqueueWrite(storageKey, async () => {
+          const stored = await AsyncStorage.getItem(storageKey);
+          if (!active()?.consent) return;
+          await AsyncStorage.setItem(storageKey, String(Math.max(0, count(stored) + delta)));
+          entry.previous = aggregate;
+        });
+      }
+    }
+  } catch {
+    // Retain unapplied intervals for the next refresh; foreground remains available.
+  } finally { owner.healthBusy = false; }
 }

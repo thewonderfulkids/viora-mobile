@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Platform,
@@ -15,6 +15,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CommonBackButton, Screen } from "../components/common";
+import { useAuth } from "../context/AuthContext";
+import { auth } from "../firebase/firebaseConfig";
 import {
   deletePremiumReminder,
   getPremiumReminders,
@@ -49,6 +51,19 @@ const WEEKDAYS = [
 ];
 
 export default function ReminderEditorScreen() {
+  const { user, authSessionId } = useAuth();
+  if (!user) return null;
+  return <AccountReminderEditor key={authSessionId} />;
+}
+
+function AccountReminderEditor() {
+  const { user } = useAuth();
+  const mounted = useRef(true);
+  const isCurrent = () => mounted.current && Boolean(user && auth.currentUser === user);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const params = useLocalSearchParams<{ id?: string }>();
   const id = typeof params.id === "string" ? params.id : undefined;
 
@@ -68,9 +83,11 @@ export default function ReminderEditorScreen() {
   const isEditing = Boolean(id);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user) return;
+    let active = true;
 
-    void getPremiumReminders().then((items) => {
+    void getPremiumReminders(user).then((items) => {
+      if (!active || auth.currentUser !== user) return;
       const reminder = items.find((item) => item.id === id);
       if (!reminder) return;
 
@@ -83,8 +100,9 @@ export default function ReminderEditorScreen() {
       const next = new Date();
       next.setHours(reminder.hour, reminder.minute, 0, 0);
       setTime(next);
-    });
-  }, [id]);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [id, user]);
 
   const formattedTime = useMemo(
     () =>
@@ -104,6 +122,7 @@ export default function ReminderEditorScreen() {
   }
 
   async function save() {
+    if (!isCurrent()) return;
     setSaving(true);
     try {
       await upsertPremiumReminder({
@@ -115,20 +134,21 @@ export default function ReminderEditorScreen() {
         enabled,
         sound,
         vibration,
-      });
-      router.back();
+      }, user);
+      if (isCurrent()) router.back();
     } catch (reason) {
+      if (!isCurrent()) return;
       Alert.alert(
         "Could not save reminder",
         reason instanceof Error ? reason.message : "Please try again.",
       );
     } finally {
-      setSaving(false);
+      if (isCurrent()) setSaving(false);
     }
   }
 
   async function remove() {
-    if (!id) return;
+    if (!id || !isCurrent()) return;
 
     Alert.alert(
       "Delete reminder?",
@@ -139,8 +159,13 @@ export default function ReminderEditorScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            await deletePremiumReminder(id);
-            router.back();
+            if (!isCurrent()) return;
+            try {
+              await deletePremiumReminder(id, user);
+              if (isCurrent()) router.back();
+            } catch {
+              if (isCurrent()) Alert.alert("Could not delete reminder", "Please try again.");
+            }
           },
         },
       ],

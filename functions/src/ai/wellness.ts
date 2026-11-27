@@ -28,8 +28,16 @@ export async function generateWellnessAdviceHandler(
 
   const client = getOpenAIClient();
 
+  // Select a model enabled for the deployed OpenAI project. The previous
+  // hardcoded gpt-4.1-mini produced 403 for projects without model access.
+  // OPENAI_MODEL can override the default without another code release.
+  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
   const response = await client.responses.create({
-    model: "gpt-4.1-mini",
+    model,
+    // Viora manages its own chat history; this request does not use stored responses.
+    store: false,
+    // Bound billable output, including reasoning tokens where applicable.
+    max_output_tokens: 1200,
     input: [
       {
         role: "system",

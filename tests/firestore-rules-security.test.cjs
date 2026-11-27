@@ -1,0 +1,113 @@
+const { readFileSync } = require("node:fs");
+const { test, after } = require("node:test");
+const { initializeTestEnvironment, assertFails, assertSucceeds } = require("@firebase/rules-unit-testing");
+const { doc, setDoc, getDoc, updateDoc } = require("firebase/firestore");
+
+let environment;
+const projectId = "viora-rules-security-test";
+async function env() {
+  if (!environment) {
+    environment = await initializeTestEnvironment({
+      projectId,
+      firestore: {
+        host: "127.0.0.1",
+        port: 8080,
+        rules: readFileSync("firestore.rules", "utf8"),
+      },
+    });
+  }
+  return environment;
+}
+after(async () => { if (environment) await environment.cleanup(); });
+function user(uid, claims = {}) { return environment.authenticatedContext(uid, claims).firestore(); }
+async function seed(path, data) {
+  await environment.withSecurityRulesDisabled(async ctx => {
+    await setDoc(doc(ctx.firestore(), path), data);
+  });
+}
+
+test("users cannot assign themselves admin or subscription entitlements", async () => {
+  await env();
+  const alice = user("alice");
+  await assertFails(setDoc(doc(alice, "users/alice"), {uid:"alice", role:"super_admin"}));
+  await assertFails(setDoc(doc(alice, "users/alice"), {uid:"alice", subscriptionStatus:"active"}));
+  await assertSucceeds(setDoc(doc(alice, "users/alice"), {uid:"alice", fullName:"Alice", email:"alice@example.com", createdAt: new Date()}));
+  await assertFails(updateDoc(doc(alice, "users/alice"), {isPremium:true}));
+  await assertFails(updateDoc(doc(alice, "users/alice"), {role:"admin"}));
+  await assertFails(updateDoc(doc(alice, "users/alice"), {unknownFuturePrivilege:true}));
+  await assertSucceeds(updateDoc(doc(alice, "users/alice"), {fullName:"Alice B"}));
+});
+
+test("foreign-owned prefixed records cannot be read or overwritten", async () => {
+  await env();
+  await seed("dailyStats/alice_2026-11-24", {uid:"bob", steps:100});
+  const alice = user("alice");
+  await assertFails(getDoc(doc(alice, "dailyStats/alice_2026-11-24")));
+  await assertFails(updateDoc(doc(alice, "dailyStats/alice_2026-11-24"), {steps:200}));
+  await assertFails(setDoc(doc(alice, "wellnessGoals/alice_bad"), {uid:"bob", title:"bad"}));
+});
+
+test("owner identity cannot change and cross-user documents remain private", async () => {
+  await env();
+  await seed("hydrationLogs/log1", {uid:"alice", waterMl:250});
+  const alice = user("alice"), bob = user("bob");
+  await assertFails(getDoc(doc(bob, "hydrationLogs/log1")));
+  await assertFails(updateDoc(doc(alice, "hydrationLogs/log1"), {uid:"bob"}));
+  await assertSucceeds(updateDoc(doc(alice, "hydrationLogs/log1"), {waterMl:300}));
+});
+
+test("clients cannot forge payment, subscription or deletion state", async () => {
+  await env();
+  const alice = user("alice");
+  await assertFails(setDoc(doc(alice, "payments/p1"), {uid:"alice", status:"paid"}));
+  await assertFails(setDoc(doc(alice, "subscriptions/s1"), {uid:"alice", status:"active"}));
+  await assertFails(setDoc(doc(alice, "accountDeletionRequests/alice"), {userId:"alice", status:"completed"}));
+  await assertFails(setDoc(doc(alice, "aiRequestLogs/log1"), {userId:"alice"}));
+});
+
+test("concurrent quota transactions enforce the five-request limit", async () => {
+  await env();
+  await environment.withSecurityRulesDisabled(async ctx => {
+    const db = ctx.firestore();
+    const quota = doc(db, "aiRateLimits/concurrency-test");
+    await setDoc(quota, {uid:"concurrency-test", minute:1441, day:1, minuteCount:0, dayCount:0});
+    const { runTransaction } = require("firebase/firestore");
+    const outcomes = await Promise.all(Array.from({length: 8}, () =>
+      runTransaction(db, async tx => {
+        const old = (await tx.get(quota)).data();
+        if (old.minuteCount >= 5 || old.dayCount >= 100) return false;
+        tx.update(quota, {minuteCount:old.minuteCount+1, dayCount:old.dayCount+1});
+        return true;
+      }, {maxAttempts: 10})
+    ));
+    const assert = require("node:assert/strict");
+    assert.equal(outcomes.filter(Boolean).length, 5);
+    const final = (await getDoc(quota)).data();
+    assert.equal(final.minuteCount, 5);
+    assert.equal(final.dayCount, 5);
+  });
+});
+
+test("clients cannot reset server-owned AI quota counters", async () => {
+  await env();
+  await seed("aiRateLimits/alice", {uid:"alice", minuteCount:5, dayCount:100});
+  const alice = user("alice");
+  await assertFails(updateDoc(doc(alice, "aiRateLimits/alice"), {minuteCount:0, dayCount:0}));
+  await assertFails(setDoc(doc(alice, "aiRateLimits/alice"), {uid:"alice", minuteCount:0, dayCount:0}));
+});
+
+test("C02 frozen account cannot create update delete or remove its lock", async () => {
+  await env();
+  const uid = "freeze-test";
+  const db = user(uid), other = user("freeze-other");
+  const goal = doc(db, "wellnessGoals/freeze-test_goal");
+  await assertSucceeds(setDoc(goal, {uid, title:"before"}));
+  await assertFails(setDoc(doc(db, "accountDeletionLocks/"+uid), {frozen:true}));
+  await seed("accountDeletionLocks/"+uid, {frozen:true});
+  await assertFails(setDoc(doc(db, "hydrationLogs/freeze-new"), {uid, waterMl:250}));
+  await assertFails(updateDoc(goal, {title:"after"}));
+  await assertFails(require("firebase/firestore").deleteDoc(goal));
+  await assertFails(require("firebase/firestore").deleteDoc(doc(db,"accountDeletionLocks/"+uid)));
+  await assertSucceeds(getDoc(goal));
+  await assertSucceeds(setDoc(doc(other,"hydrationLogs/unfrozen-new"), {uid:"freeze-other",waterMl:250}));
+});

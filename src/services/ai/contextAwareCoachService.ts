@@ -1,12 +1,11 @@
 import { ActivityLogger } from "../activity";
 import { DashboardData } from "../dashboardService";
 import {
-  getAICoachThreads,
   saveAICoachMessage,
 } from "../../repositories/aiCoachRepository";
 import { AICoachAskResult } from "../../types";
 import { buildAICoachContextBundle } from "./coachContextService";
-import { buildContextAwareCoachPrompt } from "./coachPromptBuilder";
+import { buildContextAwareCoachContext } from "./coachPromptBuilder";
 import { processConversationMemory } from "./memoryIntelligenceService";
 import { processConversationSummary } from "./conversationSummaryService";
 import { generateWellnessAdvice } from "./remoteAIService";
@@ -16,11 +15,15 @@ export async function askContextAwareWellnessCoach({
   question,
   conversationId,
   dashboard,
+  questionSaved = false,
+  onQuestionSaved,
 }: {
   uid: string;
   question: string;
   conversationId: string;
   dashboard: DashboardData;
+  questionSaved?: boolean;
+  onQuestionSaved?: () => void;
 }): Promise<AICoachAskResult> {
   const cleanQuestion = question.trim();
 
@@ -34,21 +37,23 @@ export async function askContextAwareWellnessCoach({
     conversationId,
   });
 
-  await saveAICoachMessage({
-    uid,
-    role: "user",
-    message: cleanQuestion,
-    conversationId,
-    dashboard,
-  });
+  if (!questionSaved) {
+    await saveAICoachMessage({
+      uid,
+      role: "user",
+      message: cleanQuestion,
+      conversationId,
+      dashboard,
+    });
+    onQuestionSaved?.();
+  }
 
-  const prompt = buildContextAwareCoachPrompt({
-    context,
-    question: cleanQuestion,
-  });
+  const coachContext = buildContextAwareCoachContext(context);
 
   const reply = await generateWellnessAdvice({
-    question: prompt,
+    question: cleanQuestion,
+    coachContext,
+    expectedUid: uid,
     dashboard,
   });
 
@@ -61,25 +66,23 @@ export async function askContextAwareWellnessCoach({
     model: "gpt-5.5",
   });
 
-  await ActivityLogger.aiChat({
+  void ActivityLogger.aiChat({
     userId: uid,
     question: cleanQuestion,
     conversationId,
     model: "gpt-5.5",
-  });
+  }).catch(() => undefined);
 
-  processConversationMemory({
+  void processConversationMemory({
     userId: uid,
     userMessage: cleanQuestion,
     assistantMessage: reply,
-  });
+  }).catch(() => undefined);
 
-  processConversationSummary({
+  void processConversationSummary({
     userId: uid,
     conversationId,
-  });
-
-  await getAICoachThreads({ uid });
+  }).catch(() => undefined);
 
   return {
     reply,

@@ -1,4 +1,7 @@
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text } from "react-native";
+import { useEffect, useState } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "../firebase/firebaseConfig";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../firebase/firebaseConfig";
 
@@ -9,6 +12,21 @@ import { colors, spacing } from "../theme";
 
 export default function DeleteAccountScreen() {
   const { dashboard, loading, refreshing, saving, error, refresh, updatePreferences } = useSettingsCenter();
+  const [deletionStatus, setDeletionStatus] = useState<string | null>(null);
+  const [requestedAt, setRequestedAt] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState(false);
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    return onSnapshot(doc(db, "accountDeletionRequests", uid), snapshot => {
+      const data = snapshot.data();
+      setDeletionStatus(snapshot.exists() ? String(data?.status ?? "unknown") : null);
+      setRequestedAt(data?.requestedAt?.toDate?.()?.toLocaleDateString?.() ?? null);
+      setStatusError(false);
+    }, () => setStatusError(true));
+  }, []);
+
 
   if (loading && !dashboard) return <LoadingState message="Loading account deletion controls..." />;
   if (error && !dashboard) return <ErrorState title="Unable to load delete account" message={error} onRetry={refresh} />;
@@ -47,7 +65,7 @@ export default function DeleteAccountScreen() {
         >
           <SettingsInfoCard
             title="Deletion status"
-            subtitle={dashboard.preferences.deleteAccountRequestedAt ? `Requested on ${new Date(dashboard.preferences.deleteAccountRequestedAt).toLocaleDateString()}` : "No deletion request is active."}
+            subtitle={statusError ? "Unable to verify server deletion status." : deletionStatus ? `Server status: ${deletionStatus}${requestedAt ? ` · Requested ${requestedAt}` : ""}. Deletion is not yet complete.` : "No active deletion request found on the server."}
           />
           <SettingsInfoCard
             title="Safety note"

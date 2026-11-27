@@ -13,7 +13,7 @@ export const discoverDeletionDataPaths = onCall(
     if (!adminUid) throw new HttpsError("unauthenticated", "Administrator sign-in required.");
     const admin = await getAuth().getUser(adminUid);
     const claims = admin.customClaims ?? {};
-    if (claims.superAdmin !== true && claims.role !== "super_admin") {
+    if (admin.disabled || (claims.superAdmin !== true && claims.role !== "super_admin")) {
       throw new HttpsError("permission-denied", "Super Admin required.");
     }
 
@@ -28,6 +28,15 @@ export const discoverDeletionDataPaths = onCall(
       throw new HttpsError("failed-precondition", "An active deletion request is required.");
     }
 
+    const target = await getAuth().getUser(uid);
+    const identity = target.metadata.creationTime;
+    if (!identity || !Number.isFinite(Date.parse(identity)) ||
+        deletion.data()?.userId !== uid || deletion.data()?.authCreationTime !== identity) {
+      throw new HttpsError("failed-precondition", "Deletion request account identity mismatch or legacy request; manual review required.");
+    }
+    if ((await db.doc(`accountDeletionLocks/${adminUid}`).get()).exists) {
+      throw new HttpsError("failed-precondition", "Acting account deletion is in progress.");
+    }
     const topLevel = await db.listCollections();
     const collectionNames = topLevel.map(item => item.id).sort();
     const uidDocumentPaths: string[] = [];
@@ -37,19 +46,42 @@ export const discoverDeletionDataPaths = onCall(
     const MAX_NESTED = 500;
     const inspected = topLevel.slice(0, MAX_COLLECTIONS);
 
+    const MAX_DOCUMENTS = 1000;
+    const MAX_DEPTH = 5;
+    let inspectedNestedDocuments = 0;
+    let nestedTruncated = false;
+    async function visit(ref: FirebaseFirestore.DocumentReference, depth: number): Promise<void> {
+      const children = await ref.listCollections();
+      for (const child of children) {
+        if (nestedCollectionPaths.length >= MAX_NESTED) {
+          nestedTruncated = true;
+          return;
+        }
+        nestedCollectionPaths.push(child.path);
+        if (depth >= MAX_DEPTH || inspectedNestedDocuments >= MAX_DOCUMENTS) {
+          nestedTruncated = true;
+          continue;
+        }
+        // listDocuments includes missing parent documents with surviving descendants.
+        const refs = await child.listDocuments();
+        for (const nested of refs) {
+          if (inspectedNestedDocuments >= MAX_DOCUMENTS || nestedCollectionPaths.length >= MAX_NESTED) {
+            nestedTruncated = true;
+            break;
+          }
+          inspectedNestedDocuments++;
+          await visit(nested, depth + 1);
+        }
+      }
+    }
     for (const collection of inspected) {
       try {
         const ref = collection.doc(uid);
         const snapshot = await ref.get();
-        if (!snapshot.exists) continue;
-        uidDocumentPaths.push(ref.path);
-        const children = await ref.listCollections();
-        for (const child of children) {
-          if (nestedCollectionPaths.length >= MAX_NESTED) break;
-          nestedCollectionPaths.push(child.path);
-        }
-      } catch (error) {
-        errors.push(`${collection.id}: ${error instanceof Error ? error.message : "Unknown error"}`);
+        if (snapshot.exists) uidDocumentPaths.push(ref.path);
+        await visit(ref, 1);
+      } catch {
+        errors.push(`${collection.id}: Discovery failed`);
       }
     }
 
@@ -59,7 +91,8 @@ export const discoverDeletionDataPaths = onCall(
       uidDocumentPaths,
       nestedCollectionPaths,
       inspectedTopLevelCollections: inspected.length,
-      truncated: topLevel.length > MAX_COLLECTIONS || nestedCollectionPaths.length >= MAX_NESTED,
+      inspectedNestedDocuments,
+      truncated: nestedTruncated || topLevel.length > MAX_COLLECTIONS || nestedCollectionPaths.length >= MAX_NESTED,
       errors,
       complete: false,
       deletionPerformed: false,

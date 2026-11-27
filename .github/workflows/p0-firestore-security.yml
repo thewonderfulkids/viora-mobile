@@ -1,0 +1,44 @@
+name: P0 Firestore security emulator tests
+
+on:
+  pull_request:
+    paths:
+      - "firestore.rules"
+      - "tests/firestore-rules-security.test.cjs"
+      - "tests/account-deletion-manifest.test.cjs"
+      - "functions/src/accountDeletion/**"
+      - ".github/workflows/p0-firestore-security.yml"
+  push:
+    branches:
+      - "chore/expo-sdk-57-migration"
+    paths:
+      - "firestore.rules"
+      - "tests/firestore-rules-security.test.cjs"
+      - ".github/workflows/p0-firestore-security.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  firestore-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install locked application dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install emulator test helper without modifying lockfile
+        run: npm install --no-save --package-lock=false --ignore-scripts @firebase/rules-unit-testing@^5
+      - name: Verify account-deletion inventory coverage
+        run: node --test tests/account-deletion-manifest.test.cjs
+      - name: Run adversarial Firestore rules tests
+        run: npx --yes firebase-tools@latest emulators:exec --only firestore --project viora-rules-security-test "node --test tests/firestore-rules-security.test.cjs"

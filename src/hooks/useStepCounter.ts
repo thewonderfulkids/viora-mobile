@@ -1,35 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
+
+import { useAuth } from "../context/AuthContext";
 
 import {
   getStepCounterSnapshot,
   refreshStepCounter,
   requestStepPermission,
   setDailyStepGoal,
-  StepCounterSnapshot,
   subscribeToStepCounter,
 } from "../services/steps";
 
 export function useStepCounter() {
-  const [state, setState] = useState<StepCounterSnapshot>(
-    getStepCounterSnapshot(),
-  );
-
-  useEffect(() => subscribeToStepCounter(setState), []);
-
-  const requestPermission = useCallback(
-    () => requestStepPermission(),
-    [],
-  );
-
-  const setGoal = useCallback(
-    (goal: number) => setDailyStepGoal(goal),
-    [],
-  );
-
-  const refresh = useCallback(
-    () => refreshStepCounter(),
-    [],
-  );
+  const { user } = useAuth();
+  const uid = user?.uid ?? null;
+  const read = useCallback(() => getStepCounterSnapshot(uid), [uid]);
+  const state = useSyncExternalStore(subscribeToStepCounter, read, read);
+  const requestPermission = useCallback(() => requestStepPermission(uid), [uid]);
+  const setGoal = useCallback((goal: number) => setDailyStepGoal(goal, uid), [uid]);
+  const refresh = useCallback(() => refreshStepCounter(uid), [uid]);
 
   const progress =
     state.goal > 0 ? Math.min(1, state.steps / state.goal) : 0;

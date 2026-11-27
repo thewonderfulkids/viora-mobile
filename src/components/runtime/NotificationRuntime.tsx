@@ -1,12 +1,19 @@
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
 import { useEffect, useRef } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 
+import { auth } from "../../firebase/firebaseConfig";
 import { useAuth } from "../../context/AuthContext";
-import { initializeNativeNotificationRuntime } from "../../services/notifications/nativeNotificationService";
+import { initializeNativeNotificationRuntime, reconcileNativeSmartNotifications } from "../../services/notifications/nativeNotificationService";
+
+import { reconcilePremiumNotificationSession } from "../../services/notifications2/premiumNotificationService";
 
 const ALLOWED_NOTIFICATION_ROUTES = new Set([
+  "/(tabs)",
+  "/steps",
+  "/mental-wellness",
   "/hydration",
   "/sleep",
   "/yoga",
@@ -32,11 +39,46 @@ export function NotificationRuntime() {
   const handledResponseId = useRef<string | null>(null);
 
   useEffect(() => {
+    if (Platform.OS !== "android" && Platform.OS !== "ios") return;
+    let disposed = false;
+    let generation = 0;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    const reconcile = (attempt = 0) => {
+      const version = ++generation;
+      if (retry !== null) clearTimeout(retry);
+      retry = null;
+      void Promise.allSettled([
+        reconcilePremiumNotificationSession(),
+        reconcileNativeSmartNotifications(),
+      ]).then(results => {
+        if (disposed || version !== generation) return;
+        if (results.some(result => result.status === "rejected") && attempt < 3) {
+          retry = setTimeout(() => {
+            if (disposed || version !== generation) return;
+            retry = null;
+            reconcile(attempt + 1);
+          }, 1000 * 2 ** attempt);
+        }
+      });
+    };
+    let authReady = false;
+    const unsubscribe = onAuthStateChanged(auth, () => { authReady = true; reconcile(); });
+    const state = AppState.addEventListener("change", (next) => { if (authReady && next === "active") reconcile(); });
+    return () => { disposed = true; generation++; if (retry !== null) clearTimeout(retry); unsubscribe(); state.remove(); };
+  }, []);
+
+  useEffect(() => {
     if (Platform.OS === "web" || !user) return;
 
-    void initializeNativeNotificationRuntime();
+    let active = true;
+    const uid = user.uid;
+    void initializeNativeNotificationRuntime().catch(() => undefined);
 
     const openResponse = (response: Notifications.NotificationResponse) => {
+      if (!active || auth.currentUser !== user) return;
+      const data = response.notification.request.content.data;
+      // Unscoped legacy schedules have no trusted tap owner.
+      if (data?.userId !== uid) return;
       const responseId = response.notification.request.identifier;
       if (handledResponseId.current === responseId) return;
       handledResponseId.current = responseId;
@@ -49,9 +91,9 @@ export function NotificationRuntime() {
 
     void Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) openResponse(response);
-    });
+    }).catch(() => undefined);
 
-    return () => subscription.remove();
+    return () => { active = false; subscription.remove(); };
   }, [user]);
 
   return null;

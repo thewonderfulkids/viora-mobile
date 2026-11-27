@@ -22,6 +22,24 @@ export async function queueOfflineAction(input: {
   description: string;
   payload?: Record<string, unknown>;
 }) {
+  // Reject payloads that cannot survive AsyncStorage JSON serialization.
+  // Silent serialization loss would make eventual server replay unreliable.
+  const payload = input.payload ?? {};
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Offline action payload must be a JSON object.");
+  }
+  let serializedPayload: string;
+  try {
+    serializedPayload = JSON.stringify(payload);
+  } catch {
+    throw new Error("Offline action payload must be JSON serializable.");
+  }
+  if (typeof serializedPayload !== "string" || serializedPayload.length > 65536) {
+    throw new Error("Offline action payload is invalid or exceeds 64 KiB.");
+  }
+  if (JSON.stringify(JSON.parse(serializedPayload)) !== serializedPayload) {
+    throw new Error("Offline action payload cannot be safely serialized.");
+  }
   const now = new Date().toISOString();
   const action: PendingSyncAction = {
     id: createId(input.type),
@@ -29,7 +47,7 @@ export async function queueOfflineAction(input: {
     type: input.type,
     title: input.title,
     description: input.description,
-    payload: input.payload || {},
+    payload: JSON.parse(serializedPayload) as Record<string, unknown>,
     status: "pending",
     attempts: 0,
     createdAt: now,

@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CommonBackButton, Screen } from "../components/common";
+import { useAuth } from "../context/AuthContext";
 import { usePremiumNotifications } from "../hooks/usePremiumNotifications";
 import { PremiumReminderCategory } from "../services/notifications2";
 import { premiumPalette, premiumShadow } from "../theme/premium";
@@ -31,6 +32,12 @@ const CATEGORY_ICON: Record<
 };
 
 export default function NotificationCenterScreen() {
+  const { user, authSessionId } = useAuth();
+  if (!user) return null;
+  return <AccountNotificationCenter key={authSessionId} />;
+}
+
+function AccountNotificationCenter() {
   const {
     reminders,
     settings,
@@ -153,7 +160,7 @@ export default function NotificationCenterScreen() {
           <View style={styles.infoCard}>
             <Ionicons name="information-circle-outline" size={23} color={premiumPalette.sky} />
             <Text style={styles.infoText}>
-              Reminder delivery analytics are stored locally. Android may delay exact timing under battery-saving modes.
+              Reminders from before this update aren’t assigned to an account. If an old reminder is missing, recreate it here. Android may delay delivery in battery-saving modes.
             </Text>
           </View>
         </ScrollView>

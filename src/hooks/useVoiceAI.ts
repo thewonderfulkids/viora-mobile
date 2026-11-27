@@ -151,6 +151,26 @@ export function useVoiceAI(options: UseVoiceAIOptions = {}) {
     }
   }, [submitCommand]);
 
+  // AI Coach needs speech-to-text only. Do not parse, log, speak, or navigate
+  // a legacy voice command before the Coach can use the raw transcript.
+  const startTranscribing = useCallback(async () => {
+    setStatus("listening");
+    setSaving(true);
+    setError(null);
+    try {
+      const { transcript: captured } = await captureVoiceCommand();
+      setTranscript(captured);
+      setStatus("idle");
+      return captured;
+    } catch (error: any) {
+      setError(error?.message || "Voice capture is not available. You can type a question instead.");
+      setStatus("unsupported");
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  }, []);
+
   const stopSpeaking = useCallback(() => {
     stopVoiceResponse();
     setSpeaking(false);
@@ -168,6 +188,7 @@ export function useVoiceAI(options: UseVoiceAIOptions = {}) {
     setTranscript,
     refresh,
     startListening,
+    startTranscribing,
     submitCommand,
     stopSpeaking,
   };

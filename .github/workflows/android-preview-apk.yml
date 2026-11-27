@@ -1,0 +1,101 @@
+name: Android preview APK
+
+on:
+  push:
+    branches:
+      - chore/expo-sdk-57-migration
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preview-preflight:
+    if: github.ref == 'refs/heads/chore/expo-sdk-57-migration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify Expo dependencies and TypeScript
+        run: |
+          CI=1 npx expo install --check
+          npx expo-doctor
+          npx tsc --noEmit
+      - name: Verify Firebase Functions TypeScript build
+        run: |
+          npm ci --prefix functions --no-audit --no-fund
+          npm run build --prefix functions
+      - name: Verify internal Android APK configuration
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const app = require('./app.json').expo;
+          const eas = require('./eas.json');
+          assert.equal(app.slug, 'viora-mobile');
+          assert.equal(app.android?.package, 'com.drdigiweb.vioramobile');
+          assert.equal(app.extra?.eas?.projectId, 'd459f525-122a-4265-b496-6b2bf0f2211c');
+          assert.equal(eas.build?.preview?.distribution, 'internal');
+          assert.equal(eas.build?.preview?.android?.buildType, 'apk');
+          assert.notEqual(eas.build?.preview?.autoIncrement, true);
+          console.log('Android preview APK configuration verified; no build queued.');
+          NODE
+  build-preview-apk:
+    needs: preview-preflight
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[queue-apk]') && github.ref == 'refs/heads/chore/expo-sdk-57-migration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Check EAS credentials
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::EXPO_TOKEN repository secret is required to initiate a preview APK build."
+            exit 1
+          fi
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate Expo SDK compatibility
+        run: |
+          CI=1 npx expo install --check
+          npx expo-doctor
+          npx tsc --noEmit
+      - name: Verify preview APK project identity and distribution
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const app = require('./app.json').expo;
+          const eas = require('./eas.json');
+          assert.equal(app.slug, 'viora-mobile', 'Unexpected Expo slug');
+          assert.equal(app.android?.package, 'com.drdigiweb.vioramobile', 'Unexpected Android application ID');
+          assert.equal(app.extra?.eas?.projectId, 'd459f525-122a-4265-b496-6b2bf0f2211c', 'Unexpected EAS project ID');
+          assert.equal(eas.build?.preview?.distribution, 'internal', 'Preview must use internal distribution');
+          assert.equal(eas.build?.preview?.android?.buildType, 'apk', 'Preview must generate an APK');
+          assert.notEqual(eas.build?.preview?.autoIncrement, true, 'Preview must not automatically increment production versions');
+          console.log('Verified Viora preview APK configuration and EAS project identity.');
+          NODE
+      - name: Record build provenance
+        run: |
+          echo "Git commit: ${GITHUB_SHA}"
+          echo "Branch: ${GITHUB_REF_NAME}"
+          echo "EAS profile: preview"
+          echo "Android application ID: com.drdigiweb.vioramobile"
+          echo "Distribution: internal (APK)"
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+      - name: Queue internal Android APK build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_NO_VCS: '1'
+        run: eas build --platform android --profile preview --non-interactive --no-wait

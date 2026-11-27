@@ -85,19 +85,21 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 38,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 12,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
   iconWrapActive: {
     backgroundColor: colors.primary,
+    borderRadius: 12,
     ...shadows.glow,
   },
   glow: {
     position: "absolute",
     width: 44,
     height: 38,
-    borderRadius: 19,
+    borderRadius: 14,
     backgroundColor: "rgba(143,228,95,0.18)",
   },
   label: {

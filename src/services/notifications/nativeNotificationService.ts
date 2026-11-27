@@ -1,18 +1,35 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
+import { auth } from "../../firebase/firebaseConfig";
 import { SmartReminderSettings, WellnessReminder } from "../../types";
 
 const ANDROID_CHANNEL_ID = "viora-reminders-v3";
 
+let nativeWork: Promise<unknown> = Promise.resolve();
+function serial<T>(task: () => Promise<T>): Promise<T> {
+  const result = nativeWork.then(task);
+  nativeWork = result.catch(() => undefined);
+  return result;
+}
+
+function isSmart(request: Notifications.NotificationRequest) {
+  const data = request.content.data;
+  return typeof data?.vioraReminderId === "string" || data?.vioraTest === true;
+}
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const request = notification.request;
+    const show = !isSmart(request) || (!!auth.currentUser && request.content.data?.userId === auth.currentUser.uid);
+    return {
+      shouldShowAlert: show,
+      shouldPlaySound: show,
+      shouldSetBadge: false,
+      shouldShowBanner: show,
+      shouldShowList: show,
+    };
+  },
 });
 
 function isNativeRuntime() {
@@ -69,16 +86,26 @@ export async function getWellnessNotificationPermissionStatus() {
   return permission.granted ? ("granted" as const) : ("denied" as const);
 }
 
-async function cancelExistingVioraReminderNotifications() {
-  if (!isNativeRuntime()) return;
-
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-
-  await Promise.all(
-    scheduled
-      .filter((item) => Boolean(item.content?.data?.vioraReminderId))
-      .map((item) => Notifications.cancelScheduledNotificationAsync(item.identifier))
-  );
+export function reconcileNativeSmartNotifications() {
+  return serial(async () => {
+    if (!isNativeRuntime()) return;
+    const [pending, presented] = await Promise.allSettled([
+      Notifications.getAllScheduledNotificationsAsync(),
+      Notifications.getPresentedNotificationsAsync(),
+    ]);
+    // Read the current auth state after the native reads, not when work queued.
+    const { uid } = auth.currentUser ?? {};
+    const shouldRemove = (request: Notifications.NotificationRequest) =>
+      isSmart(request) && (!uid || request.content.data?.userId !== uid);
+    const results = await Promise.allSettled([
+      ...(pending.status === "fulfilled" ? pending.value.filter(shouldRemove)
+        .map(job => Notifications.cancelScheduledNotificationAsync(job.identifier)) : []),
+      ...(presented.status === "fulfilled" ? presented.value.map(item => item.request).filter(shouldRemove)
+        .map(job => Notifications.dismissNotificationAsync(job.identifier)) : []),
+    ]);
+    if (pending.status === "rejected" || presented.status === "rejected" ||
+        results.some(result => result.status === "rejected")) throw new Error("Could not reconcile Smart reminders.");
+  });
 }
 
 function buildNotificationBody(reminder: WellnessReminder) {
@@ -120,63 +147,80 @@ function buildNativeTrigger(reminder: WellnessReminder): Notifications.Notificat
   } as Notifications.NotificationTriggerInput;
 }
 
-export async function syncNativeWellnessReminders(
+export function syncNativeWellnessReminders(
   reminders: WellnessReminder[],
-  settings: SmartReminderSettings
+  settings: SmartReminderSettings,
+  owner = auth.currentUser,
+  stillCurrent = () => true,
 ): Promise<void> {
-  if (!isNativeRuntime()) return;
-
-  await cancelExistingVioraReminderNotifications();
-
-  if (!settings.enabled) return;
-
-  const granted = await requestWellnessNotificationPermission();
-  if (!granted) return;
-
-  const activeReminders = reminders.filter(
-    (item) => item.status === "scheduled" && isFutureDate(item.scheduledFor)
-  );
-
-  await Promise.all(
-    activeReminders.map((reminder) =>
-      Notifications.scheduleNotificationAsync({
-        content: {
-          title: reminder.title,
-          body: buildNotificationBody(reminder),
-          sound: "default",
-          priority: Notifications.AndroidNotificationPriority.HIGH,
-          data: {
-            vioraReminderId: reminder.id,
-            type: reminder.type,
-            actionRoute: reminder.actionRoute,
-            userId: reminder.userId,
+  const active = () => Boolean(owner && auth.currentUser === owner &&
+    settings.userId === owner.uid && stillCurrent());
+  return serial(async () => {
+    if (!isNativeRuntime() || !owner || !active()) return;
+    const uid = owner.uid;
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    if (!active()) return;
+    // Capture only this owner's repeating/one-shot Smart jobs. Never touch
+    // another account, test alert or Premium job through a dashboard refresh.
+    const previous = scheduled.filter(job => typeof job.content.data?.vioraReminderId === "string" &&
+      job.content.data.userId === uid);
+    if (!settings.enabled) {
+      await Promise.all(previous.map(job => Notifications.cancelScheduledNotificationAsync(job.identifier)));
+      return;
+    }
+    if (!(await requestWellnessNotificationPermission()) || !active()) return;
+    const nextIds: string[] = [];
+    let committed = false;
+    try {
+      for (const reminder of reminders) {
+        if (!active()) return;
+        if (reminder.userId !== uid || reminder.status !== "scheduled" || !isFutureDate(reminder.scheduledFor)) continue;
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: reminder.title,
+            body: buildNotificationBody(reminder),
+            sound: "default",
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+            data: { vioraReminderId: reminder.id, type: reminder.type, actionRoute: reminder.actionRoute, userId: uid },
           },
-        },
-        trigger: buildNativeTrigger(reminder),
-      })
-    )
-  );
+          trigger: buildNativeTrigger(reminder),
+        });
+        nextIds.push(notificationId);
+      }
+      if (!active()) return;
+      await Promise.all(previous.map(job => Notifications.cancelScheduledNotificationAsync(job.identifier)));
+      committed = active();
+    } finally {
+      if (!committed) await Promise.allSettled(nextIds.map(id => Notifications.cancelScheduledNotificationAsync(id)));
+    }
+  });
 }
 
-export async function scheduleWellnessTestNotification(): Promise<boolean> {
-  if (!isNativeRuntime()) return false;
-  const granted = await requestWellnessNotificationPermission();
-  if (!granted) return false;
+export function scheduleWellnessTestNotification(owner = auth.currentUser): Promise<boolean> {
+  return serial(async () => {
+    if (!isNativeRuntime() || !owner || auth.currentUser !== owner) return false;
+    const granted = await requestWellnessNotificationPermission();
+    if (!granted || auth.currentUser !== owner) return false;
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Viora reminder test",
-      body: "Notifications are ready on this device.",
-      sound: "default",
-      data: { actionRoute: "/smart-notifications", vioraTest: true },
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: 3,
-      repeats: false,
-      channelId: ANDROID_CHANNEL_ID,
-    } as Notifications.NotificationTriggerInput,
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Viora reminder test",
+        body: "Notifications are ready on this device.",
+        sound: "default",
+        data: { actionRoute: "/smart-notifications", vioraTest: true, userId: owner.uid },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 3,
+        repeats: false,
+        channelId: ANDROID_CHANNEL_ID,
+      } as Notifications.NotificationTriggerInput,
+    });
+
+    if (auth.currentUser !== owner) {
+      await Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined);
+      return false;
+    }
+    return true;
   });
-
-  return true;
 }

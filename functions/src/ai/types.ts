@@ -1,8 +1,8 @@
 export type WellnessAIInput = {
   question: string;
+  coachContext?: string;
   dashboard: {
     user?: {
-      fullName?: string;
       goal?: string;
       stressLevel?: string;
       lifestyle?: string;

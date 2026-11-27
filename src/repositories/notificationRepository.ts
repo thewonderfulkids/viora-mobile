@@ -98,9 +98,14 @@ function normalizeSettingsInput(
   };
 }
 
-export async function getSmartReminderSettings(userId: string): Promise<SmartReminderSettings> {
+export async function getSmartReminderSettings(
+  userId: string,
+  assertCurrent: () => void = () => {},
+): Promise<SmartReminderSettings> {
+  assertCurrent();
   const settingsRef = doc(db, COLLECTIONS.reminderSettings, userId);
   const snapshot = await getDoc(settingsRef);
+  assertCurrent();
 
   if (snapshot.exists()) {
     return snapshot.data() as SmartReminderSettings;
@@ -112,9 +117,11 @@ export async function getSmartReminderSettings(userId: string): Promise<SmartRem
 }
 
 export async function saveSmartReminderSettings(
-  input: SmartReminderSettingsInput
+  input: SmartReminderSettingsInput,
+  assertCurrent: () => void = () => {},
 ): Promise<SmartReminderSettings> {
-  const current = await getSmartReminderSettings(input.userId);
+  const current = await getSmartReminderSettings(input.userId, assertCurrent);
+  assertCurrent();
   const nextSettings = normalizeSettingsInput(current, input);
   const settingsRef = doc(db, COLLECTIONS.reminderSettings, input.userId);
 

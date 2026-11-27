@@ -1,5 +1,6 @@
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
+import { auth } from "../../firebase/firebaseConfig";
 
 import {
   updateUserPhoto,
@@ -7,20 +8,33 @@ import {
 } from "../../repositories";
 
 function isNativeStorageUploadIssue(error: unknown) {
-  const message = String((error as any)?.message || error || "").toLowerCase();
+  const issue = error as { code?: string; message?: string } | undefined;
+  const code = typeof issue?.code === "string" ? issue.code.toLowerCase() : undefined;
+  // An explicit auth or Storage policy rejection is not a native transport defect.
+  if (code?.startsWith("storage/") && code !== "storage/unknown") return false;
+  const message = String(issue?.message || error || "").toLowerCase();
   return (
     message.includes("arraybuffer") ||
     message.includes("blob") ||
     message.includes("network request failed") ||
-    message.includes("storage")
+    message.includes("atob") || code === "storage/unknown"
   );
 }
 
 export async function pickAndUploadProfilePhoto(
-  uid: string
+  uid: string,
+  owner = auth.currentUser,
 ): Promise<string | null> {
+  const assertCurrent = () => {
+    if (!owner || owner.uid !== uid || auth.currentUser !== owner) {
+      throw new Error("Sign in again before changing your profile photo.");
+    }
+  };
+
+  assertCurrent();
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
+  assertCurrent();
   if (!permission.granted) {
     throw new Error("Gallery permission denied.");
   }
@@ -33,6 +47,7 @@ export async function pickAndUploadProfilePhoto(
     base64: false,
   });
 
+  assertCurrent();
   if (result.canceled || result.assets.length === 0) return null;
 
   const asset = result.assets[0];
@@ -47,25 +62,26 @@ export async function pickAndUploadProfilePhoto(
     }
   );
 
+  assertCurrent();
   if (!image.base64) {
     throw new Error("Unable to prepare image for upload on this device.");
   }
 
   const dataUrl = `data:image/jpeg;base64,${image.base64}`;
 
+  let url: string;
   try {
-    const url = await uploadProfilePhoto(uid, image.base64);
-    await updateUserPhoto(uid, url);
-    return url;
+    url = await uploadProfilePhoto(uid, image.base64, assertCurrent);
   } catch (error) {
-    if (!isNativeStorageUploadIssue(error)) {
-      throw error;
-    }
-
-    // Android beta fallback: keep a small compressed data URL in Firestore so
-    // users can continue testing profile photos even if native Storage upload
-    // hits the Firebase Web SDK Blob/ArrayBuffer issue on a device.
-    await updateUserPhoto(uid, dataUrl);
-    return dataUrl;
+    assertCurrent();
+    if (!isNativeStorageUploadIssue(error)) throw error;
+    // Preserve the existing Android compatibility path only for Storage
+    // transport errors. A failed profile write must not trigger another write.
+    url = dataUrl;
   }
+
+  assertCurrent();
+  await updateUserPhoto(uid, url);
+  assertCurrent();
+  return url;
 }

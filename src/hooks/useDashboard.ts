@@ -1,5 +1,5 @@
 import { User, onAuthStateChanged } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { auth } from "../firebase/firebaseConfig";
 import {
@@ -22,9 +22,14 @@ export function useDashboard() {
     uid: null,
   });
 
+  const requestVersion = useRef(0);
+
   async function loadDashboard(currentUser?: User | null) {
+    const version = ++requestVersion.current;
+    const activeUser = currentUser === undefined ? auth.currentUser : currentUser;
+    const isCurrent = () => version === requestVersion.current && (auth.currentUser?.uid ?? null) === (activeUser?.uid ?? null);
     try {
-      const activeUser = currentUser ?? auth.currentUser;
+      if (!isCurrent()) return;
 
       if (!activeUser) {
         setState({
@@ -38,6 +43,7 @@ export function useDashboard() {
 
       setState((prev) => ({
         ...prev,
+        data: prev.uid === activeUser.uid ? prev.data : null,
         loading: true,
         error: null,
         uid: activeUser.uid,
@@ -45,6 +51,7 @@ export function useDashboard() {
 
       const dashboardData = await getDashboardData(activeUser.uid);
 
+      if (!isCurrent()) return;
       setState({
         data: dashboardData,
         loading: false,
@@ -52,6 +59,7 @@ export function useDashboard() {
         uid: activeUser.uid,
       });
     } catch (error: any) {
+      if (!isCurrent()) return;
       setState((prev) => ({
         ...prev,
         loading: false,
@@ -65,7 +73,10 @@ export function useDashboard() {
       loadDashboard(currentUser);
     });
 
-    return unsubscribe;
+    return () => {
+      requestVersion.current += 1;
+      unsubscribe();
+    };
   }, []);
 
   return {

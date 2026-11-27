@@ -70,6 +70,21 @@ export const bootstrapFirstAdmin = onCall(
     const lockRef = db.doc("system/bootstrapAdmin");
     const reservationId = randomUUID();
 
+    // Firestore transactions must not perform independent queries inside
+    // their callback. Check existing admins before acquiring the atomic
+    // bootstrap reservation; the transaction lock prevents concurrent claims.
+    const existingAdmins = await db
+      .collection("users")
+      .where("role", "in", ["admin", "super_admin"])
+      .limit(1)
+      .get();
+    if (!existingAdmins.empty) {
+      throw new HttpsError(
+        "already-exists",
+        "An administrator already exists. One-time setup is disabled.",
+      );
+    }
+
     await db.runTransaction(async (transaction) => {
       const lockSnap = await transaction.get(lockRef);
 
@@ -89,19 +104,6 @@ export const bootstrapFirstAdmin = onCall(
             "Administrator creation is already in progress.",
           );
         }
-      }
-
-      const existingAdmins = await db
-        .collection("users")
-        .where("role", "in", ["admin", "super_admin"])
-        .limit(1)
-        .get();
-
-      if (!existingAdmins.empty) {
-        throw new HttpsError(
-          "already-exists",
-          "An administrator already exists. One-time setup is disabled.",
-        );
       }
 
       transaction.set(
@@ -172,6 +174,9 @@ export const bootstrapFirstAdmin = onCall(
             "Administrator setup reservation is no longer valid.",
           );
         }
+
+        const deletionLock = await transaction.get(db.doc(`accountDeletionLocks/${userRecord.uid}`));
+        if (deletionLock.exists) throw new HttpsError("failed-precondition", "Account deletion lock exists.");
 
         transaction.set(
           db.doc(`users/${userRecord.uid}`),
