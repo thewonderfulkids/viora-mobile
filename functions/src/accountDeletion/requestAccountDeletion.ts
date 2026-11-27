@@ -24,11 +24,13 @@ export const requestAccountDeletion = onCall(
     const db = getFirestore();
     const ref = db.doc(`accountDeletionRequests/${uid}`);
     const result = await db.runTransaction(async (tx) => {
+      const lock = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
       const previous = await tx.get(ref);
       const status = previous.data()?.status;
       if (isExistingDeletionRequest(status)) {
         return { status, alreadyRequested: true };
       }
+      if (lock.exists) throw new HttpsError("failed-precondition", "Account deletion is already in progress; recovery review required.");
       tx.set(ref, {
         userId: uid,
         email: user.email ?? null,
