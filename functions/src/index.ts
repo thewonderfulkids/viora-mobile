@@ -153,3 +153,5 @@ export { discoverDeletionDataPaths } from "./accountDeletion/discoverDeletionDat
 
 // H06: authenticated publication for explicitly migrated profiles only.
 export { publishProfileAvatar } from "./publishProfileAvatar";
+
+export { scheduledAvatarCleanup } from "./scheduledAvatarCleanup";

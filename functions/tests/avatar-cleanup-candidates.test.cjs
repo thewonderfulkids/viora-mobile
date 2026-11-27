@@ -13,3 +13,7 @@ test("H06 protects all active aliases and rejects unsafe candidates", () => {
   assert.deepEqual(selectOrphanAvatars("a", "test", profile, files, now), [files[3]]);
   assert.deepEqual(selectOrphanAvatars("a", "test", {photoURL:"https://unknown.invalid/avatar"}, files, now), []);
 });
+
+test("H06 rejects zero and unsafe generations before retirement", () => {
+  assert.deepEqual(selectOrphanAvatars("a","test",{},[file(1,{generation:"0"}),file(2,{generation:"9007199254740993"}),file(3,{generation:"001"}),file(4)],now),[file(4)]);
+});
