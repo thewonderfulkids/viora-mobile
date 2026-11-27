@@ -140,7 +140,7 @@ service cloud.firestore {
     // A trusted cleanup worker may freeze avatar reference changes while it
     // checks and deletes orphan objects. Other profile edits remain available.
     function avatarCleanupAllowsUpdate() {
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["avatarCleanupLocked", "avatarServerManaged"])
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["avatarCleanupLocked", "avatarServerManaged", "avatarCleanupToken"])
         && ((resource.data.get("avatarCleanupLocked", false) != true && resource.data.get("avatarServerManaged", false) != true)
           || !request.resource.data.diff(resource.data).affectedKeys().hasAny(["photoURL", "photoUrl", "avatarUrl"]));
     }
