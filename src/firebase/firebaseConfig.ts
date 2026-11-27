@@ -5,6 +5,8 @@ import {
   getReactNativePersistence,
   initializeAuth,
 } from "firebase/auth";
+import { initializeAppCheck, ReCaptchaV3Provider, getToken } from "firebase/app-check";
+import { registerAppCheckTokenProvider } from "./appCheckToken";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 import { getStorage } from "firebase/storage";
@@ -22,6 +24,16 @@ const firebaseConfig = {
 
 export const app =
   getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+// Web attestation is opt-in; native platforms require their own attestation provider.
+const webAppCheckSiteKey = process.env.EXPO_PUBLIC_APP_CHECK_SITE_KEY;
+if (Platform.OS === "web" && typeof window !== "undefined" && webAppCheckSiteKey) {
+  const appCheck = initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(webAppCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+  registerAppCheckTokenProvider(async () => (await getToken(appCheck)).token);
+}
 
 function createAuth() {
   if (Platform.OS === "web") {
