@@ -71,6 +71,8 @@ export async function getPendingSyncActions(): Promise<PendingSyncAction[]> {
   // v2 is the only writer in this build. Retry non-destructive housekeeping on each queue entry.
   await cleanupEmptyLegacySyncQueue().catch(() => false);
   if (auth.currentUser !== actor) throw new Error("Account changed while reading offline sync queue.");
+  await stageOwnedLegacyActionsForReview().catch(() => 0);
+  if (auth.currentUser !== actor) throw new Error("Account changed while reading offline sync queue.");
   return readQueue(uid);
 }
 
