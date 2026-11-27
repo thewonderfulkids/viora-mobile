@@ -42,6 +42,10 @@ export const ADDITIONAL_INVENTORY_SOURCES = [
   { source: "@viora/sync-queue/v2/{uid}", scope: "device_account", status: "device_cleanup_required" },
   { source: "@viora/sync-queue/v2/last-synced-at/{uid}", scope: "device_account", status: "device_cleanup_required" },
   { source: "@viora/sync-queue/v1", scope: "mixed_device", status: "manual_ownership_review_required" },
+  { source: "@viora/steps/by-user/{encodedUid}/", scope: "device_account", status: "device_cleanup_required" },
+  { source: "@viora/premium-v3/{encodedUid}/", scope: "device_account", status: "device_cleanup_required" },
+  { source: "@viora/premium-reminders-v2", scope: "mixed_device", status: "manual_ownership_review_required" },
+  { source: "native-notification-schedules", scope: "device_account", status: "cancel_and_verify_required" },
   { source: "viora_app_language", scope: "device_preference", status: "preserve_pending_policy" },
   { source: "payment-provider-records", scope: "external_unverified", status: "provider_and_retention_review_required" },
 ] as const;
