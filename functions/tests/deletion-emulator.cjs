@@ -246,4 +246,27 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
     await auth.updateUser(adminUid,{disabled:false});
   }
 
+  const { classifyRetention } = require('../lib/accountDeletion/retentionPolicy');
+  for (const name of ['payments','subscriptions','premiumProgramEntitlements']) {
+    assert.equal(classifyRetention(name),'manual_retention_review');
+  }
+  for (const name of ['familyGroups','familyMembers','familyInvites']) {
+    assert.equal(classifyRetention(name),'shared_ownership_review');
+  }
+  for (const name of ['accountDeletionLocks','accountDeletionRequests','aiGlobalBudget']) {
+    assert.equal(classifyRetention(name),'preserve_control_record');
+  }
+  for (const name of ['users','unknownCollection','','payments/nested']) {
+    assert.equal(classifyRetention(name),'unclassified');
+  }
+  const inventoryPreview = await preview();
+  assert.equal(inventoryPreview.incomplete,true);
+  assert.ok(inventoryPreview.retentionReview.length > 0);
+  assert.ok(inventoryPreview.retentionReview.every(row => row.automaticErasureAuthorized === false));
+  assert.equal(inventoryPreview.retentionReview.find(row => row.collection === 'payments').decision,'manual_retention_review');
+  assert.equal(inventoryPreview.retentionReview.find(row => row.collection === 'familyGroups').decision,'shared_ownership_review');
+  assert.equal(inventoryPreview.retentionReview.find(row => row.collection === 'accountDeletionLocks').decision,'preserve_control_record');
+  assert.equal((await freeze.get()).exists,true);
+  assert.equal((await subscription.get()).exists,true);
+
 });
