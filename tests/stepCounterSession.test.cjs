@@ -29,6 +29,7 @@ function fixture() {
     appListeners.add(listener); return { remove: () => appListeners.delete(listener) };
   } };
   const io = {
+    getAllKeys: async () => [...store.keys()],
     getItem: async name => { reads.push(name); return store.get(name); },
     setItem: async (name, value) => { writes.push([name, value]); store.set(name, value); },
     removeItem: async name => { store.delete(name); },
@@ -371,4 +372,12 @@ test('H03 replays durable snapshot once after interrupted write', async () => {
   assert.equal(f.store.get(k),'1250'); assert.equal(f.store.has(k+'/recovery'),false);
   off(); f.move('A'); const off2=f.svc.subscribeToStepCounter(()=>{}); await flush();
   assert.equal(f.svc.getStepCounterSnapshot('A').steps,1250); off2();
+});
+
+test('H03 restart recovers historical journal only for signed-in owner', async () => {
+  const f=fixture(), a=key('A','daily/2026-11-23'), b=key('B','daily/2026-11-23');
+  f.store.set(a+'/recovery','120'); f.store.set(b+'/recovery','999');
+  f.move('A'); const off=f.svc.subscribeToStepCounter(()=>{}); await flush();
+  assert.equal(f.store.get(a),'120'); assert.equal(f.store.has(a+'/recovery'),false);
+  assert.equal(f.store.get(b+'/recovery'),'999'); assert.equal(f.store.has(b),false); off();
 });
