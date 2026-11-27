@@ -21,6 +21,8 @@ function isNativeStorageUploadIssue(error: unknown) {
   );
 }
 
+const activeUploads = new Set<string>();
+
 export async function pickAndUploadProfilePhoto(
   uid: string,
   owner = auth.currentUser,
@@ -32,6 +34,9 @@ export async function pickAndUploadProfilePhoto(
   };
 
   assertCurrent();
+  if (activeUploads.has(uid)) throw new Error("A profile photo update is already in progress.");
+  activeUploads.add(uid);
+  try {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
   assertCurrent();
@@ -84,4 +89,7 @@ export async function pickAndUploadProfilePhoto(
   await updateUserPhoto(uid, url);
   assertCurrent();
   return url;
+  } finally {
+    activeUploads.delete(uid);
+  }
 }
