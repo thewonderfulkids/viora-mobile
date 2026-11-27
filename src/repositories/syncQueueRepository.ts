@@ -71,7 +71,7 @@ export async function getPendingSyncActions(): Promise<PendingSyncAction[]> {
   // v2 is the only writer in this build. Retry non-destructive housekeeping on each queue entry.
   await cleanupEmptyLegacySyncQueue().catch(() => false);
   if (auth.currentUser !== actor) throw new Error("Account changed while reading offline sync queue.");
-  await stageOwnedLegacyActionsForReview().catch(() => 0);
+  // Historical actions remain quarantined; no automatic replay or durable duplicate.
   if (auth.currentUser !== actor) throw new Error("Account changed while reading offline sync queue.");
   return readQueue(uid);
 }
@@ -227,33 +227,22 @@ export async function inspectLegacyLocalStorage(): Promise<{ legacyStepDays: num
   };
 }
 
-/** Recover explicitly owned legacy records for review only, never automatically replay them.
- * The original device-wide queue stays quarantined. The review copy is idempotent
- * and never overwrites the live v2 queue or assigns ownerless records. */
-export async function stageOwnedLegacyActionsForReview(): Promise<number> {
+/** Read explicitly owned historical records for review without creating a second durable copy. */
+export async function getOwnedLegacyActionsForReview(): Promise<PendingSyncAction[]> {
   const actor = auth.currentUser;
   const uid = currentUid();
-  return serializeMutation(async () => {
-    const check = () => { if (auth.currentUser !== actor) throw new Error("Account changed during legacy recovery."); };
-    check();
-    const raw = await AsyncStorage.getItem(LEGACY_SYNC_QUEUE_KEY);
-    check();
-    if (!raw) return 0;
-    let parsed: unknown;
-    try { parsed = JSON.parse(raw); } catch { return 0; }
-    if (!Array.isArray(parsed)) return 0;
-    const owned = parsed.filter(item => item && typeof item === "object" && item.userId === uid && typeof item.id === "string" && item.id.length > 0);
-    const reviewKey = `@viora/sync-queue/legacy-review/${encodeURIComponent(uid)}`;
-    const previous = await AsyncStorage.getItem(reviewKey);
-    check();
-    let existing: unknown = [];
-    if (previous) existing = JSON.parse(previous);
-    if (!Array.isArray(existing) || existing.some(item => !item || item.userId !== uid || typeof item.id !== "string")) throw new Error("Invalid legacy review copy; preserved.");
-    const merged = new Map(existing.map(item => [item.id, item]));
-    for (const item of owned) if (!merged.has(item.id)) merged.set(item.id, item);
-    check();
-    if (merged.size !== existing.length) await AsyncStorage.setItem(reviewKey, JSON.stringify([...merged.values()]));
-    check();
-    return merged.size;
-  });
+  const raw = await AsyncStorage.getItem(LEGACY_SYNC_QUEUE_KEY);
+  if (auth.currentUser !== actor) throw new Error("Account changed during legacy recovery.");
+  if (!raw) return [];
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return []; }
+  if (!Array.isArray(parsed)) return [];
+  const unique = new Map<string, PendingSyncAction>();
+  for (const item of parsed) {
+    if (item && typeof item === "object" && item.userId === uid && typeof item.id === "string" && item.id.length && !unique.has(item.id)) unique.set(item.id, item);
+  }
+  return [...unique.values()];
+}
+export async function stageOwnedLegacyActionsForReview(): Promise<number> {
+  return (await getOwnedLegacyActionsForReview()).length;
 }
