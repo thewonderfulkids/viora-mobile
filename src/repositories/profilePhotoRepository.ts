@@ -6,7 +6,7 @@ let lastAvatarVersion = 0;
 
 function buildAvatarPath(uid: string) {
   // Avoid overwriting an earlier upload when two requests share a clock tick.
-  const version = Math.max(Date.now(), lastAvatarVersion + 1);
+  const version = Math.max(Date.now() * 1000 + Math.floor(Math.random() * 1000), lastAvatarVersion + 1);
   lastAvatarVersion = version;
   return `profile-photos/${uid}/avatar-${version}.jpg`;
 }
