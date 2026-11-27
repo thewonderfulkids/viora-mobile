@@ -181,4 +181,23 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.throws(()=>assertProductionLockActivationDisabled(),/activation disabled/);
   assert.equal((await freeze.get()).exists,false);
 
+  const { freezeFixtureAccount } = require('../lib/accountDeletion/emulatorLockTransaction');
+  await assert.rejects(freezeFixtureAccount(other,adminUid),/Matching prepared/);
+  await prepare();
+  await adminFreeze.set({frozen:true});
+  await assert.rejects(freezeFixtureAccount(other,adminUid),/Existing deletion lock/);
+  assert.equal((await freeze.get()).exists,false);
+  await adminFreeze.delete();
+  const freezeResults = await Promise.allSettled([
+    freezeFixtureAccount(other,adminUid),freezeFixtureAccount(other,adminUid)
+  ]);
+  assert.equal(freezeResults.filter(x=>x.status==='fulfilled').length,1);
+  assert.equal(freezeResults.filter(x=>x.status==='rejected').length,1);
+  assert.equal((await freeze.get()).get('frozen'),true);
+  assert.equal((await freeze.get()).get('authCreationTime'),identity);
+  assert.equal((await deletionRequest.get()).get('cleanupStatus'),'frozen_fixture');
+  await assert.rejects(claim(),/Account deletion is in progress/);
+  await assert.rejects(prepare(),/lock already exists/);
+  assert.equal((await auth.getUser(other)).uid,other);
+
 });
