@@ -19,7 +19,7 @@ function load(file, imports, globals = {}) {
   return module.exports;
 }
 
-function setup({ providerError, appCheckRequired = false, allowedApps = "" } = {}) {
+function setup({ providerError, appCheckRequired = false, allowedApps = "", appTokenProvider = async () => null } = {}) {
   const outgoing = [], prompts = [], providerRequests = [], errorLogs = [];
   const quotas = new Map();
   const user = { uid: 'synthetic-member', getIdToken: async () => 'fixture-token' };
@@ -75,13 +75,14 @@ function setup({ providerError, appCheckRequired = false, allowedApps = "" } = {
   }
   const cloud = load('src/services/ai/VioraCloudAIProvider.ts', {
     '../../firebase/firebaseConfig': { auth },
+    '../../firebase/appCheckToken': { getVioraAppCheckToken: appTokenProvider },
     './aiErrors': load('src/services/ai/aiErrors.ts', {}, { Error }),
   }, {
     setTimeout, clearTimeout, AbortController,
     async fetch(_url, init) {
       const body = JSON.parse(init.body);
       outgoing.push(body);
-      const { status, result } = await post(body, { authorization: init.headers.Authorization });
+      const { status, result } = await post(body, { authorization: init.headers.Authorization, 'x-firebase-appcheck': init.headers['X-Firebase-AppCheck'] });
       return { ok: status === 200, status, json: async () => result };
     },
   });
@@ -234,4 +235,12 @@ test('H08 verifies supplied tokens and fails closed when enforcement is enabled'
   const legacy=setup();
   assert.equal((await legacy.post(body,headers('invalid'))).status,401);
   assert.equal((await legacy.post(body)).status,200);
+});
+
+test('H08 client forwards attestation token and rechecks session before sending',async()=>{
+  const f=setup({appCheckRequired:true,appTokenProvider:async()=> 'valid-app-token'});
+  assert.equal((await f.service.askContextAwareWellnessCoach({uid:'synthetic-member',question:'hello',dashboard,conversationId:'fixture'})).reply,'synthetic model reply');
+  const g=setup({appTokenProvider:async()=>{g.auth.currentUser={uid:'other'};return 'valid-app-token';}});
+  await assert.rejects(g.service.askContextAwareWellnessCoach({uid:'synthetic-member',question:'hello',dashboard,conversationId:'fixture'}),/sign-in changed/);
+  assert.equal(g.outgoing.length,0);
 });

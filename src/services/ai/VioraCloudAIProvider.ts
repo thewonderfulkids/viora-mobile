@@ -1,3 +1,4 @@
+import { getVioraAppCheckToken } from "../../firebase/appCheckToken";
 import { auth } from "../../firebase/firebaseConfig";
 import { AIError } from "./aiErrors";
 import { AIProvider, AIProviderRequest, AIProviderResponse } from "./AIProvider";
@@ -61,11 +62,16 @@ export class VioraCloudAIProvider implements AIProvider {
       if (auth.currentUser !== user) {
         throw new AIError({ code: "AUTH", message: "Your sign-in changed. Please try again." });
       }
+      let appCheckToken: string | null;
+      try { appCheckToken = await getVioraAppCheckToken(); }
+      catch { throw new AIError({ code: "AUTH", message: "App verification unavailable. Please try again." }); }
+      if (auth.currentUser !== user) throw new AIError({ code: "AUTH", message: "Your sign-in changed. Please try again." });
       const response = await fetch(AI_FUNCTION_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
+          ...(appCheckToken ? { "X-Firebase-AppCheck": appCheckToken } : {}),
         },
         body: JSON.stringify({
           question: request.question,
