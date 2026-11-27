@@ -226,4 +226,20 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   await assert.rejects(discover(),/identity mismatch or legacy request/);
   await deletionRequest.update({authCreationTime:identity});
 
+  const { previewAccountDeletion } = require('../lib/accountDeletion/previewAccountDeletion');
+  const preview = () => previewAccountDeletion.run({auth:{uid:adminUid,token:{}},data:{userId:other}});
+  await adminFreeze.set({frozen:true});
+  await assert.rejects(preview(),/Acting account deletion is in progress/);
+  await adminFreeze.delete();
+  await deletionRequest.update({authCreationTime:'Thu, 01 Jan 1970 00:00:00 GMT'});
+  await assert.rejects(preview(),/identity mismatch or legacy request/);
+  await deletionRequest.update({authCreationTime:identity});
+  await auth.updateUser(adminUid,{disabled:true});
+  try {
+    await assert.rejects(preview(),/Administrator privileges required/);
+    await assert.rejects(discover(),/Super Admin required/);
+  } finally {
+    await auth.updateUser(adminUid,{disabled:false});
+  }
+
 });
