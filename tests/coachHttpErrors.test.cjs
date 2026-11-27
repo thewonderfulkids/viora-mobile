@@ -39,7 +39,7 @@ function fixture(responses) {
     return exports;
   }
   const errors = load('aiErrors', {});
-  const cloud = load('VioraCloudAIProvider', { '../../firebase/firebaseConfig': { auth }, './aiErrors': errors });
+  const cloud = load('VioraCloudAIProvider', { '../../firebase/firebaseConfig': { auth }, '../../firebase/appCheckToken': { getVioraAppCheckToken: async () => null }, './aiErrors': errors });
   const service = load('AIService', { './VioraCloudAIProvider': cloud });
   const manager = load('requestManager', { './aiErrors': errors, './aiRequestLogService': { saveAIRequestLog: async entry => { logs.push(entry); } } });
   const remote = load('remoteAIService', { './AIService': service, './requestManager': manager });
