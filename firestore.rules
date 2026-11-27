@@ -137,11 +137,19 @@ service cloud.firestore {
       ]);
     }
 
+    // A trusted cleanup worker may freeze avatar reference changes while it
+    // checks and deletes orphan objects. Other profile edits remain available.
+    function avatarCleanupAllowsUpdate() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(["avatarCleanupLocked"])
+        && (resource.data.get("avatarCleanupLocked", false) != true
+          || !request.resource.data.diff(resource.data).affectedKeys().hasAny(["photoURL", "photoUrl", "avatarUrl"]));
+    }
+
     match /users/{uid} {
       allow read: if isOwner(uid) || isVioraAdmin();
       allow create: if accountWritable() && (isOwner(uid) && request.resource.data.uid == uid
         && request.resource.data.keys().hasOnly(["uid", "email", "displayName", "fullName", "firstName", "lastName", "photoURL", "photoUrl", "avatarUrl", "phoneNumber", "gender", "dateOfBirth", "height", "weight", "heightCm", "weightKg", "fitnessGoal", "activityLevel", "onboardingCompleted", "createdAt", "updatedAt", "serverUpdatedAt", "language", "preferredLanguage", "timezone", "city", "country", "mobile", "age", "goal", "stressLevel", "acceptedTerms", "termsAcceptedAt", "waterGoalMl", "aiCoachEnabled", "notificationsEnabled", "isDeleted"]));
-      allow update: if accountWritable() && (isVioraAdmin() || (isOwner(uid) && userProtectedFieldsUnchanged()));
+      allow update: if accountWritable() && avatarCleanupAllowsUpdate() && (isVioraAdmin() || (isOwner(uid) && userProtectedFieldsUnchanged()));
       allow delete: if false;
     }
 
