@@ -66,7 +66,12 @@ function serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
 }
 
 export async function getPendingSyncActions(): Promise<PendingSyncAction[]> {
-  return readQueue();
+  const actor = auth.currentUser;
+  const uid = currentUid();
+  // v2 is the only writer in this build. Retry non-destructive housekeeping on each queue entry.
+  await cleanupEmptyLegacySyncQueue().catch(() => false);
+  if (auth.currentUser !== actor) throw new Error("Account changed while reading offline sync queue.");
+  return readQueue(uid);
 }
 
 export async function savePendingSyncAction(action: PendingSyncAction): Promise<PendingSyncAction[]> {
