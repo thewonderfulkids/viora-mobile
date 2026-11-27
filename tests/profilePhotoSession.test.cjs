@@ -188,3 +188,19 @@ test("H06 cleanup candidates require exact owner and versioned JPEG path", () =>
   assert.equal(check("a", "profile-photos/a/avatar-123.jpg"), true);
   for (const key of ["profile-photos/b/avatar-123.jpg", "profile-photos/a/avatar-123Xjpg", "profile-photos/a/avatar-123.jpg/extra", "profile-photos/a/../avatar-123.jpg"]) assert.equal(check("a", key), false);
 });
+
+
+test("H06 concurrent uploads in one runtime use distinct versioned paths", async () => {
+  const keys = [];
+  const repository = load("src/repositories/profilePhotoRepository.ts", {
+    "../firebase/firebaseConfig": { storage: {} },
+    "firebase/storage": {
+      ref: (_, key) => key,
+      uploadString: async key => { keys.push(key); },
+      getDownloadURL: async key => key,
+    },
+  });
+  await Promise.all(Array.from({ length: 20 }, () => repository.uploadProfilePhoto("a", "/9j/2Q==")));
+  assert.equal(new Set(keys).size, 20);
+  assert.ok(keys.every(key => repository.isOwnedVersionedAvatarPath("a", key)));
+});
