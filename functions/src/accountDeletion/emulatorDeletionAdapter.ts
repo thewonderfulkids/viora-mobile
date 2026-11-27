@@ -7,7 +7,7 @@ import type { Candidate, DeletionAdapter, DeletionCheckpoint } from "./deletionE
 
 // Deliberately not exported from the Functions entrypoint. Synthetic fixture
 // namespace only; no production inventory or retention assumptions.
-export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
+function assertFixtureEnvironment(uid: string) {
   const loopback = (value: string | undefined) => !!value && /^(localhost|127\.0\.0\.1):[0-9]+$/.test(value);
   if (!loopback(process.env.FIRESTORE_EMULATOR_HOST) ||
       !loopback(process.env.FIREBASE_AUTH_EMULATOR_HOST) ||
@@ -16,6 +16,26 @@ export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
       !/^fixture-[a-zA-Z0-9-]+$/.test(uid)) throw Error("Emulator fixture required");
   const app = getApp();
   if (app.options.projectId !== "demo-viora-deletion") throw Error("Wrong Firebase project");
+  return app;
+}
+
+// Test harness only: caller must have independently stopped and drained the old worker.
+// Never infer quiescence from elapsed time. Not a callable or production recovery API.
+export async function recoverStoppedFixtureLease(uid: string, expectedToken: string, evidence: string) {
+  const app = assertFixtureEnvironment(uid);
+  if (!expectedToken || !evidence.trim() || evidence.length > 256) throw Error("Recovery evidence required");
+  const db = getFirestore(app);
+  const lock = db.doc("deletionFixtures/" + uid);
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(lock);
+    if (snap.get("frozen") !== true || snap.get("leased") !== true || snap.get("leaseToken") !== expectedToken) throw Error("Recovery lease mismatch");
+    tx.create(lock.collection("recoveryAudit").doc(), { previousToken: expectedToken, evidence, recoveredAt: FieldValue.serverTimestamp() });
+    tx.update(lock, { leased: false, leaseToken: null, leaseReleasedAt: FieldValue.serverTimestamp() });
+  });
+}
+
+export function createEmulatorDeletionAdapter(uid: string): DeletionAdapter {
+  const app = assertFixtureEnvironment(uid);
   const db = getFirestore(app);
   const auth = getAuth(app);
   const bucket = getStorage(app).bucket("demo-viora-deletion.appspot.com");
