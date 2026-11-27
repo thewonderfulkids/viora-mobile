@@ -89,4 +89,26 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.equal((await pending.get()).exists,false);
   assert.equal((await subscription.get()).get('planCode'),'PLUS_MONTHLY');
   assert.equal((await claim()).claimed,false);
+  const { adminGrantPremiumByEmail } = require('../lib/admin/premiumAccessGrants');
+  const adminUid = uid + '-admin';
+  await auth.createUser({uid:adminUid,email:adminUid+'@example.test'});
+  await auth.setCustomUserClaims(adminUid,{admin:true});
+  const adminFreeze = db.doc('accountDeletionLocks/'+adminUid);
+  await adminFreeze.set({frozen:true});
+  const grantByAdmin = targetEmail => adminGrantPremiumByEmail.run({
+    auth:{uid:adminUid,token:{}},data:{email:targetEmail,planCode:'PRO_YEARLY'}
+  });
+  await assert.rejects(grantByAdmin(email),/deletion is in progress/);
+  assert.equal((await subscription.get()).get('planCode'),'PLUS_MONTHLY');
+  const newEmail = uid+'-new@example.test';
+  const newKey = require('node:crypto').createHash('sha256').update(newEmail).digest('hex');
+  await assert.rejects(grantByAdmin(newEmail),/deletion is in progress/);
+  assert.equal((await db.doc('pendingPremiumGrants/'+newKey).get()).exists,false);
+  await adminFreeze.delete();
+  await freeze.set({frozen:true});
+  await assert.rejects(grantByAdmin(email),/deletion is in progress/);
+  assert.equal((await subscription.get()).get('planCode'),'PLUS_MONTHLY');
+  await freeze.delete();
+  assert.equal((await grantByAdmin(email)).status,'active');
+  assert.equal((await subscription.get()).get('planCode'),'PRO_YEARLY');
 });
