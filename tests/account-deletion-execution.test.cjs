@@ -3,8 +3,20 @@ const assert = require("node:assert/strict");
 const ts = require("typescript");
 const fs = require("node:fs");
 const vm = require("node:vm");
-const exportsObject = {};
-vm.runInNewContext(ts.transpileModule(fs.readFileSync("functions/src/accountDeletion/deletionExecutionCore.ts","utf8"), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:exportsObject});
+// Load the actual policy dependency, not a permissive mock.
+const modules = new Map();
+function loadDeletionModule(name) {
+ if (!["deletionExecutionCore","retentionPolicy","inventoryManifest"].includes(name)) throw Error("Unexpected module: "+name);
+ if (modules.has(name)) return modules.get(name);
+ const exports = {};
+ modules.set(name,exports);
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync("functions/src/accountDeletion/"+name+".ts","utf8"), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,require:specifier=>{
+  if (!specifier.startsWith("./")) throw Error("Unexpected import: "+specifier);
+  return loadDeletionModule(specifier.slice(2));
+ }});
+ return exports;
+}
+const exportsObject = loadDeletionModule("deletionExecutionCore");
 const {planDeletion,executeDeletion,isExistingDeletionRequest}=exportsObject;
 const record={path:"dailyStats/a",ownerIds:["a"],shared:false,retained:false};
 test("rejects incomplete and foreign ownership",()=>{
@@ -138,4 +150,21 @@ test("C05 residual storage blocks Auth erasure and leaves retry checkpoint",asyn
  await assert.rejects(executeDeletion("a",adapter),/Cleanup verification failed/);
  assert.equal(state,"retry_required");
  assert.equal(authCalls,0);
+});
+
+test("C05 protected record blocks every destructive operation",async()=>{
+ const events=[];
+ const adapter={
+  withExclusiveLease:async(_,run)=>run(),
+  assertAuthorizedAndFrozen:async()=>{},
+  readCheckpoint:async()=>null,
+  inventory:async()=>({complete:true,unresolved:[],candidates:[record,{...record,path:"payments/p1"}]}),
+  checkpoint:async()=>events.push("checkpoint"),
+  eraseOwnedRecord:async()=>events.push("record"),
+  eraseOwnedStorage:async()=>events.push("storage"),
+  verifyStorageEmpty:async()=>true,
+  eraseAuthIfPresent:async()=>events.push("auth"),
+ };
+ await assert.rejects(executeDeletion("a",adapter),/Retention policy review required/);
+ assert.deepEqual(events,[]);
 });
