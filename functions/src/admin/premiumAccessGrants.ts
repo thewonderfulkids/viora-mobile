@@ -27,7 +27,7 @@ async function requireAdmin(uid: string | undefined) {
   return user;
 }
 
-async function applyGrant(uid: string, email: string, grant: { planCode: PlanCode; note: string; grantedByUid: string; grantedByEmail: string; createdAt: string }) {
+async function applyGrant(uid: string, email: string, grant: { planCode: PlanCode; note: string; grantedByUid: string; grantedByEmail: string; createdAt: string }, actorUid: string) {
   const plan = PLANS[grant.planCode];
   const now = new Date();
   const nowIso = now.toISOString();
@@ -38,6 +38,8 @@ async function applyGrant(uid: string, email: string, grant: { planCode: PlanCod
   await db.runTransaction(async tx => {
     const freeze = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
     if (freeze.exists) throw new HttpsError("failed-precondition", "Account deletion is in progress.");
+    const actorFreeze = await tx.get(db.doc(`accountDeletionLocks/${actorUid}`));
+    if (actorFreeze.exists) throw new HttpsError("failed-precondition", "Acting account deletion is in progress.");
     const previous = await tx.get(ref);
     tx.set(ref, {
       id: subscriptionId, userId: uid, planCode: grant.planCode, tier: plan.tier,
@@ -72,12 +74,22 @@ export const adminGrantPremiumByEmail = onCall({ region: "asia-south1", enforceA
     if (error?.code !== "auth/user-not-found") throw new HttpsError("internal", "Unable to look up user.");
   }
   if (target) {
-    await applyGrant(target.uid, email, grant);
-    await pendingRef.delete();
+    if (target.disabled) throw new HttpsError("failed-precondition", "Target account disabled.");
+    await applyGrant(target.uid, email, grant, admin.uid);
+    await getFirestore().runTransaction(async tx => {
+      const actorLock = await tx.get(getFirestore().doc(`accountDeletionLocks/${admin.uid}`));
+      const targetLock = await tx.get(getFirestore().doc(`accountDeletionLocks/${target.uid}`));
+      if (actorLock.exists || targetLock.exists) throw new HttpsError("failed-precondition", "Account deletion is in progress.");
+      tx.delete(pendingRef);
+    });
     return { status: "active", email, planCode };
   }
   // New users are NOT created or granted access until they sign in with this email.
-  await pendingRef.set({ ...grant, email, status: "pending", updatedAt: FieldValue.serverTimestamp() });
+  await getFirestore().runTransaction(async tx => {
+    const actorLock = await tx.get(getFirestore().doc(`accountDeletionLocks/${admin.uid}`));
+    if (actorLock.exists) throw new HttpsError("failed-precondition", "Account deletion is in progress.");
+    tx.set(pendingRef, { ...grant, email, status: "pending", updatedAt: FieldValue.serverTimestamp() });
+  });
   return { status: "pending", email, planCode };
 });
 
@@ -85,6 +97,7 @@ export const claimPendingPremiumGrant = onCall({ region: "asia-south1", enforceA
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Sign in to claim access.");
   const user = await getAuth().getUser(uid);
+  if (user.disabled) throw new HttpsError("failed-precondition", "Account disabled.");
   const email = normalize(user.email);
   if (!validEmail(email) || user.emailVerified !== true) return { claimed: false };
   const ref = getFirestore().doc(`pendingPremiumGrants/${emailKey(email)}`);
@@ -93,9 +106,11 @@ export const claimPendingPremiumGrant = onCall({ region: "asia-south1", enforceA
   const data = snap.data()!;
   if (!isPlan(data.planCode)) throw new HttpsError("failed-precondition", "Invalid pending plan.");
   const grant = { planCode: data.planCode, note: String(data.note ?? ""), grantedByUid: String(data.grantedByUid ?? ""), grantedByEmail: String(data.grantedByEmail ?? ""), createdAt: String(data.createdAt ?? "") };
-  const result = await applyGrant(uid, email, grant);
+  const result = await applyGrant(uid, email, grant, uid);
   // Only delete if the grant was not changed during application.
   await getFirestore().runTransaction(async tx => {
+    const freeze = await tx.get(getFirestore().doc(`accountDeletionLocks/${uid}`));
+    if (freeze.exists) throw new HttpsError("failed-precondition", "Account deletion is in progress.");
     const latest = await tx.get(ref);
     if (latest.exists && latest.data()?.createdAt === grant.createdAt && latest.data()?.planCode === grant.planCode) tx.delete(ref);
   });
