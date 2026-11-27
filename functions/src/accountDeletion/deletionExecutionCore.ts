@@ -36,6 +36,9 @@ export function planDeletion(uid: string, inventory: Inventory): Candidate[] {
   for (const record of inventory.candidates) {
     if (!record.path) throw Error("Unverified record path");
     const segments = record.path.split("/");
+    if (segments.length % 2 !== 0 || segments.some(segment => !segment || segment === "." || segment === "..")) {
+      throw Error("Unverified record path");
+    }
     // Check every collection segment, including descendants of protected records.
     const policyProtected = segments.some((segment, index) =>
       index % 2 === 0 && classifyRetention(segment) !== "unclassified");
@@ -60,6 +63,9 @@ export async function executeDeletion(uid: string, adapter: DeletionAdapter) {
   if (!uid) throw Error("Missing deletion user");
   return adapter.withExclusiveLease(uid, async () => {
     const state = await adapter.readCheckpoint(uid);
+    if (state !== null && !["processing", "retry_required", "auth_pending", "completed"].includes(state)) {
+      throw Error("Unknown deletion checkpoint");
+    }
     if (state === "completed") {
       await adapter.assertAuthorizedAndFrozen(uid, "completed");
       return { complete: true };
