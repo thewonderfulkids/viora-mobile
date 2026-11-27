@@ -206,3 +206,16 @@ export async function cleanupEmptyLegacySyncQueue(): Promise<boolean> {
     return true;
   });
 }
+
+/** Metadata-only inventory of known legacy storage families. No payloads or other UID keys are returned. */
+export async function inspectLegacyLocalStorage(): Promise<{ legacyStepDays: number; legacyStepGoal: boolean; legacyQueue: boolean }> {
+  const actor = auth.currentUser;
+  currentUid();
+  const keys = await AsyncStorage.getAllKeys();
+  if (auth.currentUser !== actor) throw new Error("Account changed during legacy inventory.");
+  return {
+    legacyStepDays: keys.filter(key => /^@viora\/steps\/daily\/\d{4}-\d{2}-\d{2}$/.test(key)).length,
+    legacyStepGoal: keys.includes("@viora/steps/goal"),
+    legacyQueue: keys.includes(LEGACY_SYNC_QUEUE_KEY),
+  };
+}
