@@ -150,3 +150,6 @@ export { previewAccountDeletion } from "./accountDeletion/previewAccountDeletion
 export { prepareAccountDeletion, resetAccountDeletionPreflight } from "./accountDeletion/deletionPreflight";
 
 export { discoverDeletionDataPaths } from "./accountDeletion/discoverDeletionDataPaths";
+
+// H06: authenticated publication for explicitly migrated profiles only.
+export { publishProfileAvatar } from "./publishProfileAvatar";
