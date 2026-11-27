@@ -179,3 +179,12 @@ test("private avatar reader retrieves bounded bytes and rejects stale sessions",
   gate.resolve(Uint8Array.from([255,216,255,217]).buffer);
   await assert.rejects(pending, /session changed/);
 });
+
+
+test("H06 cleanup candidates require exact owner and versioned JPEG path", () => {
+  const { isOwnedVersionedAvatarPath: check } = load("src/repositories/profilePhotoRepository.ts", {
+    "../firebase/firebaseConfig": { storage: {} }, "firebase/storage": {},
+  });
+  assert.equal(check("a", "profile-photos/a/avatar-123.jpg"), true);
+  for (const key of ["profile-photos/b/avatar-123.jpg", "profile-photos/a/avatar-123Xjpg", "profile-photos/a/avatar-123.jpg/extra", "profile-photos/a/../avatar-123.jpg"]) assert.equal(check("a", key), false);
+});
