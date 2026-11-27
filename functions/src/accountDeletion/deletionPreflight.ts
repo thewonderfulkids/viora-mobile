@@ -16,7 +16,7 @@ export const prepareAccountDeletion = onCall(
     if (!adminUid) throw new HttpsError("unauthenticated", "Administrator sign-in required.");
     const admin = await getAuth().getUser(adminUid);
     const claims = admin.customClaims ?? {};
-    if (claims.superAdmin !== true && claims.role !== "super_admin") {
+    if (admin.disabled || (claims.superAdmin !== true && claims.role !== "super_admin")) {
       throw new HttpsError("permission-denied", "Super Admin authorization required.");
     }
 
@@ -31,6 +31,8 @@ export const prepareAccountDeletion = onCall(
     const db = getFirestore();
     const requestRef = db.doc(`accountDeletionRequests/${uid}`);
     const result = await db.runTransaction(async tx => {
+      const lock = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
+      if (lock.exists) throw new HttpsError("failed-precondition", "Account deletion lock already exists.");
       const snap = await tx.get(requestRef);
       if (!snap.exists) throw new HttpsError("failed-precondition", "User has not requested deletion.");
       const data = snap.data() ?? {};
@@ -67,15 +69,18 @@ export const resetAccountDeletionPreflight = onCall(
     if (!adminUid) throw new HttpsError("unauthenticated", "Administrator sign-in required.");
     const admin = await getAuth().getUser(adminUid);
     const claims = admin.customClaims ?? {};
-    if (claims.superAdmin !== true && claims.role !== "super_admin") {
+    if (admin.disabled || (claims.superAdmin !== true && claims.role !== "super_admin")) {
       throw new HttpsError("permission-denied", "Super Admin authorization required.");
     }
     const uid = String(request.data?.userId ?? "").trim();
     if (!uid || uid.length > 128 || uid.includes("/") || uid === adminUid) {
       throw new HttpsError("invalid-argument", "Valid target user ID required.");
     }
-    const ref = getFirestore().doc(`accountDeletionRequests/${uid}`);
-    await getFirestore().runTransaction(async tx => {
+    const db = getFirestore();
+    const ref = db.doc(`accountDeletionRequests/${uid}`);
+    await db.runTransaction(async tx => {
+      const lock = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
+      if (lock.exists) throw new HttpsError("failed-precondition", "Active deletion lock requires recovery review.");
       const snap = await tx.get(ref);
       if (!snap.exists || snap.data()?.status !== "preflight") {
         throw new HttpsError("failed-precondition", "No deletion preflight to reset.");
