@@ -1,5 +1,5 @@
 import { Download, Save } from "lucide-react-native";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, spacing } from "../../theme";
 
@@ -15,7 +15,7 @@ export function ReportExportCard({ canExport, saving, onSave, onExport }: Report
     <View style={styles.card}>
       <View>
         <Text style={styles.title}>Export & Save</Text>
-        <Text style={styles.subtitle}>Save this report or export it as a shareable PDF for doctor visits and personal records.</Text>
+        <Text style={styles.subtitle}>{Platform.OS === "web" ? "Save this report or open the print dialog and choose Save as PDF. Export history stores a printable report, not a downloaded file." : "Save this report or create a PDF to share or save using your device."}</Text>
       </View>
       <View style={styles.actions}>
         <Pressable disabled={saving} style={styles.secondaryButton} onPress={onSave}>
@@ -24,7 +24,7 @@ export function ReportExportCard({ canExport, saving, onSave, onExport }: Report
         </Pressable>
         <Pressable disabled={!canExport || saving} style={[styles.primaryButton, (!canExport || saving) && styles.disabledButton]} onPress={onExport}>
           {saving ? <ActivityIndicator size="small" color={colors.white} /> : <Download size={16} color={colors.white} />}
-          <Text style={styles.primaryText}>{canExport ? "Download PDF" : "Upgrade to Export"}</Text>
+          <Text style={styles.primaryText}>{canExport ? (Platform.OS === "web" ? "Print / Save as PDF" : "Create & Share PDF") : "Upgrade to Export"}</Text>
         </Pressable>
       </View>
     </View>

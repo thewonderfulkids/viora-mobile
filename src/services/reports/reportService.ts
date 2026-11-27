@@ -731,6 +731,33 @@ export function buildReportHtml(report: HealthReportDoc) {
     .footer strong {
       color: #0b6e4f;
     }
+
+    /* Compact, print-safe report layout. */
+    @media print {
+      body { background: #fff; }
+      .page { max-width: none; border: 0; border-radius: 0; overflow: visible; }
+      .hero { break-inside: avoid; page-break-inside: avoid; }
+      .report-section, .list-card, .summary-card { break-inside: auto; page-break-inside: auto; }
+      .section-header, h2, h3 { break-after: avoid; page-break-after: avoid; }
+      .metric-card, .trend-row, .clean-list li { break-inside: avoid; page-break-inside: avoid; }
+      .two-column, .metric-grid, .trend-list { display: block; }
+      .metric-card { display: inline-block; vertical-align: top; width: 31%; margin: 0 1% 8px 0; }
+      .list-card, .trend-row { margin-bottom: 8px; }
+    }
+    body { font-family: "Noto Sans Devanagari", "Nirmala UI", Mangal, Arial, sans-serif; overflow-wrap: anywhere; }
+    .hero { background: #0b6e4f; padding: 18px; }
+    .brand-row { margin-bottom: 14px; }
+    .hero-grid { grid-template-columns: 100px minmax(0, 1fr); gap: 14px; }
+    .score-ring { width: 94px; height: 94px; border-width: 5px; box-shadow: none; text-align: center; }
+    .score-ring strong { font-size: 32px; }
+    .score-ring span { font-size: 9px; }
+    h1 { font-size: 24px; }
+    .meta-card { padding: 7px; min-width: 0; }
+    .content { padding: 16px; }
+    .report-section { padding: 14px; }
+    .metric-card { min-height: 0; padding: 10px; }
+    .trend-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(38px, auto); }
+    .trend-helper { white-space: normal; overflow: visible; text-overflow: clip; }
   </style>
 </head>
 <body>
