@@ -31,6 +31,8 @@ export const prepareAccountDeletion = onCall(
     const db = getFirestore();
     const requestRef = db.doc(`accountDeletionRequests/${uid}`);
     const result = await db.runTransaction(async tx => {
+      const actorLock = await tx.get(db.doc(`accountDeletionLocks/${adminUid}`));
+      if (actorLock.exists) throw new HttpsError("failed-precondition", "Acting account deletion is in progress.");
       const lock = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
       if (lock.exists) throw new HttpsError("failed-precondition", "Account deletion lock already exists.");
       const snap = await tx.get(requestRef);
@@ -79,6 +81,8 @@ export const resetAccountDeletionPreflight = onCall(
     const db = getFirestore();
     const ref = db.doc(`accountDeletionRequests/${uid}`);
     await db.runTransaction(async tx => {
+      const actorLock = await tx.get(db.doc(`accountDeletionLocks/${adminUid}`));
+      if (actorLock.exists) throw new HttpsError("failed-precondition", "Acting account deletion is in progress.");
       const lock = await tx.get(db.doc(`accountDeletionLocks/${uid}`));
       if (lock.exists) throw new HttpsError("failed-precondition", "Active deletion lock requires recovery review.");
       const snap = await tx.get(ref);
