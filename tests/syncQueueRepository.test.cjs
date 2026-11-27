@@ -132,18 +132,18 @@ test('H04 queue entry integrates safe cleanup without deleting historical record
   await repo.getPendingSyncActions(); assert.equal(storage.get(k),original);
 });
 
-test('H04 owned legacy review staging is idempotent and never replays foreign or ownerless records', async()=>{
+test('H04 owned review is deduplicated, isolated and never persisted or replayed', async()=>{
  const {repo,storage,auth}=setup(), k='@viora/sync-queue/v1';
  const raw=JSON.stringify([action('a'),action('a'),action('b','bob'),{id:'unknown'}]); storage.set(k,raw);
- assert.equal(await repo.stageOwnedLegacyActionsForReview(),1); assert.equal(await repo.stageOwnedLegacyActionsForReview(),1);
- assert.equal(storage.get(k),raw); assert.equal((await repo.getPendingSyncActions()).length,0);
- assert.equal(JSON.parse(storage.get('@viora/sync-queue/legacy-review/alice'))[0].id,'a');
- auth.currentUser={uid:'bob'}; assert.equal(await repo.stageOwnedLegacyActionsForReview(),1);
- assert.equal(JSON.parse(storage.get('@viora/sync-queue/legacy-review/bob'))[0].id,'b');
+ assert.equal(await repo.stageOwnedLegacyActionsForReview(),1);
+ assert.deepEqual(Array.from((await repo.getOwnedLegacyActionsForReview()).map(x=>x.id)),['a']);
+ assert.equal((await repo.getPendingSyncActions()).length,0); assert.equal(storage.size,1); assert.equal(storage.get(k),raw);
+ auth.currentUser={uid:'bob'}; assert.deepEqual(Array.from((await repo.getOwnedLegacyActionsForReview()).map(x=>x.id)),['b']);
 });
-test('H04 interrupted review staging retries without touching original', async()=>{
- let fail=true; const {repo,storage}=setup({onSetItem:async()=>{if(fail)throw Error('disk');}});
+test('H04 interrupted review read retries and account change rejects stale results', async()=>{
+ let fail=true, switchAccount=false, actor; const {repo,storage,auth}=setup({onGetItem:async()=>{if(fail)throw Error('disk');if(switchAccount)actor.currentUser={uid:'bob'};}}); actor=auth;
  const k='@viora/sync-queue/v1',raw=JSON.stringify([action('a')]); storage.set(k,raw);
- await assert.rejects(repo.stageOwnedLegacyActionsForReview(),/disk/); assert.equal(storage.get(k),raw);
- fail=false; assert.equal(await repo.stageOwnedLegacyActionsForReview(),1); assert.equal(storage.get(k),raw);
+ await assert.rejects(repo.getOwnedLegacyActionsForReview(),/disk/); fail=false;
+ assert.equal(await repo.stageOwnedLegacyActionsForReview(),1); switchAccount=true;
+ await assert.rejects(repo.getOwnedLegacyActionsForReview(),/Account changed/); assert.equal(storage.get(k),raw);
 });
