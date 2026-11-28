@@ -1,3 +1,4 @@
+import { useAppTranslation } from "../i18n/useAppTranslation";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -14,6 +15,7 @@ import { enableBackgroundSteps, disableBackgroundSteps } from "../services/steps
 const GOALS = [5000, 8000, 10000, 12000];
 
 export default function StepsScreen() {
+  const { t } = useAppTranslation();
   const data = useStepCounter();
   const percent = Math.round(data.progress * 100);
 
@@ -26,8 +28,8 @@ export default function StepsScreen() {
 
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.eyebrow}>PERSONAL TARGET</Text>
-              <Text style={styles.title}>Choose your daily goal</Text>
+              <Text style={styles.eyebrow}>{t("steps.target")}</Text>
+              <Text style={styles.title}>{t("steps.choose")}</Text>
             </View>
             <Text style={styles.meta}>{percent}% complete</Text>
           </View>
@@ -45,7 +47,7 @@ export default function StepsScreen() {
                     {goal.toLocaleString()}
                   </Text>
                   <Text style={[styles.goalLabel, selected && styles.goalLabelSelected]}>
-                    DAILY STEPS
+                    {t("steps.daily")}
                   </Text>
                 </Pressable>
               );
@@ -60,10 +62,10 @@ export default function StepsScreen() {
               <Ionicons name="sparkles" size={24} color={premiumPalette.emerald} />
             </View>
             <View style={styles.aiCopy}>
-              <Text style={styles.aiEyebrow}>VIORA AI INSIGHT</Text>
-              <Text style={styles.aiTitle}>Movement does not need to be intense.</Text>
+              <Text style={styles.aiEyebrow}>{t("steps.insight")}</Text>
+              <Text style={styles.aiTitle}>{t("steps.movement")}</Text>
               <Text style={styles.aiText}>
-                Short walks spread across the day can support mood, circulation and sleep.
+                {t("steps.walk")}
               </Text>
             </View>
           </LinearGradient>
@@ -84,13 +86,13 @@ export default function StepsScreen() {
                     Alert.alert("Health Connect", ok ? "Background step import enabled for this session." : "Permission unavailable or not granted.")
                   ).catch(() => Alert.alert("Health Connect", "Could not enable step import."));
                 }}>
-                  <Text style={styles.meta}>Enable background step import</Text>
+                  <Text style={styles.meta}>{t("steps.enable")}</Text>
                 </Pressable>
                 <Pressable accessibilityRole="button" onPress={() => {
                   disableBackgroundSteps(auth.currentUser?.uid ?? null);
                   Alert.alert("Health Connect", "Background step import disabled.");
                 }}>
-                  <Text style={styles.meta}>Disable background step import</Text>
+                  <Text style={styles.meta}>{t("steps.disable")}</Text>
                 </Pressable>
               </View>
             </View>
@@ -100,7 +102,7 @@ export default function StepsScreen() {
 
           <Pressable style={styles.refreshButton} onPress={data.refresh}>
             <Ionicons name="refresh" size={18} color={premiumPalette.white} />
-            <Text style={styles.refreshText}>Refresh movement data</Text>
+            <Text style={styles.refreshText}>{t("steps.refresh")}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
