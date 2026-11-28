@@ -79,13 +79,18 @@ export const adminGrantPremiumByEmail = onCall({ region: "asia-south1", enforceA
   }
   if (target) {
     if (target.disabled) throw new HttpsError("failed-precondition", "Target account disabled.");
-    await applyGrant(target.uid, email, grant, admin.uid);
-    return { status: "active", email, planCode };
+    if (target.emailVerified === true) {
+      await applyGrant(target.uid, email, grant, admin.uid);
+      return { status: "active", email, planCode };
+    }
   }
-  // New users are NOT created or granted access until they sign in with this email.
+  // New and unverified accounts must prove email ownership before claiming access.
   await getFirestore().runTransaction(async tx => {
     const actorLock = await tx.get(getFirestore().doc(`accountDeletionLocks/${admin.uid}`));
     if (actorLock.exists) throw new HttpsError("failed-precondition", "Account deletion is in progress.");
+    if (target && (await tx.get(getFirestore().doc(`accountDeletionLocks/${target.uid}`))).exists) {
+      throw new HttpsError("failed-precondition", "Target account deletion is in progress.");
+    }
     tx.set(pendingRef, { ...grant, email, status: "pending", updatedAt: FieldValue.serverTimestamp() });
   });
   return { status: "pending", email, planCode };
