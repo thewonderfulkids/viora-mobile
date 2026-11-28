@@ -244,3 +244,24 @@ test('H08 client forwards attestation token and rechecks session before sending'
   await assert.rejects(g.service.askContextAwareWellnessCoach({uid:'synthetic-member',question:'hello',dashboard,conversationId:'fixture'}),/sign-in changed/);
   assert.equal(g.outgoing.length,0);
 });
+
+test('H07 accepts exact limits and rejects overflow without provider use', async () => {
+  const f = setup();
+  assert.equal((await f.post({question:'x'.repeat(2000),coachContext:'c'.repeat(3500),dashboard},undefined,Buffer.alloc(262144))).status,200);
+  for (const body of [
+    {question:' ',dashboard},
+    {question:'hello',dashboard:{...dashboard,todayStats:{...dashboard.todayStats,musicMinutes:1441}}},
+    {question:'hello',dashboard:{...dashboard,todayStats:{...dashboard.todayStats,waterMl:100001}}},
+    {question:'hello',dashboard:{...dashboard,user:[]}},
+  ]) assert.equal((await f.post(body)).status,400);
+  assert.equal(f.providerRequests.length,1);
+});
+test('H10 provider credentials and health payload never appear in HTTP errors or captured error logs', async () => {
+  const secret = 'synthetic-secret-credential';
+  const health = 'synthetic-private-health-record';
+  const f = setup({providerError:Object.assign(new Error(secret),{headers:{authorization:secret},body:{health}})});
+  const response = await f.post({question:health,dashboard});
+  assert.equal(response.status,503);
+  assert.doesNotMatch(JSON.stringify([response,f.errorLogs]),/synthetic-secret-credential|synthetic-private-health-record/);
+  assert.deepEqual(f.errorLogs,[['Wellness AI provider request failed']]);
+});
