@@ -1,5 +1,5 @@
 import { Download, Save } from "lucide-react-native";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, spacing } from "../../theme";
 
@@ -11,20 +11,21 @@ type ReportExportCardProps = {
 };
 
 export function ReportExportCard({ canExport, saving, onSave, onExport }: ReportExportCardProps) {
+  const isWeb = Platform.OS === "web";
   return (
     <View style={styles.card}>
       <View>
         <Text style={styles.title}>Export & Save</Text>
-        <Text style={styles.subtitle}>Save this report or export it as a shareable PDF for doctor visits and personal records.</Text>
+        <Text style={styles.subtitle}>{isWeb ? "Save this report or download a printable HTML snapshot. Open it in your browser and choose Print → Save as PDF." : "Save this report or export it as a shareable PDF for doctor visits and personal records."}</Text>
       </View>
       <View style={styles.actions}>
-        <Pressable disabled={saving} style={styles.secondaryButton} onPress={onSave}>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: saving, busy: saving }} disabled={saving} style={styles.secondaryButton} onPress={onSave}>
           {saving ? <ActivityIndicator size="small" color={colors.primaryDark} /> : <Save size={16} color={colors.primaryDark} />}
           <Text style={styles.secondaryText}>{saving ? "Working..." : "Save Report"}</Text>
         </Pressable>
-        <Pressable disabled={!canExport || saving} style={[styles.primaryButton, (!canExport || saving) && styles.disabledButton]} onPress={onExport}>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canExport || saving, busy: saving }} disabled={!canExport || saving} style={[styles.primaryButton, (!canExport || saving) && styles.disabledButton]} onPress={onExport}>
           {saving ? <ActivityIndicator size="small" color={colors.white} /> : <Download size={16} color={colors.white} />}
-          <Text style={styles.primaryText}>{canExport ? "Download PDF" : "Upgrade to Export"}</Text>
+          <Text style={styles.primaryText}>{canExport ? (isWeb ? "Download Printable Report" : "Download PDF") : "Upgrade to Export"}</Text>
         </Pressable>
       </View>
     </View>
