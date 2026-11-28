@@ -66,7 +66,7 @@ export function useReports() {
     setError(null);
 
     try {
-      await createAndShareReportPdf(report);
+      await createAndShareReportPdf(report, true);
       await createReportExport(currentUser.uid, report);
       await refresh(report.range);
     } catch (error: any) {
