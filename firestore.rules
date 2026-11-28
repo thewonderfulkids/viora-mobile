@@ -371,16 +371,22 @@ service cloud.firestore {
     }
 
     match /privacySettings/{docId} {
-      allow read: if ownsExistingAnyUserDoc() || isOwner(docId);
-      allow update: if accountWritable() && (isOwner(docId) || canUpdateOwnedDocWithoutPrefix());
-      allow create: if accountWritable() && (ownsIncomingAnyUserDoc() || isOwner(docId));
+      allow read: if ownsExistingAnyUserDoc() || (isOwner(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
+      allow update: if accountWritable() && ownerFieldsUnchanged() && existingOwnerNotForeign() && incomingOwnerNotForeign()
+        && ownerUserNotForeign(resource.data) && ownerUserNotForeign(request.resource.data)
+        && (isOwner(docId) || canUpdateOwnedDocWithoutPrefix());
+      allow create: if accountWritable() && incomingOwnerNotForeign() && ownerUserNotForeign(request.resource.data)
+        && (ownsIncomingAnyUserDoc() || isOwner(docId));
       allow delete: if false;
     }
 
     match /securitySettings/{docId} {
-      allow read: if ownsExistingAnyUserDoc() || isOwner(docId);
-      allow update: if accountWritable() && (isOwner(docId) || canUpdateOwnedDocWithoutPrefix());
-      allow create: if accountWritable() && (ownsIncomingAnyUserDoc() || isOwner(docId));
+      allow read: if ownsExistingAnyUserDoc() || (isOwner(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
+      allow update: if accountWritable() && ownerFieldsUnchanged() && existingOwnerNotForeign() && incomingOwnerNotForeign()
+        && ownerUserNotForeign(resource.data) && ownerUserNotForeign(request.resource.data)
+        && (isOwner(docId) || canUpdateOwnedDocWithoutPrefix());
+      allow create: if accountWritable() && incomingOwnerNotForeign() && ownerUserNotForeign(request.resource.data)
+        && (ownsIncomingAnyUserDoc() || isOwner(docId));
       allow delete: if false;
     }
 
