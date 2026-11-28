@@ -41,6 +41,7 @@ function mount(fullUrl, poseUrls) {
         },
       };
       if (id === 'react-native') return { ScrollView: 'ScrollView', Text: 'Text', StyleSheet: { create: x => x } };
+      if (id === '../i18n/useAppTranslation') return { useAppTranslation: () => ({ t: key => key, language: 'en' }) };
       if (id === '../hooks') return { useDashboard: () => ({}), useYoga: () => ({ catalog: [session] }) };
       if (id === '../theme') return { colors: aliases, spacing: aliases };
       return aliases;
