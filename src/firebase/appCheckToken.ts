@@ -3,25 +3,25 @@ import { Platform } from "react-native";
 // Bridge for a trusted platform attestation provider. No debug or fabricated tokens.
 type TokenProvider = () => Promise<string | null>;
 let provider: TokenProvider | undefined;
-let nativeInitialization: Promise<import("@react-native-firebase/app-check").FirebaseAppCheckTypes.Module> | undefined;
+let nativeInitialization: Promise<Awaited<ReturnType<typeof initializeNativeAppCheck>>> | undefined;
+
+async function initializeNativeAppCheck() {
+  const sdk = await import("@react-native-firebase/app-check");
+  const nativeProvider = new sdk.ReactNativeFirebaseAppCheckProvider();
+  nativeProvider.configure({ android: { provider: "playIntegrity" } });
+  return sdk.initializeAppCheck(undefined, { provider: nativeProvider, isTokenAutoRefreshEnabled: true });
+}
 
 async function getAndroidToken(): Promise<string | null> {
-  // Load only on Android and only when the rollout is explicitly enabled.
-  const sdk = await import("@react-native-firebase/app-check");
   if (!nativeInitialization) {
-    nativeInitialization = (async () => {
-      const instance = sdk.default();
-      const nativeProvider = instance.newReactNativeFirebaseAppCheckProvider();
-      nativeProvider.configure({ android: { provider: "playIntegrity" } });
-      await instance.initializeAppCheck({ provider: nativeProvider, isTokenAutoRefreshEnabled: true });
-      return instance;
-    })().catch(error => {
+    nativeInitialization = initializeNativeAppCheck().catch(error => {
       nativeInitialization = undefined;
       throw error;
     });
   }
   const instance = await nativeInitialization;
-  return (await instance.getToken(false)).token;
+  const sdk = await import("@react-native-firebase/app-check");
+  return (await sdk.getToken(instance, false)).token;
 }
 
 export function registerAppCheckTokenProvider(next: TokenProvider): void {
