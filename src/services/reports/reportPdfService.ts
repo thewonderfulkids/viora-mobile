@@ -9,6 +9,22 @@ function sanitizeFileName(value: string) {
   return value.replace(/[^a-z0-9._-]/gi, "-").replace(/-+/g, "-").toLowerCase();
 }
 
+export function printReportOnWeb(html: string): void {
+  if (typeof window === "undefined" || typeof document === "undefined") throw new Error("Printing is not available on this device.");
+  const frame = document.createElement("iframe");
+  frame.setAttribute("sandbox", "allow-same-origin allow-modals");
+  frame.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;border:0";
+  frame.title = "Printable Viora report";
+  frame.onload = () => {
+    const target = frame.contentWindow;
+    if (!target) { frame.remove(); return; }
+    target.addEventListener("afterprint", () => frame.remove(), { once: true });
+    try { target.focus(); target.print(); } catch { frame.remove(); }
+  };
+  frame.srcdoc = html;
+  document.body.appendChild(frame);
+}
+
 function downloadHtmlSnapshotOnWeb(fileName: string, html: string): string | false {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
 
