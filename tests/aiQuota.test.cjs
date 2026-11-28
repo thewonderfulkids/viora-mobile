@@ -12,8 +12,14 @@ function harness(initial, times, initialGlobal, enforce = false, token = undefin
   const locks = new Map(frozenUids.map(uid => ['accountDeletionLocks/' + uid, {}]));
   const globalKey = 'aiGlobalBudget/daily';
   let writes = 0, calls = 0;
+  let transactionTail = Promise.resolve();
   const exports = {};
   const db = {collection: name => ({doc: id => name + '/' + id}), async runTransaction(fn) {
+    const previous = transactionTail;
+    let release;
+    transactionTail = new Promise(resolve => { release = resolve; });
+    await previous;
+    try {
     let result;
     for (const time of times) {
       clock = time;
@@ -34,6 +40,7 @@ function harness(initial, times, initialGlobal, enforce = false, token = undefin
       }
     }
     return result;
+    } finally { release(); }
   }};
   let clock = times[0];
   vm.runInNewContext(code, {exports, process: {env: {VIORA_ENFORCE_APP_CHECK: String(enforce)}}, Date: {now: () => clock}, console, require(id) {
@@ -141,4 +148,14 @@ test('account deletion lock blocks Coach before quota writes or a model call', a
   assert.equal(control.global.count,13);
   assert.equal(control.writes,1);
   assert.equal(control.calls,1);
+});
+
+test('H09 simultaneous accounts contend for one remaining global slot in serialized transaction model', async () => {
+  const h = harness(undefined,[now],{day:1,count:999});
+  const results = await Promise.all(Array.from({length:12},(_,i)=>h.request('parallel-'+i)));
+  assert.equal(results.filter(r=>r.status===200).length,1);
+  assert.equal(results.filter(r=>r.status===429).length,11);
+  assert.equal(results.filter(r=>r.stored!==undefined).length,1);
+  assert.equal(results.at(-1).global.count,1000);
+  assert.equal(results.at(-1).calls,1);
 });
