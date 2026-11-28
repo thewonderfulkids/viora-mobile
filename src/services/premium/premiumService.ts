@@ -7,7 +7,7 @@ import { getPlanByCode, PREMIUM_PLANS, PROGRAM_ENTITLEMENTS } from "./premiumPla
 
 function isSubscriptionUsable(subscription: UserSubscription) {
   if (["active", "trialing"].includes(subscription.status)) {
-    if (!subscription.expiresAt) return true;
+    if (subscription.planCode === "FREE" || !subscription.expiresAt) return false;
     return new Date(subscription.expiresAt).getTime() > Date.now();
   }
 
@@ -28,7 +28,7 @@ function getNextRecommendedPlan(currentPlan: PremiumPlan): PremiumPlan {
 }
 
 export async function getPremiumDashboard(userId: string): Promise<PremiumDashboard> {
-  if (!userId) throw new Error("Login is required to load premium dashboard.");
+  if (!userId || auth.currentUser?.uid !== userId) throw new Error("Login is required to load premium dashboard.");
 
   // Claim an administrator-preapproved grant only after verified-email sign-in.
   if (auth.currentUser?.uid === userId && auth.currentUser.emailVerified) {
@@ -40,7 +40,8 @@ export async function getPremiumDashboard(userId: string): Promise<PremiumDashbo
     getPaymentsByUser(userId),
   ]);
 
-  const subscription = subscriptionResult || buildFreeSubscription(userId);
+  if (auth.currentUser?.uid !== userId) throw new Error("Account changed while loading premium dashboard.");
+  const subscription = subscriptionResult?.userId === userId ? subscriptionResult : buildFreeSubscription(userId);
   const currentPlan = getCurrentPlan(subscription);
   const activeFeatureKeys = currentPlan.features.filter((feature) => feature.included).map((feature) => feature.key);
 
