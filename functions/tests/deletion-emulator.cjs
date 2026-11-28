@@ -291,7 +291,7 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
 });
 
 test('H09 real Firestore emulator admits only one of concurrent Coach callers at final budget slot', async () => {
-  assert.match(process.env.FIRESTORE_EMULATOR_HOST || '', /^(localhost|127\\.0\\.0\\.1):\\d+$/);
+  assert.match(process.env.FIRESTORE_EMULATOR_HOST || '', /^(localhost|127\.0\.0\.1):\d+$/);
   assert.equal(process.env.GCLOUD_PROJECT, 'demo-viora-deletion');
   const { getApps } = require('firebase-admin/app');
   const app = getApps()[0];
@@ -302,7 +302,7 @@ test('H09 real Firestore emulator admits only one of concurrent Coach callers at
   const previous = await budget.get();
   const oldLimit = process.env.VIORA_AI_GLOBAL_DAILY_LIMIT;
   const originalVerify = auth.verifyIdToken;
-  const ai = require('../lib/ai');
+  const ai = require('../lib/ai/wellness');
   const originalHandler = ai.generateWellnessAdviceHandler;
   let calls = 0;
   const ids = Array.from({length: 6}, (_,i) => 'h09-fixture-'+Date.now()+'-'+i);
