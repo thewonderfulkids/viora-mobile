@@ -46,7 +46,7 @@ function setup({ providerError, appCheckRequired = false, allowedApps = "", appT
   const endpoint = load('functions/src/index.ts', {
     ...admin,
     './ai': handler,
-    'firebase-admin/app': { initializeApp() {} },
+    'firebase-admin/app': { getApps: () => [], initializeApp() {} },
     'firebase-admin/app-check': { getAppCheck: () => ({ verifyToken: async token => { if (token !== 'valid-app-token') throw Error('invalid'); return {appId:'fixture-app'}; } }) },
     'firebase-admin/auth': { getAuth: () => ({ verifyIdToken: async (token) => {
       assert.equal(token, 'fixture-token');
