@@ -1,6 +1,7 @@
 import { Clock3, Droplets } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { colors, radius, spacing } from "../../theme";
 
 type HistoryItem = {
@@ -13,13 +14,14 @@ type Props = {
 };
 
 export default function WaterHistoryCard({ history }: Props) {
+  const { t } = useAppTranslation();
   return (
     <View style={styles.card}>
-      <Text style={styles.heading}>Today's Activity</Text>
+      <Text style={styles.heading}>{t("hydration.activity")}</Text>
 
       {history.length === 0 ? (
         <Text style={styles.empty}>
-          No water logged yet.
+          {t("hydration.empty")}
         </Text>
       ) : (
         history.map((item, index) => (
