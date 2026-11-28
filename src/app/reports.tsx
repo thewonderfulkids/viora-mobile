@@ -69,12 +69,12 @@ export default function ReportsScreen() {
       >
         <CommonBackButton label={t("reports.progress")} fallbackPath="/(tabs)/progress" />
         <PremiumJourneyHero
-          eyebrow="Health Reports"
-          title="Your wellness story, clearly explained."
-          subtitle="Turn daily signals into readable trends, AI highlights and doctor-friendly report snapshots you can save or export."
+          eyebrow={t("reports.eyebrow")}
+          title={t("reports.heroTitle")}
+          subtitle={t("reports.heroSubtitle")}
           icon={<FileChartColumnIncreasing size={29} color="#1D4ED8" />}
           colors={["#172554", "#1D4ED8", "#60A5FA"]}
-          chips={["Trends", "Risk flags", "PDF export", "Doctor friendly"]}
+          chips={[t("reports.trends"), t("reports.riskFlags"), t("reports.pdfExport"), t("reports.doctorFriendly")]}
         />
 
         <ReportCenterHero
@@ -88,8 +88,8 @@ export default function ReportsScreen() {
         <ReportRangeTabs value={selectedRange} onChange={changeRange} />
 
         <ReportSection
-          title="Report Library"
-          subtitle="Free users get daily reports. Weekly, monthly and doctor-friendly reports unlock through Viora Plus, Pro and Elite Family."
+          title={t("reports.library")}
+          subtitle={t("reports.libraryHelp")}
         >
           <ReportOptionList
             options={dashboard.reportOptions}
@@ -102,7 +102,7 @@ export default function ReportsScreen() {
           <ReportMetricGrid metrics={activeReport.sections[0]?.metrics || []} />
         </ReportSection>
 
-        <ReportSection title="AI Highlights & Risk Flags" subtitle={activeReport.aiSummary}>
+        <ReportSection title={t("reports.highlights")} subtitle={activeReport.aiSummary}>
           <ReportInsightList report={activeReport} />
         </ReportSection>
 
@@ -113,7 +113,7 @@ export default function ReportsScreen() {
           </ReportSection>
         ))}
 
-        <ReportSection title="Doctor-friendly Format" subtitle={dashboard.doctorFriendlyNote}>
+        <ReportSection title={t("reports.doctorFormat")} subtitle={dashboard.doctorFriendlyNote}>
           <ReportExportCard
             canExport={dashboard.access.exportPdf}
             saving={saving}
@@ -122,7 +122,7 @@ export default function ReportsScreen() {
           />
         </ReportSection>
 
-        <ReportSection title="Export History" subtitle="Saved PDF-ready report snapshots stay connected to your account.">
+        <ReportSection title={t("reports.historyTitle")} subtitle={t("reports.historyHelp")}>
           <ReportExportHistory exports={dashboard.exports} onOpenExport={openSavedExport} />
         </ReportSection>
       </ScrollView>
