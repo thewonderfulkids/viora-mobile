@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase-admin/app";
+import { getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getAppCheck } from "firebase-admin/app-check";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
@@ -7,7 +7,7 @@ import { onRequest } from "firebase-functions/https";
 
 import { generateWellnessAdviceHandler } from "./ai";
 
-initializeApp();
+if (!getApps().some(app => app.name === "[DEFAULT]")) initializeApp();
 
 setGlobalOptions({
   region: "asia-south1",
