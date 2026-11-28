@@ -16,10 +16,12 @@ import {
 import { auth } from "../firebase/firebaseConfig";
 import { useDashboard } from "../hooks";
 import { useHydration } from "../hooks";
+import { useAppTranslation } from "../i18n/useAppTranslation";
 import { ActivityLogger } from "../services/activity";
 import { colors, spacing } from "../theme";
 
 export default function HydrationScreen() {
+  const { t } = useAppTranslation();
   const { data, loading, refresh } = useDashboard();
   const { saving, history, addWater, removeWater } = useHydration();
 
@@ -30,7 +32,7 @@ export default function HydrationScreen() {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      Alert.alert("Login required", "Please login again.");
+      Alert.alert(t("common.loginRequired"), t("common.loginAgain"));
       return;
     }
 
@@ -45,7 +47,7 @@ export default function HydrationScreen() {
 
       await refresh();
     } catch (error: any) {
-      Alert.alert("Unable to add water", error.message || "Please try again.");
+      Alert.alert(t("hydration.addError"), error.message || t("common.tryAgain"));
     }
   }
 
@@ -53,7 +55,7 @@ export default function HydrationScreen() {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      Alert.alert("Login required", "Please login again.");
+      Alert.alert(t("common.loginRequired"), t("common.loginAgain"));
       return;
     }
 
@@ -69,8 +71,8 @@ export default function HydrationScreen() {
       await refresh();
     } catch (error: any) {
       Alert.alert(
-        "Unable to remove water",
-        error.message || "Please try again."
+        t("hydration.removeError"),
+        error.message || t("common.tryAgain")
       );
     }
   }
@@ -82,8 +84,8 @@ export default function HydrationScreen() {
           <CommonBackButton compact fallbackPath="/(tabs)" />
 
           <View>
-            <Text style={styles.kicker}>HYDRATION</Text>
-            <Text style={styles.title}>Water Tracker</Text>
+            <Text style={styles.kicker}>{t("hydration.kicker")}</Text>
+            <Text style={styles.title}>{t("hydration.title")}</Text>
           </View>
         </View>
 
