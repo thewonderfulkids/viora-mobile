@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { getAuth } from "firebase-admin/auth";
+import { getAuth, type UserRecord } from "firebase-admin/auth";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 
@@ -72,7 +72,7 @@ export const adminGrantPremiumByEmail = onCall({ region: "asia-south1", enforceA
   if (!validEmail(email) || !isPlan(planCode)) throw new HttpsError("invalid-argument", "Valid email and plan required.");
   const grant = { planCode, note, grantedByUid: admin.uid, grantedByEmail: normalize(admin.email), createdAt: new Date().toISOString() };
   const pendingRef = getFirestore().doc(`pendingPremiumGrants/${emailKey(email)}`);
-  let target;
+  let target: UserRecord | undefined;
   try { target = await getAuth().getUserByEmail(email); }
   catch (error: any) {
     if (error?.code !== "auth/user-not-found") throw new HttpsError("internal", "Unable to look up user.");
