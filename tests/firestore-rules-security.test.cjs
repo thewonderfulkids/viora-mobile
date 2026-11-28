@@ -168,3 +168,13 @@ test("HA07 privacy and security settings reject conflicting owners",async()=>{
   await assertFails(updateDoc(own,{userId:"settings-bob"}));
  }
 });
+
+test("HA07 custom UID regex cannot authorize another legacy document",async()=>{
+ await env();
+ await seed("dailyStats/victim_legacy",{steps:123});
+ const attacker=user(".*");
+ await assertFails(getDoc(doc(attacker,"dailyStats/victim_legacy")));
+ await assertFails(updateDoc(doc(attacker,"dailyStats/victim_legacy"),{steps:456}));
+ await assertFails(setDoc(doc(attacker,"dailyStats/victim_new"),{steps:789}));
+ await assertSucceeds(getDoc(doc(user("victim"),"dailyStats/victim_legacy")));
+});
