@@ -71,12 +71,18 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   // Exercise the real callable handler with synthetic verified Auth identity.
   const { claimPendingPremiumGrant } = require('../lib/admin/premiumAccessGrants');
   const email = other + '@example.test';
-  await auth.updateUser(other,{email,emailVerified:true});
+  await auth.updateUser(other,{email,emailVerified:false});
   const key = require('node:crypto').createHash('sha256').update(email).digest('hex');
   const pending = db.doc('pendingPremiumGrants/'+key);
   const subscription = db.doc('subscriptions/admin_grant_'+other);
   const grant = {email,status:'pending',planCode:'PLUS_MONTHLY',createdAt:new Date().toISOString()};
   await pending.set(grant);
+  const { adminGrantPremiumByEmail: grantForSecurityTest } = require('../lib/admin/premiumAccessGrants');
+  await assert.rejects(grantForSecurityTest.run({auth:{uid:other,token:{admin:true}},data:{email,planCode:'PRO_YEARLY'}}),/Administrator privileges required/);
+  assert.equal((await claimPendingPremiumGrant.run({auth:{uid:other,token:{email_verified:true}},data:{}})).claimed,false);
+  assert.equal((await pending.get()).exists,true);
+  assert.equal((await subscription.get()).exists,false);
+  await auth.updateUser(other,{emailVerified:true});
   const freeze = db.doc('accountDeletionLocks/'+other);
   await freeze.set({frozen:true});
   const claim = () => claimPendingPremiumGrant.run({auth:{uid:other,token:{}},data:{}});
