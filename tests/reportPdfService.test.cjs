@@ -31,3 +31,33 @@ test('missing saved snapshot fails before printing',async()=>{
  await assert.rejects(f.api.shareSavedReportExport({}),/printable snapshot/);
  assert.deepEqual(f.calls,[]);
 });
+
+function printFixture(mode){
+ const api={},calls=[];
+ let timer,afterPrint;
+ const frame={style:{},setAttribute(k,v){calls.push([k,v])},remove(){calls.push('remove')},contentWindow:mode==='missing'?null:{addEventListener(name,fn){afterPrint=fn},focus(){calls.push('focus')},print(){calls.push('print');if(mode==='throw')throw Error('print failed');}}};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/services/reports/reportPdfService.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports:api,require:id=>id==='react-native'?{Platform:{OS:'web'}}:id==='./reportService'?{buildReportHtml:()=>'<html>report</html>'}:{},window:{setTimeout:fn=>{timer=fn;return 1},clearTimeout:()=>{}},document:{createElement:()=>frame,body:{appendChild:()=>{if(mode!=='timeout')frame.onload()}}}});
+ return {api,calls,frame,timeout:()=>timer(),afterPrint:()=>afterPrint()};
+}
+test('web print opens sandboxed preview and removes it after printing',async()=>{
+ const f=printFixture('success');
+ assert.equal(await f.api.createAndShareReportPdf({range:'weekly',endDate:'2026-11-28'},true),'print-dialog');
+ assert.equal(f.frame.srcdoc,'<html>report</html>');
+ assert.deepEqual(f.calls,[['sandbox','allow-same-origin allow-modals'],'focus','print']);
+ f.afterPrint();
+ assert.equal(f.calls.at(-1),'remove');
+});
+test('web print rejects unavailable preview and print errors',async()=>{
+ for(const mode of ['missing','throw']){
+  const f=printFixture(mode);
+  await assert.rejects(f.api.printReportOnWeb('<html/>'),/unavailable|print failed/);
+  assert.equal(f.calls.at(-1),'remove');
+ }
+});
+test('web print rejects stalled preview and removes frame',async()=>{
+ const f=printFixture('timeout');
+ const pending=f.api.printReportOnWeb('<html/>');
+ f.timeout();
+ await assert.rejects(pending,/timed out/);
+ assert.equal(f.calls.at(-1),'remove');
+});
