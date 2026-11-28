@@ -731,6 +731,34 @@ export function buildReportHtml(report: HealthReportDoc) {
     .footer strong {
       color: #0b6e4f;
     }
+    /* Print layout: allow long report sections to flow across A4 pages. */
+    @media print {
+      body { background: #fff; font-size: 11px; }
+      .page { max-width: none; border: 0; border-radius: 0; overflow: visible; }
+      .hero { background: #0b6e4f; padding: 18px; break-inside: avoid; }
+      .brand-row { margin-bottom: 14px; }
+      .hero-grid { grid-template-columns: 105px minmax(0, 1fr); gap: 14px; }
+      .score-ring { width: 100px; height: 100px; border-width: 5px; box-shadow: none; }
+      .score-ring strong { font-size: 34px; }
+      h1 { font-size: 23px; }
+      .meta-card { padding: 7px; }
+      .content { padding: 12px 0; }
+      .report-section { break-inside: auto; page-break-inside: auto; padding: 12px; border-radius: 10px; }
+      .section-header, .metric-card, .trend-row { break-inside: avoid; page-break-inside: avoid; }
+      h2, h3, .section-header { break-after: avoid; page-break-after: avoid; }
+      .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .metric-card { min-height: 0; padding: 9px; }
+      .trend-helper { white-space: normal; overflow: visible; text-overflow: clip; }
+      .footer { break-inside: avoid; }
+    }
+    .meta-card, .metric-card, .section-header > div, .trend-row > div { min-width: 0; overflow-wrap: anywhere; }
+    @media screen and (max-width: 560px) {
+      .hero-grid, .two-column, .meta-grid, .metric-grid { grid-template-columns: 1fr; }
+      .hero, .content { padding: 16px; }
+      .brand-row { flex-wrap: wrap; }
+      .trend-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 38px; }
+      .trend-helper { white-space: normal; }
+    }
   </style>
 </head>
 <body>
