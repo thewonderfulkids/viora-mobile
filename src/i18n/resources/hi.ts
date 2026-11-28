@@ -13,6 +13,13 @@ const hi = {
     history: "इतिहास",
     newChat: "नई चैट",
   },
+  reports: {
+    loading: "आपकी स्वास्थ्य रिपोर्ट तैयार हो रही है...",
+    loadError: "रिपोर्ट लोड नहीं हो सकी",
+    unavailable: "रिपोर्ट उपलब्ध नहीं हैं",
+    retryMessage: "कृपया फिर से प्रयास करें।",
+    progress: "प्रगति",
+  },
   ai: {
     title: "विओरा एआई",
     subtitle: "मेमोरी वाला वेलनेस कोच",
