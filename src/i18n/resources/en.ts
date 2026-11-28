@@ -1,5 +1,8 @@
 const en = {
   common: {
+    loginRequired: "Login required",
+    loginAgain: "Please login again.",
+    tryAgain: "Please try again.",
     home: "Home",
     wellness: "Wellness",
     progress: "Progress",
@@ -57,6 +60,22 @@ const en = {
     module14Text: "Log meals, understand macros and get AI nutrition guidance.",
     module15Title: "Wearables",
     module15Text: "Wearable sync will be released after V1. Use manual tracking for beta.",
+  },
+  hydration: {
+    kicker: "HYDRATION",
+    title: "Water Tracker",
+    addError: "Unable to add water",
+    removeError: "Unable to remove water",
+  },
+  sleep: {
+    title: "Sleep Tracker",
+    subtitle: "Log your bedtime, wake time and sleep quality.",
+    preview: "Preview Duration",
+    bed: "Bed Time",
+    wake: "Wake Time",
+    saved: "Sleep saved",
+    savedMessage: "Your sleep log has been updated.",
+    saveError: "Unable to save sleep",
   },
   reports: {
     eyebrow: "Health Reports",
