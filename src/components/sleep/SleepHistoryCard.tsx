@@ -1,3 +1,4 @@
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { MoonStar } from "lucide-react-native";
 
 import { WellnessHistoryList } from "../wellness";
@@ -11,15 +12,16 @@ type Props = {
 };
 
 export default function SleepHistoryCard({ history }: Props) {
+  const { t } = useAppTranslation();
   return (
     <WellnessHistoryList
       icon={MoonStar}
-      title="Sleep History"
-      emptyText="No sleep logged today."
+      title={t("sleep.history")}
+      emptyText={t("sleep.empty")}
       items={history.map((item, index) => ({
         id: `${index}`,
-        title: `${(item.durationMinutes / 60).toFixed(1)} hrs`,
-        subtitle: item.quality,
+        title: t("sleep.hours", { hours: (item.durationMinutes / 60).toFixed(1) }),
+        subtitle: t(`sleep.${item.quality}`, { defaultValue: item.quality }),
         time: item.time,
       }))}
     />
