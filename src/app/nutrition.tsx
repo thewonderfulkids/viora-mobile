@@ -1,3 +1,4 @@
+import { useAppTranslation } from "../i18n/useAppTranslation";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { CommonBackButton, ErrorState, LoadingState, Screen, SectionHeader } from "../components/common";
@@ -15,6 +16,7 @@ import { useNutrition } from "../hooks";
 import { colors, spacing } from "../theme";
 
 export default function NutritionScreen() {
+  const { t } = useAppTranslation();
   const {
     dashboard,
     loading,
@@ -30,15 +32,15 @@ export default function NutritionScreen() {
   } = useNutrition();
 
   if (loading && !dashboard) {
-    return <LoadingState message="Building your nutrition intelligence..." />;
+    return <LoadingState message={t("nutrition.loading")} />;
   }
 
   if (error && !dashboard) {
-    return <ErrorState title="Unable to load nutrition" message={error} onRetry={refresh} />;
+    return <ErrorState title={t("nutrition.error")} message={error} onRetry={refresh} />;
   }
 
   if (!dashboard) {
-    return <ErrorState message="Nutrition intelligence is not available right now." onRetry={refresh} />;
+    return <ErrorState message={t("nutrition.unavailable")} onRetry={refresh} />;
   }
 
   return (
@@ -50,9 +52,9 @@ export default function NutritionScreen() {
         <CommonBackButton />
 
         <SectionHeader
-          label="Nutrition"
-          title="Nutrition Intelligence"
-          subtitle="Log real food items under breakfast, lunch, dinner and snacks. Viora calculates calories, protein, sugar and sodium from the item-level breakdown."
+          label={t("nutrition.label")}
+          title={t("nutrition.title")}
+          subtitle={t("nutrition.intro")}
         />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -60,8 +62,8 @@ export default function NutritionScreen() {
         <NutritionHero dashboard={dashboard} />
 
         <NutritionSection
-          title="Add Food Item"
-          subtitle="Select actual foods like tea, sugar, bread, dal, roti or rice. Quantity controls the calories."
+          title={t("nutrition.add")}
+          subtitle={t("nutrition.addHelp")}
         >
           <NutritionFoodLogger
             presets={dashboard.foodPresets}
@@ -71,15 +73,15 @@ export default function NutritionScreen() {
         </NutritionSection>
 
         <NutritionSection
-          title="Daily Nutrition Summary"
-          subtitle="Calories, protein, sugar, fiber and meal balance generated from your logged food items."
+          title={t("nutrition.summary")}
+          subtitle={t("nutrition.summaryHelp")}
         >
           <NutritionMetricGrid metrics={dashboard.metrics} />
         </NutritionSection>
 
         <NutritionSection
-          title="Meal Tracking"
-          subtitle="Each meal now shows exactly what you ate and how much every item contributed."
+          title={t("nutrition.meals")}
+          subtitle={t("nutrition.mealsHelp")}
         >
           <NutritionMealList
             groups={dashboard.mealGroups}
@@ -91,15 +93,15 @@ export default function NutritionScreen() {
         </NutritionSection>
 
         <NutritionSection
-          title="AI Nutrition Insights"
-          subtitle="Protein gaps, tea sugar, sodium risk and meal consistency detection."
+          title={t("nutrition.insights")}
+          subtitle={t("nutrition.insightsHelp")}
         >
           <NutritionInsightList insights={dashboard.insights} />
         </NutritionSection>
 
         <NutritionSection
-          title="Personalized Meal Suggestions"
-          subtitle="One-tap itemized meals. Future-ready for barcode scanner, OCR and food vision AI."
+          title={t("nutrition.suggestions")}
+          subtitle={t("nutrition.suggestionsHelp")}
         >
           <NutritionSuggestionList
             suggestions={dashboard.suggestions}
@@ -109,14 +111,14 @@ export default function NutritionScreen() {
         </NutritionSection>
 
         <NutritionSection
-          title="Nutrition Timeline"
-          subtitle="Recent food events and AI-generated nutrition score history."
+          title={t("nutrition.timeline")}
+          subtitle={t("nutrition.timelineHelp")}
         >
           <NutritionTimeline items={dashboard.timeline} />
         </NutritionSection>
 
         <View style={styles.contextCard}>
-          <Text style={styles.contextTitle}>Connected AI Context</Text>
+          <Text style={styles.contextTitle}>{t("nutrition.context")}</Text>
           <Text style={styles.contextText}>{dashboard.aiCoachContext}</Text>
           <Text style={styles.contextText}>{dashboard.wellnessIntelligenceContext}</Text>
         </View>
