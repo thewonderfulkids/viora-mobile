@@ -44,7 +44,7 @@ function harness(initial, times, initialGlobal, enforce = false, token = undefin
   }};
   let clock = times[0];
   vm.runInNewContext(code, {exports, process: {env: {VIORA_ENFORCE_APP_CHECK: String(enforce)}}, Date: {now: () => clock}, console, require(id) {
-    if(id === 'firebase-admin/app') return {initializeApp(){}};
+    if(id === 'firebase-admin/app') return { getApps: () => [],initializeApp(){}};
     if(id === 'firebase-admin/auth') return {getAuth: () => ({verifyIdToken: async uid => ({uid})})};
     if(id === 'firebase-admin/app-check') return {getAppCheck: () => ({verifyToken: async value => {if(value !== 'valid') throw Error('invalid'); return {};}})};
     if(id === 'firebase-admin/firestore') return {getFirestore: () => db, FieldValue:{serverTimestamp: () => null}};
