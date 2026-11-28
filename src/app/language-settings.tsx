@@ -7,9 +7,9 @@ import { colors, spacing } from "../theme";
 import { VioraLanguageCode } from "../types";
 
 const LANGUAGE_OPTIONS: Array<{ label: string; value: VioraLanguageCode; description: string }> = [
-  { label: "English", value: "en", description: "Default app language for launch." },
-  { label: "Hindi", value: "hi", description: "Hindi-ready preference for upcoming localized content." },
-  { label: "Hinglish", value: "hinglish", description: "Conversational Hindi-English for AI coaching tone." },
+  { label: "English", value: "en", description: "Use English for the app interface and coaching preference." },
+  { label: "Hindi", value: "hi", description: "Use Hindi for translated app screens and coaching preference." },
+  { label: "Hinglish", value: "hinglish", description: "Conversational Hindi-English coaching tone; keeps the current interface language." },
 ];
 
 export default function LanguageSettingsScreen() {
@@ -33,7 +33,7 @@ export default function LanguageSettingsScreen() {
         >
           <SettingsInfoCard
             title="Language foundation"
-            subtitle="Viora stores your preference now. Full content translation will continue through the launch roadmap without changing this setting model."
+            subtitle="English and Hindi switch translated app screens. Hinglish changes the coaching preference only. Some content is still available in English."
           />
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
