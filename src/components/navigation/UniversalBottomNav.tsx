@@ -4,6 +4,7 @@ import { router, usePathname } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { colors, shadows } from "../../theme";
 
 type NavItem = {
@@ -27,6 +28,7 @@ const ITEMS: NavItem[] = [
 ];
 
 export function UniversalBottomNav() {
+  const { t } = useAppTranslation();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
 
@@ -34,6 +36,7 @@ export function UniversalBottomNav() {
     <View style={[styles.safeShell, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       <LinearGradient colors={["rgba(255,255,255,0.98)", "rgba(237,248,241,0.98)"]} style={styles.shell} accessibilityRole="tablist">
         {ITEMS.map((item) => {
+          const label = t(`common.${item.key === "ai" ? "aiCoach" : item.key}`);
           const active = item.matches(pathname);
           return (
             <Pressable
@@ -42,13 +45,13 @@ export function UniversalBottomNav() {
               style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              accessibilityLabel={item.label}
+              accessibilityLabel={label}
             >
               <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
                 {active ? <View pointerEvents="none" style={styles.glow} /> : null}
                 <Ionicons name={active ? item.activeIcon : item.icon} size={21} color={active ? colors.white : "#718A7F"} />
               </View>
-              <Text style={[styles.label, active && styles.labelActive]}>{item.label}</Text>
+              <Text style={[styles.label, active && styles.labelActive]}>{label}</Text>
             </Pressable>
           );
         })}
