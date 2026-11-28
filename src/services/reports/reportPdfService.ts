@@ -9,20 +9,25 @@ function sanitizeFileName(value: string) {
   return value.replace(/[^a-z0-9._-]/gi, "-").replace(/-+/g, "-").toLowerCase();
 }
 
-export function printReportOnWeb(html: string): void {
+export function printReportOnWeb(html: string): Promise<void> {
   if (typeof window === "undefined" || typeof document === "undefined") throw new Error("Printing is not available on this device.");
+  return new Promise<void>((resolve, reject) => {
   const frame = document.createElement("iframe");
+  const cleanup = () => { window.clearTimeout(timeout); frame.remove(); };
+  const timeout = window.setTimeout(() => { cleanup(); reject(new Error("Report print preview timed out.")); }, 30000);
   frame.setAttribute("sandbox", "allow-same-origin allow-modals");
   frame.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;border:0";
   frame.title = "Printable Viora report";
   frame.onload = () => {
     const target = frame.contentWindow;
-    if (!target) { frame.remove(); return; }
-    target.addEventListener("afterprint", () => frame.remove(), { once: true });
-    try { target.focus(); target.print(); } catch { frame.remove(); }
+    if (!target) { cleanup(); reject(new Error("Report print preview is unavailable.")); return; }
+    window.clearTimeout(timeout);
+    target.addEventListener("afterprint", cleanup, { once: true });
+    try { target.focus(); target.print(); resolve(); } catch (error) { cleanup(); reject(error); }
   };
   frame.srcdoc = html;
   document.body.appendChild(frame);
+  });
 }
 
 function downloadHtmlSnapshotOnWeb(fileName: string, html: string): string | false {
@@ -46,11 +51,12 @@ function downloadHtmlSnapshotOnWeb(fileName: string, html: string): string | fal
   return snapshotName;
 }
 
-export async function createAndShareReportPdf(report: HealthReportDoc): Promise<string> {
+export async function createAndShareReportPdf(report: HealthReportDoc, webPrint = false): Promise<string> {
   const html = buildReportHtml(report);
   const fileName = sanitizeFileName(`viora-${report.range}-report-${report.endDate}.pdf`);
 
   if (Platform.OS === "web") {
+    if (webPrint) { await printReportOnWeb(html); return "print-dialog"; }
     const downloaded = downloadHtmlSnapshotOnWeb(fileName, html);
     if (!downloaded) throw new Error("Report download is not available on this device.");
     return downloaded;
