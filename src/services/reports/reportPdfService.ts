@@ -85,8 +85,7 @@ export async function shareSavedReportExport(record: ReportExportRecord): Promis
   }
 
   if (Platform.OS === "web") {
-    const downloaded = downloadHtmlSnapshotOnWeb(record.fileName, record.htmlSnapshot);
-    if (!downloaded) throw new Error("Report download is not available on this device.");
+    await printReportOnWeb(record.htmlSnapshot);
     return;
   }
 
