@@ -268,7 +268,7 @@ function renderMetricCards(section: ReportSectionSummary) {
   return `
     <div class="metric-grid">
       ${section.metrics.map((item) => `
-        <div class="metric-card ${item.tone}">
+        <div class="metric-card ${item.tone === "positive" ? "positive" : item.tone === "warning" ? "warning" : "neutral"}">
           <div class="metric-label">${escapeHtml(item.label)}</div>
           <div class="metric-value">${escapeHtml(item.value)}</div>
           <div class="metric-helper">${escapeHtml(item.helper)}</div>
@@ -336,6 +336,7 @@ export function buildReportHtml(report: HealthReportDoc) {
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(report.title)}</title>
   <style>
