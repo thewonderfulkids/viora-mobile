@@ -1,3 +1,4 @@
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { Moon, Sunrise } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -20,9 +21,10 @@ export default function SleepLogCard({
   onSave,
   saving,
 }: Props) {
+  const { t } = useAppTranslation();
   return (
     <View style={styles.card}>
-      <Text style={styles.heading}>Log Your Sleep</Text>
+      <Text style={styles.heading}>{t("sleep.log")}</Text>
 
       <Pressable
         style={styles.row}
@@ -30,11 +32,11 @@ export default function SleepLogCard({
       >
         <View style={styles.left}>
           <Moon size={20} color={colors.primary} />
-          <Text style={styles.label}>Bed Time</Text>
+          <Text style={styles.label}>{t("sleep.bed")}</Text>
         </View>
 
         <Text style={styles.value}>
-          {sleepStart || "Select"}
+          {sleepStart || t("sleep.select")}
         </Text>
       </Pressable>
 
@@ -44,11 +46,11 @@ export default function SleepLogCard({
       >
         <View style={styles.left}>
           <Sunrise size={20} color={colors.primary} />
-          <Text style={styles.label}>Wake Time</Text>
+          <Text style={styles.label}>{t("sleep.wake")}</Text>
         </View>
 
         <Text style={styles.value}>
-          {sleepEnd || "Select"}
+          {sleepEnd || t("sleep.select")}
         </Text>
       </Pressable>
 
@@ -61,7 +63,7 @@ export default function SleepLogCard({
         onPress={onSave}
       >
         <Text style={styles.buttonText}>
-          Save Sleep
+          {t("sleep.save")}
         </Text>
       </Pressable>
     </View>
