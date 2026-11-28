@@ -289,3 +289,48 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   assert.equal((await tokenFixture.exists())[0],true);
 
 });
+
+test('H09 real Firestore emulator admits only one of concurrent Coach callers at final budget slot', async () => {
+  assert.match(process.env.FIRESTORE_EMULATOR_HOST || '', /^(localhost|127\\.0\\.0\\.1):\\d+$/);
+  assert.equal(process.env.GCLOUD_PROJECT, 'demo-viora-deletion');
+  const { getApps } = require('firebase-admin/app');
+  const app = getApps()[0];
+  assert.ok(app);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  const budget = db.doc('aiGlobalBudget/daily');
+  const previous = await budget.get();
+  const oldLimit = process.env.VIORA_AI_GLOBAL_DAILY_LIMIT;
+  const originalVerify = auth.verifyIdToken;
+  const ai = require('../lib/ai');
+  const originalHandler = ai.generateWellnessAdviceHandler;
+  let calls = 0;
+  const ids = Array.from({length: 6}, (_,i) => 'h09-fixture-'+Date.now()+'-'+i);
+  try {
+    process.env.VIORA_AI_GLOBAL_DAILY_LIMIT = '1000';
+    await budget.set({day:Math.floor(Date.now()/86400000),count:999});
+    auth.verifyIdToken = async token => { assert.ok(ids.includes(token)); return {uid:token}; };
+    // Replace only the model boundary; no external provider requests.
+    ai.generateWellnessAdviceHandler = async () => { calls++; return {answer:'fixture'}; };
+    const endpoint = require('../lib/index').generateWellnessAdviceHttp;
+    assert.equal(typeof endpoint,'function');
+    const results = await Promise.all(ids.map(uid => new Promise((resolve,reject) => {
+      let status;
+      const req = {method:'POST',headers:{authorization:'Bearer '+uid},get:()=>undefined,body:{question:'fixture',dashboard:{todayStats:{waterMl:0,sleepMinutes:0,yogaMinutes:0,musicMinutes:0},wellnessScore:0}}};
+      const res = {status(n){status=n;return this;},json(){resolve(status);},send(){resolve(status);},setHeader(){},getHeader(){},on(){return this;},once(){return this;}};
+      Promise.resolve(endpoint(req,res)).catch(reject);
+    })));
+    assert.equal(results.filter(x=>x===200).length,1);
+    assert.equal(results.filter(x=>x===429).length,5);
+    assert.equal(calls,1);
+    assert.equal((await budget.get()).get('count'),1000);
+    const records = await Promise.all(ids.map(uid=>db.doc('aiRateLimits/'+uid).get()));
+    assert.equal(records.filter(x=>x.exists).length,1);
+  } finally {
+    auth.verifyIdToken = originalVerify;
+    ai.generateWellnessAdviceHandler = originalHandler;
+    if(oldLimit===undefined) delete process.env.VIORA_AI_GLOBAL_DAILY_LIMIT; else process.env.VIORA_AI_GLOBAL_DAILY_LIMIT=oldLimit;
+    await Promise.all(ids.map(uid=>db.doc('aiRateLimits/'+uid).delete()));
+    if(previous.exists) await budget.set(previous.data()); else await budget.delete();
+  }
+});
