@@ -41,14 +41,7 @@ function calculatePreviewMinutes(start: Date, end: Date) {
   return minutes;
 }
 
-function formatDuration(minutes: number) {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
 
-  if (hours <= 0) return `${mins} min`;
-
-  return `${hours}h ${mins}m`;
-}
 
 export default function SleepScreen() {
   const { t } = useAppTranslation();
@@ -123,7 +116,7 @@ export default function SleepScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.previewLabel}>{t("sleep.preview")}</Text>
             <Text style={styles.previewValue}>
-              {formatDuration(previewMinutes)}
+              {previewMinutes < 60 ? t("sleep.minutes", { minutes: previewMinutes }) : t("sleep.duration", { hours: Math.floor(previewMinutes / 60), minutes: previewMinutes % 60 })}
             </Text>
           </View>
         </View>
