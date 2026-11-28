@@ -63,7 +63,9 @@ service cloud.firestore {
     }
 
     function ownsDocIdPrefix(docId) {
-      return signedIn() && docId.matches(request.auth.uid + "_.*");
+      // Legacy prefix fallback is restricted to regex-safe Firebase UIDs.
+      return signedIn() && request.auth.uid.matches("[A-Za-z0-9_-]+")
+        && docId.matches(request.auth.uid + "_.*");
     }
 
     function ownsExistingOwnerUserDoc() {
