@@ -53,3 +53,7 @@ jobs:
         run: npm ci --prefix functions --no-audit --no-fund
       - name: Firebase Functions TypeScript
         run: npm run build --prefix functions
+      - name: H06 backend avatar cleanup regression
+        run: node --test functions/tests/avatar-cleanup-candidates.test.cjs functions/tests/avatar-cleanup-worker.test.cjs functions/tests/avatar-cleanup-scheduler.test.cjs
+      - name: H07 H09 H10 AI security regression
+        run: node --test tests/coachRequestContract.test.cjs tests/aiQuota.test.cjs tests/coachHttpErrors.test.cjs
