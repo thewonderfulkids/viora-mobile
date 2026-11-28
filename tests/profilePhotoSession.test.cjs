@@ -264,7 +264,7 @@ test("H06 cleanup lock guards all avatar aliases and cannot be edited by clients
   assert.match(guard, /resource\.data\.get\("avatarServerManaged", false\)/);
   assert.match(guard, /resource\.data\.get\("avatarCleanupLocked", false\)/);
   for (const field of ["photoURL", "photoUrl", "avatarUrl"]) assert.ok(guard.includes('"' + field + '"'));
-  assert.match(rules, /allow update: if accountWritable\(\) && avatarCleanupAllowsUpdate\(\) && \(isVioraAdmin\(\)/);
+  assert.match(rules, /allow update: if accountWritable\(\) && avatarCleanupAllowsUpdate\(\) && \(\(isVioraAdmin\(\) \|\| isOwner\(uid\)\) && userProtectedFieldsUnchanged\(\)/);
 });
 
 
