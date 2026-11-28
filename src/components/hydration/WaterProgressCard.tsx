@@ -2,6 +2,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Droplets } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { radius, spacing } from "../../theme";
 
 type Props = {
@@ -13,6 +14,7 @@ export default function WaterProgressCard({
   currentMl,
   goalMl,
 }: Props) {
+  const { t } = useAppTranslation();
   const percentage = Math.min(
     Math.round((currentMl / goalMl) * 100),
     100
@@ -29,9 +31,9 @@ export default function WaterProgressCard({
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Today's Hydration</Text>
+          <Text style={styles.title}>{t("hydration.today")}</Text>
           <Text style={styles.subtitle}>
-            {currentMl} ml of {goalMl} ml
+            {t("hydration.progress", { current: currentMl, goal: goalMl })}
           </Text>
         </View>
 
