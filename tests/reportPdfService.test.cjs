@@ -61,3 +61,12 @@ test('web print rejects stalled preview and removes frame',async()=>{
  await assert.rejects(pending,/timed out/);
  assert.equal(f.calls.at(-1),'remove');
 });
+
+test('saved web report opens the same sandboxed print flow',async()=>{
+ const f=printFixture('success');
+ await f.api.shareSavedReportExport({fileName:'report.pdf',htmlSnapshot:'<html>saved</html>'});
+ assert.equal(f.frame.srcdoc,'<html>saved</html>');
+ assert.equal(f.calls.at(-1),'print');
+ f.afterPrint();
+ assert.equal(f.calls.at(-1),'remove');
+});
