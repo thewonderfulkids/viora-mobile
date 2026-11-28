@@ -283,10 +283,12 @@ function renderTrendRows(section: ReportSectionSummary) {
     return `<div class="empty-card">Trend data will appear here after more check-ins.</div>`;
   }
 
+  const points = section.trend.slice(0, 8);
+  const scale = Math.max(100, ...points.map((item) => Number.isFinite(item.value) ? item.value : 0));
   return `
     <div class="trend-list">
-      ${section.trend.slice(0, 8).map((item) => {
-        const width = safeBarWidth(item.value);
+      ${points.map((item) => {
+        const width = safeBarWidth((item.value / scale) * 100);
         return `
           <div class="trend-row">
             <div class="trend-main">
