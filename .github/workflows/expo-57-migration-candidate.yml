@@ -60,3 +60,6 @@ jobs:
 
       - name: P0 premium security regression
         run: node --test tests/premiumSecurity.test.cjs
+
+      - name: P2 report export regression
+        run: node --test tests/reportPdfService.test.cjs
