@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { colors, radius, spacing } from "../../theme";
 import { ReportRange } from "../../types";
 
@@ -15,13 +16,14 @@ type ReportRangeTabsProps = {
 };
 
 export function ReportRangeTabs({ value, onChange }: ReportRangeTabsProps) {
+  const { t } = useAppTranslation();
   return (
     <View style={styles.container}>
       {ranges.map((item) => {
         const active = item.value === value;
         return (
           <Pressable key={item.value} onPress={() => onChange(item.value)} style={[styles.tab, active && styles.activeTab]}>
-            <Text style={[styles.label, active && styles.activeLabel]}>{item.label}</Text>
+            <Text style={[styles.label, active && styles.activeLabel]}>{t(`common.${item.value}`)}</Text>
           </Pressable>
         );
       })}
