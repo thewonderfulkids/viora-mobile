@@ -13,6 +13,13 @@ const en = {
     history: "History",
     newChat: "New Chat",
   },
+  reports: {
+    loading: "Building your health report center...",
+    loadError: "Unable to load reports",
+    unavailable: "Reports unavailable",
+    retryMessage: "Please try again.",
+    progress: "Progress",
+  },
   ai: {
     title: "Viora AI",
     subtitle: "Memory enabled coach",
