@@ -449,7 +449,7 @@ service cloud.firestore {
 
     match /familyGroups/{docId} {
       allow read: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
-      allow update: if accountWritable() && (ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
+      allow update: if accountWritable() && (ownerFieldsUnchanged() && existingOwnerNotForeign() && incomingOwnerNotForeign() && ownerUserNotForeign(resource.data) && ownerUserNotForeign(request.resource.data) && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
       allow create: if accountWritable() && (ownerUserNotForeign(request.resource.data) && incomingOwnerNotForeign() && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
       allow delete: if false;
     }
@@ -457,14 +457,14 @@ service cloud.firestore {
     match /familyMembers/{docId} {
       allow read: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
       allow delete: if accountWritable() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data)));
-      allow update: if accountWritable() && (ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
-      allow create: if accountWritable() && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (ownerFieldsUnchanged() && existingOwnerNotForeign() && incomingOwnerNotForeign() && ownerUserNotForeign(resource.data) && ownerUserNotForeign(request.resource.data) && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
+      allow create: if accountWritable() && (incomingOwnerNotForeign() && ownerUserNotForeign(request.resource.data) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
     }
 
     match /familyInvites/{docId} {
       allow read: if ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || (ownsDocIdPrefix(docId) && existingOwnerNotForeign() && ownerUserNotForeign(resource.data));
-      allow update: if accountWritable() && (ownerFieldsUnchanged() && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
-      allow create: if accountWritable() && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId));
+      allow update: if accountWritable() && (ownerFieldsUnchanged() && existingOwnerNotForeign() && incomingOwnerNotForeign() && ownerUserNotForeign(resource.data) && ownerUserNotForeign(request.resource.data) && (ownsExistingOwnerUserDoc() || ownsExistingAnyUserDoc() || ownsDocIdPrefix(docId)) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
+      allow create: if accountWritable() && (incomingOwnerNotForeign() && ownerUserNotForeign(request.resource.data) && (ownsIncomingOwnerUserDoc() || ownsIncomingAnyUserDoc() || ownsDocIdPrefix(docId)));
       allow delete: if false;
     }
 
