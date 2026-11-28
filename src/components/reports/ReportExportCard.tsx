@@ -1,6 +1,7 @@
 import { Download, Save } from "lucide-react-native";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { colors, spacing } from "../../theme";
 
 type ReportExportCardProps = {
@@ -11,21 +12,22 @@ type ReportExportCardProps = {
 };
 
 export function ReportExportCard({ canExport, saving, onSave, onExport }: ReportExportCardProps) {
+  const { t } = useAppTranslation();
   const isWeb = Platform.OS === "web";
   return (
     <View style={styles.card}>
       <View>
-        <Text style={styles.title}>Export & Save</Text>
-        <Text style={styles.subtitle}>{isWeb ? "Save this report or open the print dialog and choose Save as PDF." : "Save this report or export it as a shareable PDF for doctor visits and personal records."}</Text>
+        <Text style={styles.title}>{t("reports.exportTitle")}</Text>
+        <Text style={styles.subtitle}>{isWeb ? t("reports.webExportHelp") : t("reports.nativeExportHelp")}</Text>
       </View>
       <View style={styles.actions}>
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: saving, busy: saving }} disabled={saving} style={styles.secondaryButton} onPress={onSave}>
           {saving ? <ActivityIndicator size="small" color={colors.primaryDark} /> : <Save size={16} color={colors.primaryDark} />}
-          <Text style={styles.secondaryText}>{saving ? "Working..." : "Save Report"}</Text>
+          <Text style={styles.secondaryText}>{saving ? t("reports.working") : t("reports.saveReport")}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canExport || saving, busy: saving }} disabled={!canExport || saving} style={[styles.primaryButton, (!canExport || saving) && styles.disabledButton]} onPress={onExport}>
           {saving ? <ActivityIndicator size="small" color={colors.white} /> : <Download size={16} color={colors.white} />}
-          <Text style={styles.primaryText}>{canExport ? (isWeb ? "Print / Save as PDF" : "Download PDF") : "Upgrade to Export"}</Text>
+          <Text style={styles.primaryText}>{canExport ? (isWeb ? t("reports.printPdf") : t("reports.downloadPdf")) : t("reports.upgradeExport")}</Text>
         </Pressable>
       </View>
     </View>
