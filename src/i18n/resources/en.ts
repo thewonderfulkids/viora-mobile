@@ -1,5 +1,11 @@
 const en = {
   common: {
+    home: "Home",
+    wellness: "Wellness",
+    progress: "Progress",
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly",
     dashboard: "Dashboard",
     hydration: "Hydration",
     sleep: "Sleep",
