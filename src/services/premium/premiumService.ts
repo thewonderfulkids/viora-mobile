@@ -7,7 +7,7 @@ import { getPlanByCode, PREMIUM_PLANS, PROGRAM_ENTITLEMENTS } from "./premiumPla
 
 function isSubscriptionUsable(subscription: UserSubscription) {
   if (["active", "trialing"].includes(subscription.status)) {
-    if (subscription.planCode === "FREE" || !subscription.expiresAt) return false;
+    if (!["PLUS_MONTHLY", "PLUS_YEARLY", "PRO_YEARLY", "ELITE_FAMILY_YEARLY"].includes(subscription.planCode) || !subscription.expiresAt) return false;
     return new Date(subscription.expiresAt).getTime() > Date.now();
   }
 
