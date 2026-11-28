@@ -111,3 +111,19 @@ test("C02 frozen account cannot create update delete or remove its lock", async 
   await assertSucceeds(getDoc(goal));
   await assertSucceeds(setDoc(doc(other,"hydrationLogs/unfrozen-new"), {uid:"freeze-other",waterMl:250}));
 });
+
+ test("P0-HA01 legacy prefix cannot expose or delete foreign-owned records", async () => {
+  await env();
+  const alice = user("alice"), bob = user("bob");
+  const { deleteDoc } = require("firebase/firestore");
+  for (const collection of ["wellnessIntelligenceSnapshots","wellnessHabits","habitCompletions","nutritionEntries","nutritionSummaries","nutritionGoals","moodEntries","moodCheckIns","mentalWellnessSummaries","mentalWellnessGoals","wellnessReports","nutritionReports","mentalWellnessReports","goalReports","reportExports","voiceCommands","voiceSessions","familyGroups","familyMembers","familyInvites"]) {
+    const path = collection + "/alice_foreign";
+    await seed(path, {uid:"bob", ownerUserId:"bob"});
+    await assertFails(getDoc(doc(alice,path)));
+    await assertFails(deleteDoc(doc(alice,path)));
+    await assertSucceeds(getDoc(doc(bob,path)));
+  }
+  await seed("wellnessHabits/alice_legacy", {title:"legacy"});
+  await assertSucceeds(getDoc(doc(alice,"wellnessHabits/alice_legacy")));
+  await assertSucceeds(deleteDoc(doc(alice,"wellnessHabits/alice_legacy")));
+});
