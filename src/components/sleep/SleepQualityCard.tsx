@@ -1,3 +1,4 @@
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { Star } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -12,9 +13,10 @@ type Props = {
 const qualities: SleepQuality[] = ["Poor", "Average", "Good", "Excellent"];
 
 export default function SleepQualityCard({ selected, onSelect }: Props) {
+  const { t } = useAppTranslation();
   return (
     <View style={styles.card}>
-      <Text style={styles.heading}>Sleep Quality</Text>
+      <Text style={styles.heading}>{t("sleep.quality")}</Text>
 
       <View style={styles.grid}>
         {qualities.map((quality) => {
