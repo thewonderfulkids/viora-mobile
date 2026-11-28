@@ -9,7 +9,7 @@ function sanitizeFileName(value: string) {
   return value.replace(/[^a-z0-9._-]/gi, "-").replace(/-+/g, "-").toLowerCase();
 }
 
-function downloadHtmlSnapshotOnWeb(fileName: string, html: string) {
+function downloadHtmlSnapshotOnWeb(fileName: string, html: string): string | false {
   if (typeof window === "undefined" || typeof document === "undefined") return false;
 
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
@@ -17,13 +17,17 @@ function downloadHtmlSnapshotOnWeb(fileName: string, html: string) {
   const anchor = document.createElement("a");
 
   anchor.href = url;
-  anchor.download = fileName.replace(/\.pdf$/i, ".html");
+  const snapshotName = sanitizeFileName(fileName).replace(/\.(pdf|html)$/i, "") + ".html";
+  anchor.download = snapshotName;
   document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+  try {
+    anchor.click();
+  } finally {
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
-  return true;
+  return snapshotName;
 }
 
 export async function createAndShareReportPdf(report: HealthReportDoc): Promise<string> {
@@ -33,18 +37,16 @@ export async function createAndShareReportPdf(report: HealthReportDoc): Promise<
   if (Platform.OS === "web") {
     const downloaded = downloadHtmlSnapshotOnWeb(fileName, html);
     if (!downloaded) throw new Error("Report download is not available on this device.");
-    return fileName;
+    return downloaded;
   }
+
+  const canShare = await Sharing.isAvailableAsync();
+  if (!canShare) throw new Error("Sharing is not available on this device.");
 
   const pdf = await Print.printToFileAsync({
     html,
     base64: false,
   });
-
-  const canShare = await Sharing.isAvailableAsync();
-  if (!canShare) {
-    throw new Error("Sharing is not available on this device. The report was created but could not be opened.");
-  }
 
   await Sharing.shareAsync(pdf.uri, {
     mimeType: "application/pdf",
@@ -66,13 +68,13 @@ export async function shareSavedReportExport(record: ReportExportRecord): Promis
     return;
   }
 
+  const canShare = await Sharing.isAvailableAsync();
+  if (!canShare) throw new Error("Sharing is not available on this device.");
+
   const pdf = await Print.printToFileAsync({
     html: record.htmlSnapshot,
     base64: false,
   });
-
-  const canShare = await Sharing.isAvailableAsync();
-  if (!canShare) throw new Error("Sharing is not available on this device.");
 
   await Sharing.shareAsync(pdf.uri, {
     mimeType: "application/pdf",
