@@ -16,7 +16,7 @@ export function ReportExportCard({ canExport, saving, onSave, onExport }: Report
     <View style={styles.card}>
       <View>
         <Text style={styles.title}>Export & Save</Text>
-        <Text style={styles.subtitle}>{isWeb ? "Save this report or download a printable HTML snapshot. Open it in your browser and choose Print → Save as PDF." : "Save this report or export it as a shareable PDF for doctor visits and personal records."}</Text>
+        <Text style={styles.subtitle}>{isWeb ? "Save this report or open the print dialog and choose Save as PDF." : "Save this report or export it as a shareable PDF for doctor visits and personal records."}</Text>
       </View>
       <View style={styles.actions}>
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: saving, busy: saving }} disabled={saving} style={styles.secondaryButton} onPress={onSave}>
@@ -25,7 +25,7 @@ export function ReportExportCard({ canExport, saving, onSave, onExport }: Report
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canExport || saving, busy: saving }} disabled={!canExport || saving} style={[styles.primaryButton, (!canExport || saving) && styles.disabledButton]} onPress={onExport}>
           {saving ? <ActivityIndicator size="small" color={colors.white} /> : <Download size={16} color={colors.white} />}
-          <Text style={styles.primaryText}>{canExport ? (isWeb ? "Download Printable Report" : "Download PDF") : "Upgrade to Export"}</Text>
+          <Text style={styles.primaryText}>{canExport ? (isWeb ? "Print / Save as PDF" : "Download PDF") : "Upgrade to Export"}</Text>
         </Pressable>
       </View>
     </View>
