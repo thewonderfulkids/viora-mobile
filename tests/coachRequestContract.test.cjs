@@ -269,7 +269,7 @@ test('H10 provider credentials and health payload never appear in HTTP errors or
 test('H09 provider client disables implicit retries and bounds request timeout', () => {
   let options;
   const client = load('functions/src/ai/client.ts', {
-    openai: {default: class {constructor(value){options=value;}}},
+    openai: {__esModule: true, default: class {constructor(value){options=value;}}},
     '../config/env': {getRequiredEnv: () => 'synthetic-key'},
   });
   client.getOpenAIClient();
