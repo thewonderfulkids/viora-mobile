@@ -20,6 +20,7 @@ import { auth } from "../firebase/firebaseConfig";
 import { SleepQuality } from "../firebase/firestoreTypes";
 import { useDashboard } from "../hooks";
 import { useSleep } from "../hooks";
+import { useAppTranslation } from "../i18n/useAppTranslation";
 import { ActivityLogger } from "../services/activity";
 import { colors, radius, spacing } from "../theme";
 
@@ -50,6 +51,7 @@ function formatDuration(minutes: number) {
 }
 
 export default function SleepScreen() {
+  const { t } = useAppTranslation();
   const { data, refresh } = useDashboard();
   const { saving, history, addSleep } = useSleep();
 
@@ -76,7 +78,7 @@ export default function SleepScreen() {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      Alert.alert("Login required", "Please login again.");
+      Alert.alert(t("common.loginRequired"), t("common.loginAgain"));
       return;
     }
 
@@ -97,9 +99,9 @@ export default function SleepScreen() {
 
       await refresh();
 
-      Alert.alert("Sleep saved", "Your sleep log has been updated.");
+      Alert.alert(t("sleep.saved"), t("sleep.savedMessage"));
     } catch (error: any) {
-      Alert.alert("Unable to save sleep", error.message || "Please try again.");
+      Alert.alert(t("sleep.saveError"), error.message || t("common.tryAgain"));
     }
   }
 
@@ -107,8 +109,8 @@ export default function SleepScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <WellnessHeader
-          title="Sleep Tracker"
-          subtitle="Log your bedtime, wake time and sleep quality."
+          title={t("sleep.title")}
+          subtitle={t("sleep.subtitle")}
         />
 
         <SleepProgressCard sleepMinutes={data?.todayStats.sleepMinutes || 0} />
@@ -119,7 +121,7 @@ export default function SleepScreen() {
           </View>
 
           <View style={{ flex: 1 }}>
-            <Text style={styles.previewLabel}>Preview Duration</Text>
+            <Text style={styles.previewLabel}>{t("sleep.preview")}</Text>
             <Text style={styles.previewValue}>
               {formatDuration(previewMinutes)}
             </Text>
@@ -128,7 +130,7 @@ export default function SleepScreen() {
 
         <View style={styles.timeSection}>
           <TimePicker
-            label="Bed Time"
+            label={t("sleep.bed")}
             value={sleepStart}
             onChange={setSleepStart}
           />
@@ -136,7 +138,7 @@ export default function SleepScreen() {
           <View style={{ height: 16 }} />
 
           <TimePicker
-            label="Wake Time"
+            label={t("sleep.wake")}
             value={sleepEnd}
             onChange={setSleepEnd}
           />
