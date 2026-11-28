@@ -1,3 +1,4 @@
+import { useAppTranslation } from "../i18n/useAppTranslation";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 
@@ -18,6 +19,7 @@ import { ActivityLogger } from "../services/activity";
 import { colors, spacing } from "../theme";
 
 export default function YogaScreen() {
+  const { t } = useAppTranslation();
   const { data, refresh } = useDashboard();
   const { saving, catalog, history, completeSession } = useYoga();
 
@@ -107,7 +109,7 @@ export default function YogaScreen() {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      Alert.alert("Login required", "Please login again.");
+      Alert.alert(t("common.loginRequired"), t("common.loginAgain"));
       return;
     }
 
@@ -131,11 +133,11 @@ export default function YogaScreen() {
       setSecondsLeft(0);
       setCurrentStepIndex(0);
 
-      Alert.alert("Session completed", "Great job. Your movement is logged.");
+      Alert.alert(t("yoga.completed"), t("yoga.completedHelp"));
     } catch (error: any) {
       Alert.alert(
-        "Unable to complete session",
-        error.message || "Please try again."
+        t("yoga.error"),
+        error.message || t("common.tryAgain")
       );
     }
   }
@@ -144,8 +146,8 @@ export default function YogaScreen() {
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <WellnessHeader
-          title="Yoga & Movement"
-          subtitle="Choose a short session and build a consistent daily routine."
+          title={t("yoga.title")}
+          subtitle={t("yoga.subtitle")}
         />
 
         <YogaProgressCard
@@ -183,7 +185,7 @@ export default function YogaScreen() {
           />
         ) : null}
 
-        <Text style={styles.sectionTitle}>Recommended Sessions</Text>
+        <Text style={styles.sectionTitle}>{t("yoga.recommended")}</Text>
 
         {catalog.map((session) => (
           <YogaSessionCard
