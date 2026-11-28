@@ -99,6 +99,14 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   const adminUid = uid + '-admin';
   await auth.createUser({uid:adminUid,email:adminUid+'@example.test'});
   await auth.setCustomUserClaims(adminUid,{admin:true});
+  await auth.updateUser(other,{emailVerified:false});
+  const queued = await adminGrantPremiumByEmail.run({auth:{uid:adminUid,token:{}},data:{email,planCode:'PRO_YEARLY'}});
+  assert.equal(queued.status,'pending');
+  assert.equal((await subscription.get()).get('planCode'),'PLUS_MONTHLY');
+  assert.equal((await pending.get()).get('planCode'),'PRO_YEARLY');
+  assert.equal((await claim()).claimed,false);
+  await auth.updateUser(other,{emailVerified:true});
+  await pending.delete();
   const adminFreeze = db.doc('accountDeletionLocks/'+adminUid);
   await adminFreeze.set({frozen:true});
   const grantByAdmin = targetEmail => adminGrantPremiumByEmail.run({
