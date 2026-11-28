@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 
-function fixture(responses) {
+function fixture(responses, getAppCheckToken = async () => null) {
   const posts = [], logs = [], diagnostics = [];
   let errorBodiesRead = 0;
   const auth = { currentUser: { uid: 'fixture-account', getIdToken: async () => 'fixture-token' } };
@@ -39,7 +39,7 @@ function fixture(responses) {
     return exports;
   }
   const errors = load('aiErrors', {});
-  const cloud = load('VioraCloudAIProvider', { '../../firebase/firebaseConfig': { auth }, '../../firebase/appCheckToken': { getVioraAppCheckToken: async () => null }, './aiErrors': errors });
+  const cloud = load('VioraCloudAIProvider', { '../../firebase/firebaseConfig': { auth }, '../../firebase/appCheckToken': { getVioraAppCheckToken: getAppCheckToken }, './aiErrors': errors });
   const service = load('AIService', { './VioraCloudAIProvider': cloud });
   const manager = load('requestManager', { './aiErrors': errors, './aiRequestLogService': { saveAIRequestLog: async entry => { logs.push(entry); } } });
   const remote = load('remoteAIService', { './AIService': service, './requestManager': manager });
@@ -93,4 +93,13 @@ test('a timed-out POST is classified once and waits for the user to retry', asyn
   await assert.rejects(f.ask(), error => error.code === 'TIMEOUT');
   assert.equal(f.posts.length, 1);
   assert.equal(f.logs[0].errorCode, 'TIMEOUT');
+});
+
+test('H08 attestation failure never sends a Coach POST or exposes provider diagnostics', async () => {
+  const f = fixture([], async () => { throw Error('synthetic confidential attestation detail'); });
+  await assert.rejects(f.ask(), error => error.code === 'AUTH' && !error.message.includes('confidential'));
+  assert.equal(f.posts.length, 0);
+  assert.equal(f.logs.length, 1);
+  assert.equal(f.logs[0].errorCode, 'AUTH');
+  assert.doesNotMatch(JSON.stringify([f.logs, f.diagnostics]), /confidential/);
 });
