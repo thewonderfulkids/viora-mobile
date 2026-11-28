@@ -23,3 +23,12 @@ test('premium dashboard rejects foreign sessions and mid-request account switche
  const dashboard=await fixture({userId:'bob',planCode:'PLUS_MONTHLY',status:'active',expiresAt:'2099-01-01'}).getPremiumDashboard('alice');
  assert.equal(dashboard.currentPlan.code,'FREE');
 });
+
+test('unknown subscription plan codes never grant paid access',()=>{
+ const f=fixture(null);
+ for(const planCode of ['UNKNOWN','__proto__','constructor',null,undefined]){
+  const sub={userId:'alice',planCode,status:'active',expiresAt:'2099-01-01',entitlements:['ai_coach_unlimited']};
+  assert.equal(f.hasPremiumAccess(sub),false);
+  assert.equal(f.hasPremiumAccess(sub,'ai_coach_unlimited'),false);
+ }
+});
