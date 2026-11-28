@@ -62,4 +62,4 @@ jobs:
         run: node --test tests/premiumSecurity.test.cjs
 
       - name: P2 report export regression
-        run: node --test tests/reportPdfService.test.cjs tests/reportHtml.test.cjs
+        run: node --test tests/reportPdfService.test.cjs tests/reportHtml.test.cjs tests/translationResources.test.cjs
