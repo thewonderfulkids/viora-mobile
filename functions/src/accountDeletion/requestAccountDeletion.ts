@@ -22,6 +22,11 @@ export const requestAccountDeletion = onCall(
     const user = await getAuth().getUser(uid);
     if (user.disabled) throw new HttpsError("failed-precondition", "Account is disabled.");
 
+    const validAfter = Date.parse(user.tokensValidAfterTime ?? "");
+    if (!Number.isFinite(validAfter) || authTime < Math.floor(validAfter / 1000)) {
+      throw new HttpsError("failed-precondition", "Recent sign-in required. Sign out and sign in again before requesting deletion.");
+    }
+
     const creationTime = user.metadata.creationTime;
     if (!creationTime || !Number.isFinite(Date.parse(creationTime))) {
       throw new HttpsError("failed-precondition", "Account identity could not be verified.");
@@ -33,6 +38,9 @@ export const requestAccountDeletion = onCall(
       const previous = await tx.get(ref);
       const status = previous.data()?.status;
       if (isExistingDeletionRequest(status)) {
+        if (previous.data()?.userId !== uid || previous.data()?.authCreationTime !== creationTime) {
+          throw new HttpsError("failed-precondition", "Deletion request account identity mismatch; manual review required.");
+        }
         return { status, alreadyRequested: true };
       }
       if (lock.exists) throw new HttpsError("failed-precondition", "Account deletion is already in progress; recovery review required.");
