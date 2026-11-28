@@ -153,3 +153,18 @@ test("P0-HA03 admin claims permit profile edits but not privilege escalation", a
  await seed("accountDeletionLocks/admin-target",{frozen:true});
  await assertFails(updateDoc(doc(user("admin-actor",{admin:true}),"users/admin-target"),{fullName:"Frozen"}));
 });
+
+test("HA07 privacy and security settings reject conflicting owners",async()=>{
+ await env();
+ for(const c of ["privacySettings","securitySettings"]){
+  const db=user("settings-alice"), own=doc(db,c+"/settings-alice");
+  await assertFails(setDoc(own,{uid:"settings-bob",enabled:true}));
+  await seed(c+"/settings-alice",{uid:"settings-bob",enabled:true});
+  await assertFails(getDoc(own));
+  await assertFails(updateDoc(own,{enabled:false}));
+  await seed(c+"/settings-alice",{enabled:true});
+  await assertSucceeds(getDoc(own));
+  await assertSucceeds(updateDoc(own,{enabled:false}));
+  await assertFails(updateDoc(own,{userId:"settings-bob"}));
+ }
+});
