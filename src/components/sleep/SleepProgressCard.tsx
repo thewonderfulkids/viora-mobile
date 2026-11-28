@@ -1,3 +1,4 @@
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { LinearGradient } from "expo-linear-gradient";
 import { MoonStar } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
@@ -11,6 +12,7 @@ type Props = {
 export default function SleepProgressCard({
   sleepMinutes,
 }: Props) {
+  const { t } = useAppTranslation();
   const hours = (sleepMinutes / 60).toFixed(1);
 
   const percentage = Math.min(
@@ -29,9 +31,9 @@ export default function SleepProgressCard({
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Last Sleep</Text>
+          <Text style={styles.title}>{t("sleep.last")}</Text>
           <Text style={styles.subtitle}>
-            {hours} hours
+            {t("sleep.hours", { hours })}
           </Text>
         </View>
 
