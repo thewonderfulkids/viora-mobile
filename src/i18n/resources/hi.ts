@@ -1,5 +1,11 @@
 const hi = {
   common: {
+    home: "होम",
+    wellness: "स्वास्थ्य",
+    progress: "प्रगति",
+    daily: "दैनिक",
+    weekly: "साप्ताहिक",
+    monthly: "मासिक",
     dashboard: "डैशबोर्ड",
     hydration: "पानी",
     sleep: "नींद",
