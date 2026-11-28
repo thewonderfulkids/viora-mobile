@@ -57,3 +57,6 @@ jobs:
         run: node --test functions/tests/avatar-cleanup-candidates.test.cjs functions/tests/avatar-cleanup-worker.test.cjs functions/tests/avatar-cleanup-scheduler.test.cjs
       - name: H07 H09 H10 AI security regression
         run: node --test tests/coachRequestContract.test.cjs tests/aiQuota.test.cjs tests/coachHttpErrors.test.cjs
+
+      - name: P0 premium security regression
+        run: node --test tests/premiumSecurity.test.cjs
