@@ -71,6 +71,7 @@ export async function register({
     );
 
     const uid = credential.user.uid;
+    if (auth.currentUser?.uid !== uid) throw new Error("Account changed during registration.");
     const userRef = doc(db, COLLECTIONS.users, uid);
 
     await setDoc(
@@ -105,6 +106,7 @@ export async function register({
       { merge: true }
     );
 
+    if (auth.currentUser?.uid !== uid) throw new Error("Account changed during registration.");
     return credential;
   } catch (error: any) {
     throw new Error(readableAuthError(error));
@@ -115,7 +117,9 @@ export async function login(
   email: string,
   password: string
 ): Promise<UserCredential> {
-  return signInWithEmailAndPassword(auth, normalizeEmail(email), password);
+  const credential = await signInWithEmailAndPassword(auth, normalizeEmail(email), password);
+  if (auth.currentUser?.uid !== credential.user.uid) throw new Error("Account changed during sign-in.");
+  return credential;
 }
 
 export async function logout() {
