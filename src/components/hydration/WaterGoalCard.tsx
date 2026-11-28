@@ -1,6 +1,7 @@
 import { Target } from "lucide-react-native";
 import { StyleSheet, Text, View } from "react-native";
 
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { colors, radius, spacing } from "../../theme";
 
 type Props = {
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export default function WaterGoalCard({ goalMl }: Props) {
+  const { t } = useAppTranslation();
   return (
     <View style={styles.card}>
       <View style={styles.iconWrap}>
@@ -15,10 +17,10 @@ export default function WaterGoalCard({ goalMl }: Props) {
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.title}>Daily Water Goal</Text>
+        <Text style={styles.title}>{t("hydration.goal")}</Text>
         <Text style={styles.goal}>{goalMl} ml</Text>
         <Text style={styles.subtitle}>
-          Stay consistent throughout the day for better energy and focus.
+          {t("hydration.goalHelp")}
         </Text>
       </View>
     </View>
