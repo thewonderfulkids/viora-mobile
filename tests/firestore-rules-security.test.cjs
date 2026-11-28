@@ -140,3 +140,16 @@ test("P0-HA01 family records reject foreign ownership on create and update", asy
     await assertSucceeds(setDoc(doc(alice,collection+"/alice_valid"),{uid:"alice",ownerUserId:"alice"}));
   }
 });
+
+test("P0-HA03 admin claims permit profile edits but not privilege escalation", async()=>{
+ await env();
+ await seed("users/admin-target",{uid:"admin-target",fullName:"Before"});
+ for(const claims of [{admin:true},{superAdmin:true},{role:"admin"},{role:"super_admin"}]){
+  const db=user("admin-actor",claims), target=doc(db,"users/admin-target");
+  await assertSucceeds(getDoc(target));
+  await assertSucceeds(updateDoc(target,{fullName:"After"}));
+  for(const change of [{role:"super_admin"},{isPremium:true},{subscriptionStatus:"active"},{uid:"admin-actor"}]) await assertFails(updateDoc(target,change));
+ }
+ await seed("accountDeletionLocks/admin-target",{frozen:true});
+ await assertFails(updateDoc(doc(user("admin-actor",{admin:true}),"users/admin-target"),{fullName:"Frozen"}));
+});
