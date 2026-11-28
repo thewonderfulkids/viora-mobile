@@ -11,10 +11,6 @@ on:
   push:
     branches:
       - "chore/expo-sdk-57-migration"
-    paths:
-      - "firestore.rules"
-      - "tests/firestore-rules-security.test.cjs"
-      - ".github/workflows/p0-firestore-security.yml"
   workflow_dispatch:
 
 permissions:
