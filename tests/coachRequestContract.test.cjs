@@ -265,3 +265,14 @@ test('H10 provider credentials and health payload never appear in HTTP errors or
   assert.doesNotMatch(JSON.stringify([response,f.errorLogs]),/synthetic-secret-credential|synthetic-private-health-record/);
   assert.deepEqual(f.errorLogs,[['Wellness AI provider request failed']]);
 });
+
+test('H09 provider client disables implicit retries and bounds request timeout', () => {
+  let options;
+  const client = load('functions/src/ai/client.ts', {
+    openai: {default: class {constructor(value){options=value;}}},
+    '../config/env': {getRequiredEnv: () => 'synthetic-key'},
+  });
+  client.getOpenAIClient();
+  assert.equal(options.maxRetries,0);
+  assert.equal(options.timeout,20000);
+});
