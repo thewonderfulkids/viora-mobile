@@ -158,3 +158,36 @@ test("failed initial lookup settles safely; unmounted provider ignores pending u
   await pending;
   assert.equal(f.writes(), count);
 });
+
+function authServiceFixture({switchBefore=false,switchAfter=false}={}) {
+ const auth={currentUser:a}, writes=[];
+ const credential={user:a};
+ const authenticate=async()=>{auth.currentUser=switchBefore?b:a;return credential;};
+ const modules={
+  "firebase/auth":{createUserWithEmailAndPassword:authenticate,signInWithEmailAndPassword:authenticate,signOut:async()=>{}},
+  "firebase/firestore":{doc:(_db,_collection,uid)=>uid,serverTimestamp:()=>0,setDoc:async(uid,data)=>{writes.push({uid,data});if(switchAfter)auth.currentUser=b;}},
+  "../firebase/firebaseConfig":{auth,db:{}},
+  "../firebase/firestoreCollections":{COLLECTIONS:{users:"users"}}
+ };
+ const exports={};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(__dirname,"../src/services/authService.ts"),"utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,{exports,require:id=>{assert.ok(Object.hasOwn(modules,id),id);return modules[id];}});
+ return {writes,login:()=>exports.login("a@example.invalid","fixture"),register:()=>exports.register({fullName:"Alice",email:"a@example.invalid",password:"fixture",mobile:"1234567890",gender:"female",age:30})};
+}
+test("HA04 registration rejects stale credentials before writing a profile",async()=>{
+ const f=authServiceFixture({switchBefore:true});
+ await assert.rejects(f.register(),/Account changed/);
+ assert.equal(f.writes.length,0);
+});
+test("HA04 registration rejects stale credentials after profile write",async()=>{
+ const f=authServiceFixture({switchAfter:true});
+ await assert.rejects(f.register(),/Account changed/);
+ assert.equal(f.writes.length,1);
+ assert.equal(f.writes[0].uid,"a");
+});
+test("HA04 login rejects switched sessions and stable sessions remain functional",async()=>{
+ await assert.rejects(authServiceFixture({switchBefore:true}).login(),/Account changed/);
+ const f=authServiceFixture();
+ assert.equal((await f.login()).user.uid,"a");
+ assert.equal((await f.register()).user.uid,"a");
+ assert.equal(f.writes.length,1);
+});
