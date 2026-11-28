@@ -15,10 +15,12 @@ import {
   ReportSection,
   ReportTrendChart,
 } from "../components/reports";
+import { useAppTranslation } from "../i18n/useAppTranslation";
 import { useReports } from "../hooks";
 import { colors, spacing } from "../theme";
 
 export default function ReportsScreen() {
+  const { t } = useAppTranslation();
   const {
     dashboard,
     selectedRange,
@@ -36,7 +38,7 @@ export default function ReportsScreen() {
   if (loading && !dashboard) {
     return (
       <Screen>
-        <LoadingState message="Building your health report center..." />
+        <LoadingState message={t("reports.loading")} />
       </Screen>
     );
   }
@@ -44,7 +46,7 @@ export default function ReportsScreen() {
   if (error && !dashboard) {
     return (
       <Screen>
-        <ErrorState title="Unable to load reports" message={error} onRetry={refresh} />
+        <ErrorState title={t("reports.loadError")} message={error} onRetry={refresh} />
       </Screen>
     );
   }
@@ -52,7 +54,7 @@ export default function ReportsScreen() {
   if (!dashboard) {
     return (
       <Screen>
-        <ErrorState title="Reports unavailable" message="Please try again." onRetry={refresh} />
+        <ErrorState title={t("reports.unavailable")} message={t("reports.retryMessage")} onRetry={refresh} />
       </Screen>
     );
   }
@@ -65,7 +67,7 @@ export default function ReportsScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => refresh(selectedRange)} />}
       >
-        <CommonBackButton label="Progress" fallbackPath="/(tabs)/progress" />
+        <CommonBackButton label={t("reports.progress")} fallbackPath="/(tabs)/progress" />
         <PremiumJourneyHero
           eyebrow="Health Reports"
           title="Your wellness story, clearly explained."
