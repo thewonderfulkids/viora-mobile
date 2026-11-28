@@ -1,0 +1,33 @@
+name: HA01 native dependency resolution
+on:
+  push:
+    branches: [chore/expo-sdk-57-migration]
+    paths: ['.github/workflows/ha01-native-dependencies.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve matching native Firebase packages
+        run: |
+          VERSION="$(npm view @react-native-firebase/app-check version)"
+          npm install --save-exact --package-lock-only --ignore-scripts "@react-native-firebase/app@$VERSION" "@react-native-firebase/app-check@$VERSION"
+          npm ci
+      - name: Validate dependencies
+        run: |
+          npx tsc --noEmit
+          npx expo config --type public
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ha01-native-dependency-files
+          path: |
+            package.json
+            package-lock.json
+          if-no-files-found: error
