@@ -502,7 +502,10 @@ async function retryHealthWindows(owner: Session) {
         await enqueueWrite(storageKey, async () => {
           const stored = await AsyncStorage.getItem(storageKey);
           if (!active()?.consent) return;
-          await AsyncStorage.setItem(storageKey, String(Math.max(0, count(stored) + delta)));
+          const decoded = decodeStepDay(stored, owner.uid, Date.now());
+          const value = Math.max(0, decoded.steps + delta);
+          await AsyncStorage.setItem(storageKey, decoded.checkpoints.length
+            ? encodeStepDay(value, decoded.checkpoints) : String(value));
           entry.previous = aggregate;
         });
       }
