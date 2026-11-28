@@ -1,6 +1,7 @@
 import { Download } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { colors, spacing } from "../../theme";
 import { ReportExportRecord } from "../../types";
 
@@ -10,10 +11,11 @@ type ReportExportHistoryProps = {
 };
 
 export function ReportExportHistory({ exports, onOpenExport }: ReportExportHistoryProps) {
+  const { t } = useAppTranslation();
   if (!exports.length) {
     return (
       <View style={styles.emptyCard}>
-        <Text style={styles.emptyText}>No report exports yet.</Text>
+        <Text style={styles.emptyText}>{t("reports.emptyHistory")}</Text>
       </View>
     );
   }
@@ -29,7 +31,7 @@ export function ReportExportHistory({ exports, onOpenExport }: ReportExportHisto
             </View>
             <Pressable disabled={!onOpenExport} style={styles.openButton} onPress={() => onOpenExport?.(item.id)}>
               <Download size={15} color={colors.primaryDark} />
-              <Text style={styles.openText}>Open</Text>
+              <Text style={styles.openText}>{t("reports.openExport")}</Text>
             </Pressable>
           </View>
         </View>
