@@ -1,6 +1,7 @@
 import { Droplets } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { colors, radius, spacing } from "../../theme";
 
 type Props = {
@@ -12,9 +13,10 @@ type Props = {
 const amounts = [250, 500, 750, 1000];
 
 export default function WaterQuickAdd({ saving, onAdd, onRemove }: Props) {
+  const { t } = useAppTranslation();
   return (
     <View style={styles.card}>
-      <Text style={styles.heading}>Quick Add</Text>
+      <Text style={styles.heading}>{t("hydration.quickAdd")}</Text>
 
       <View style={styles.grid}>
         {amounts.map((amount) => (
@@ -32,7 +34,7 @@ export default function WaterQuickAdd({ saving, onAdd, onRemove }: Props) {
 
       {onRemove ? (
         <>
-          <Text style={styles.subHeading}>Correction</Text>
+          <Text style={styles.subHeading}>{t("hydration.correction")}</Text>
 
           <View style={styles.grid}>
             {[250, 500].map((amount) => (
