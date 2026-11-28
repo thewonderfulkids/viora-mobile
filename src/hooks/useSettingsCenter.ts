@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { changeAppLanguage } from "../i18n/LanguageProvider";
 import { useAuth } from "../context/AuthContext";
 import { useDashboard } from "./useDashboard";
 import { getSettingsDashboard, saveSettingsPreferences } from "../services/settings";
@@ -58,6 +59,9 @@ export function useSettingsCenter() {
       setSaving(true);
       setError(null);
       const updated = await saveSettingsPreferences(userId, patch);
+      if (patch.language !== undefined && (updated.language === "en" || updated.language === "hi")) {
+        await changeAppLanguage(updated.language);
+      }
       setDashboard((current) => current ? {
         ...current,
         preferences: updated,
