@@ -127,3 +127,16 @@ test("C02 frozen account cannot create update delete or remove its lock", async 
   await assertSucceeds(getDoc(doc(alice,"wellnessHabits/alice_legacy")));
   await assertSucceeds(deleteDoc(doc(alice,"wellnessHabits/alice_legacy")));
 });
+
+test("P0-HA01 family records reject foreign ownership on create and update", async () => {
+  await env();
+  const alice = user("alice"), bob = user("bob");
+  for (const collection of ["familyGroups","familyMembers","familyInvites"]) {
+    const path = collection + "/alice_family_write";
+    await assertFails(setDoc(doc(alice,path), {uid:"alice",ownerUserId:"bob"}));
+    await seed(path,{uid:"bob",ownerUserId:"bob",title:"before"});
+    await assertFails(updateDoc(doc(alice,path),{title:"after"}));
+    await assertSucceeds(updateDoc(doc(bob,path),{title:"after"}));
+    await assertSucceeds(setDoc(doc(alice,collection+"/alice_valid"),{uid:"alice",ownerUserId:"alice"}));
+  }
+});
