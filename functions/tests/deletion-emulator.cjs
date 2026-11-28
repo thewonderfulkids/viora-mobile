@@ -151,6 +151,13 @@ test('C01 synthetic deletion, protected records, retry and idempotency', async (
   await assert.rejects(requestDeletion(now+600),/Recent sign-in required/);
   await assert.rejects(requestDeletion(now-600),/Recent sign-in required/);
   assert.equal((await deletionRequest.get()).exists,false);
+  const validAfter = Math.floor(Date.parse((await auth.getUser(other)).tokensValidAfterTime)/1000);
+  assert.ok(Number.isFinite(validAfter));
+  await assert.rejects(requestDeletion(validAfter-1),/Recent sign-in required/);
+  assert.equal((await deletionRequest.get()).exists,false);
+  await deletionRequest.set({userId:other,status:'requested',authCreationTime:'2000-01-01T00:00:00.000Z'});
+  await assert.rejects(requestDeletion(now),/identity mismatch/);
+  assert.equal((await deletionRequest.get()).get('authCreationTime'),'2000-01-01T00:00:00.000Z');
   await deletionRequest.set({userId:other,status:'requested'});
   await assert.rejects(prepare(),/identity mismatch or legacy request/);
   assert.equal((await deletionRequest.get()).get('status'),'requested');
