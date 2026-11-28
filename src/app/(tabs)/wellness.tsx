@@ -2,134 +2,136 @@ import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppCard, Screen, SectionHeader } from "../../components/common";
+import { useAppTranslation } from "../../i18n/useAppTranslation";
 import { colors, spacing, typography } from "../../theme";
 
 const wellnessModules = [
   {
     icon: "💧",
-    title: "Hydration",
-    text: "Track your daily water intake and hydration goal.",
+    title: "wellnessHub.module0Title",
+    text: "wellnessHub.module0Text",
     route: "/hydration",
     status: "Available",
   },
   {
     icon: "😴",
-    title: "Sleep",
-    text: "Log your sleep duration and quality.",
+    title: "wellnessHub.module1Title",
+    text: "wellnessHub.module1Text",
     route: "/sleep",
     status: "Available",
   },
   {
     icon: "🧘",
-    title: "Yoga",
-    text: "Start short guided movement sessions.",
+    title: "wellnessHub.module2Title",
+    text: "wellnessHub.module2Text",
     route: "/yoga",
     status: "Available",
   },
 
   {
     icon: "✨",
-    title: "Programs Hub",
-    text: "Open Yoga, Home Workout, Weight Loss and admin-controlled guided programs.",
+    title: "wellnessHub.module3Title",
+    text: "wellnessHub.module3Text",
     route: "/programs",
     status: "Available",
   },
   {
     icon: "💪",
-    title: "Home Workout",
-    text: "Start beginner-friendly workouts at home with or without simple household items.",
+    title: "wellnessHub.module4Title",
+    text: "wellnessHub.module4Text",
     route: "/home-workout",
     status: "Available",
   },
 
   {
     icon: "🎙️",
-    title: "Voice AI",
-    text: "Speak to Viora to open reports, log water and control wellness tools hands-free.",
+    title: "wellnessHub.module5Title",
+    text: "wellnessHub.module5Text",
     route: "/voice-ai",
     status: "Available",
   },
   {
     icon: "🤖",
-    title: "AI Coach",
-    text: "Get personalized wellness guidance from Viora AI.",
+    title: "wellnessHub.module6Title",
+    text: "wellnessHub.module6Text",
     route: "/ai-coach",
     status: "Available",
   },
   {
     icon: "🧠",
-    title: "AI Wellness Intelligence",
-    text: "View your daily wellness index, trend detection and personalized AI recommendations.",
+    title: "wellnessHub.module7Title",
+    text: "wellnessHub.module7Text",
     route: "/wellness-intelligence",
     status: "Available",
   },
   {
     icon: "🎯",
-    title: "Goals & Habits",
-    text: "Create smart goals, complete habits and track streak-powered wellness progress.",
+    title: "wellnessHub.module8Title",
+    text: "wellnessHub.module8Text",
     route: "/goals-habits",
     status: "Available",
   },
   {
     icon: "😌",
-    title: "Mental Wellness",
-    text: "Log mood, stress, triggers and coping actions with AI-powered emotional intelligence.",
+    title: "wellnessHub.module9Title",
+    text: "wellnessHub.module9Text",
     route: "/mental-wellness",
     status: "Available",
   },
 
   {
     icon: "👨‍👩‍👧‍👦",
-    title: "Family Wellness",
-    text: "Invite family members, manage shared wellness visibility and prepare Elite Family insights.",
+    title: "wellnessHub.module10Title",
+    text: "wellnessHub.module10Text",
     route: "/family-wellness",
     status: "Available",
   },
   {
     icon: "📄",
-    title: "Health Reports",
-    text: "Generate AI daily, weekly and monthly wellness reports with PDF-ready summaries.",
+    title: "wellnessHub.module11Title",
+    text: "wellnessHub.module11Text",
     route: "/reports",
     status: "Available",
   },
   {
     icon: "🎵",
-    title: "Music Therapy",
-    text: "Relax with calming sound therapy sessions.",
+    title: "wellnessHub.module12Title",
+    text: "wellnessHub.module12Text",
     route: "/music",
     status: "Available",
   },
   {
     icon: "😌",
-    title: "Meditation",
-    text: "Open guided calm breathing, focus and sleep routines.",
+    title: "wellnessHub.module13Title",
+    text: "wellnessHub.module13Text",
     route: "/meditation",
     status: "Available",
   },
   {
     icon: "🍎",
-    title: "Nutrition Intelligence",
-    text: "Log meals, understand macros and get AI nutrition guidance.",
+    title: "wellnessHub.module14Title",
+    text: "wellnessHub.module14Text",
     route: "/nutrition",
     status: "Available",
   },
   {
     icon: "⌚",
-    title: "Wearables",
-    text: "Wearable sync will be released after V1. Use manual tracking for beta.",
+    title: "wellnessHub.module15Title",
+    text: "wellnessHub.module15Text",
     route: null,
     status: "Planned",
   },
 ];
 
 export default function WellnessScreen() {
+  const { t } = useAppTranslation();
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
         <SectionHeader
-          label="Wellness Hub"
-          title="Your Daily Wellness Tools"
-          subtitle="Choose what you want to improve today. Viora will connect your activity with AI insights."
+          label={t("wellnessHub.label")}
+          title={t("wellnessHub.title")}
+          subtitle={t("wellnessHub.subtitle")}
         />
 
         <View style={styles.grid}>
@@ -156,13 +158,13 @@ export default function WellnessScreen() {
                         item.status !== "Available" && styles.comingBadgeText,
                       ]}
                     >
-                      {item.status}
+                      {t(item.status === "Available" ? "wellnessHub.available" : "wellnessHub.planned")}
                     </Text>
                   </View>
                 </View>
 
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardText}>{item.text}</Text>
+                <Text style={styles.cardTitle}>{t(item.title)}</Text>
+                <Text style={styles.cardText}>{t(item.text)}</Text>
               </AppCard>
             </Pressable>
           ))}
