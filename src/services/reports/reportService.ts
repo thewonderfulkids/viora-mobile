@@ -238,7 +238,7 @@ function scoreLabel(score: number) {
 }
 
 function safeBarWidth(value: number) {
-  return Math.min(Math.max(Math.round(value), 0), 100);
+  return Number.isFinite(value) ? Math.min(Math.max(Math.round(value), 0), 100) : 0;
 }
 
 function formatReportDate(value: string) {
@@ -294,7 +294,7 @@ function renderTrendRows(section: ReportSectionSummary) {
               <span class="trend-helper">${escapeHtml(item.helper)}</span>
             </div>
             <div class="trend-track"><div class="trend-fill" style="width:${width}%"></div></div>
-            <div class="trend-value">${width}</div>
+            <div class="trend-value">${escapeHtml(Number.isFinite(item.value) ? item.value : "—")}</div>
           </div>
         `;
       }).join("")}
@@ -663,7 +663,7 @@ export function buildReportHtml(report: HealthReportDoc) {
 
     .trend-row {
       display: grid;
-      grid-template-columns: 132px 1fr 38px;
+      grid-template-columns: minmax(0, 132px) minmax(0, 1fr) minmax(38px, auto);
       gap: 10px;
       align-items: center;
       padding: 10px;
@@ -757,7 +757,7 @@ export function buildReportHtml(report: HealthReportDoc) {
       .hero-grid, .two-column, .meta-grid, .metric-grid { grid-template-columns: 1fr; }
       .hero, .content { padding: 16px; }
       .brand-row { flex-wrap: wrap; }
-      .trend-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 38px; }
+      .trend-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(38px, auto); }
       .trend-helper { white-space: normal; }
     }
   </style>
